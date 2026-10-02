@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Claude 用量即時顯示",
+  "version": "1.0.0",
+  "description": "在 claude.ai 對話頁面上即時顯示 5 小時與 7 天用量剩餘百分比與重置倒數。",
+  "permissions": ["storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Claude 用量"
+  }
+}
