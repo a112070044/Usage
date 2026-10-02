@@ -5,6 +5,7 @@
 | 你在哪裡用 Claude | 用哪個 |
 |---|---|
 | **Claude 電腦版 App**（Mac／Windows），或任何地方 | [桌面小視窗](#桌面小視窗mac--windows) — 永遠浮在螢幕角落 |
+| **iPhone** | [iPhone 小工具](#iphone-小工具scriptable) — 主畫面／鎖定畫面小工具 |
 | 瀏覽器開 claude.ai | [瀏覽器擴充功能](#瀏覽器擴充功能) — 直接顯示在聊天頁面上 |
 
 ---
@@ -45,6 +46,30 @@ npm start
 
 ---
 
+## iPhone 小工具（Scriptable）
+
+在主畫面或鎖定畫面放一個小工具，看 Claude 額度還剩多少。
+
+### 安裝
+
+1. 從 App Store 安裝免費的 **Scriptable**
+2. 在 iPhone 上用 Safari 打開 repo 裡的 [`iphone/claude-usage.js`](iphone/claude-usage.js)，點 **Raw**，全選並複製全部內容
+3. 打開 Scriptable → 右上角 **＋** → 貼上 → 點上方標題改名為「Claude 用量」→ 完成
+4. 在 Scriptable 裡點一下這個腳本執行：
+   - 會跳出 claude.ai 登入頁面，**請用 Email 登入**（Google 登入在 App 內嵌瀏覽器通常會被擋），到信箱收驗證碼
+   - 看到聊天畫面後，按左上角 **關閉（Close）**
+   - 接著會顯示目前用量，並可以預覽小工具
+5. 回主畫面長按空白處 → 左上角 **＋** → 找 **Scriptable** → 選尺寸加入 → 長按小工具 → **編輯小工具** → Script 選「Claude 用量」
+   - 鎖定畫面也一樣：長按鎖定畫面 → 自訂 → 加入小工具 → Scriptable
+
+### 要知道的事
+
+- **不是即時的**：iOS 會自己決定小工具多久更新一次，通常 15～30 分鐘一次。重置倒數會自己跑；想看最新數字時**點一下小工具**就會打開 Scriptable 重新抓取。
+- 抓不到資料時會顯示上一次的結果，並標示「⚠ 舊資料」。
+- 登入狀態只存在 Scriptable 自己的瀏覽器裡。如果顯示「需要登入」，點一下小工具重新登入即可。
+
+---
+
 ## 瀏覽器擴充功能
 
 一個瀏覽器擴充功能（Chrome / Edge / Brave / Arc 等 Chromium 瀏覽器），在你使用 **claude.ai 對話框**時，於頁面右上角顯示一個小面板，即時看到額度還剩多少。
@@ -81,7 +106,7 @@ npm start
 
 ## 原理與注意事項（兩個版本共通）
 
-- 擴充功能用瀏覽器現有的登入狀態；桌面小視窗則在自己獨立的視窗裡登入 claude.ai（登入資訊只存在你的電腦上）。兩者都是呼叫 claude.ai 網頁「設定 → 用量」頁本身使用的 `/api/organizations/{組織 ID}/usage`。
+- 擴充功能用瀏覽器現有的登入狀態；桌面小視窗與 iPhone 小工具則在自己獨立的內建瀏覽器裡登入 claude.ai（登入資訊只存在你自己的裝置上）。兩者都是呼叫 claude.ai 網頁「設定 → 用量」頁本身使用的 `/api/organizations/{組織 ID}/usage`。
 - 不會把任何資料送到其他地方，也不需要你輸入 API 金鑰或密碼。
 - 這是 claude.ai 的**內部 API，非官方公開**，Anthropic 改版時可能失效；面板底部會顯示錯誤訊息（例如 `HTTP 404`），屆時需要更新程式。
 - 數值代表的是訂閱方案（Pro / Max）的使用限制百分比，與 API 的 token 計費無關。
@@ -99,5 +124,6 @@ extension/               # 瀏覽器擴充功能（Manifest V3）
 ├── content.js           # 取得用量、繪製面板、刷新邏輯
 ├── content.css
 └── background.js        # 更新工具列徽章
+iphone/claude-usage.js   # iPhone 小工具（Scriptable 腳本）
 .github/workflows/desktop.yml  # 自動打包 Mac / Windows 安裝檔
 ```
