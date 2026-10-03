@@ -13,7 +13,7 @@ const ORIGIN = process.env.CLAUDE_USAGE_ORIGIN || 'https://claude.ai';
 const API_PAGE = `${ORIGIN}/api/organizations`;
 const PARTITION = 'persist:claude';
 const POLL_MS = 30_000;
-const WIDGET_WIDTH = 260;
+const WIDGET_WIDTH = 280; // 含四周 10px 的陰影留白
 
 // 拿掉 User-Agent 裡的 Electron 字樣，讓 claude.ai／Google 登入當成一般 Chrome
 app.userAgentFallback = app.userAgentFallback
@@ -53,7 +53,7 @@ function initialPosition() {
     return p.x >= a.x - 50 && p.y >= a.y - 10 && p.x < a.x + a.width - 50 && p.y < a.y + a.height - 30;
   })) return p;
   const a = screen.getPrimaryDisplay().workArea;
-  return { x: a.x + a.width - WIDGET_WIDTH - 16, y: a.y + 16 };
+  return { x: a.x + a.width - WIDGET_WIDTH - 6, y: a.y + 6 };
 }
 
 function createWidget() {
@@ -266,10 +266,20 @@ function updateTray() {
   ]));
 }
 
+let defaultTrayIcon = null;
+
+// Windows／Linux：系統匣圖示換成跟著剩餘量變色的小圓環（Mac 用選單列文字顯示）
+function setTrayIcon(dataUrl) {
+  if (!tray || process.platform === 'darwin') return;
+  const img = dataUrl ? nativeImage.createFromDataURL(dataUrl) : null;
+  tray.setImage(img && !img.isEmpty() ? img : defaultTrayIcon);
+}
+
 function createTray() {
   const file = process.platform === 'darwin' ? 'trayTemplate.png' : 'tray.png';
   const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', file));
   if (process.platform === 'darwin') icon.setTemplateImage(true);
+  defaultTrayIcon = icon;
   tray = new Tray(icon);
   tray.on('click', () => setWidgetVisible(!widget?.isVisible()));
   updateTray();
@@ -292,6 +302,7 @@ ipcMain.on('resize', (_e, { width, height }) => {
     updateTray();
   }
 });
+ipcMain.on('tray-icon', (_e, dataUrl) => setTrayIcon(dataUrl));
 ipcMain.handle('get-state', () => ({ ...state, collapsed: !!settings.collapsed }));
 
 // ---------- 啟動 ----------

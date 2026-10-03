@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld('usageApi', {
   hide: () => ipcRenderer.send('hide'),
   setCollapsed: (c) => ipcRenderer.send('collapse', c),
   resize: (width, height) => ipcRenderer.send('resize', { width, height }),
+  setTrayIcon: (dataUrl) => ipcRenderer.send('tray-icon', dataUrl),
 });

@@ -2,21 +2,29 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:">
   <title>Claude 用量</title>
   <link rel="stylesheet" href="widget.css">
 </head>
 <body>
   <div id="panel">
     <div class="head">
-      <span class="pill" title="5 小時額度剩餘">…</span>
+      <span class="spark" aria-hidden="true">✻</span>
       <span class="title">Claude 用量</span>
-      <button class="btn" id="refresh" title="立即刷新">↻</button>
-      <button class="btn" id="toggle" title="收合／展開">–</button>
-      <button class="btn" id="close" title="隱藏（可從系統匣／選單列再打開）">×</button>
+      <span class="mini" id="mini" title="5 小時額度剩餘"></span>
+      <span class="time" id="time"></span>
+      <button class="btn" id="refresh" title="立即刷新" aria-label="立即刷新">
+        <svg viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" /><path d="M12.2 1.8v2.6H9.6" /></svg>
+      </button>
+      <button class="btn" id="toggle" title="收合／展開" aria-label="收合或展開">
+        <svg viewBox="0 0 16 16"><path d="M4 10l4-4 4 4" /></svg>
+      </button>
+      <button class="btn" id="close" title="隱藏（可從系統匣／選單列再打開）" aria-label="隱藏">
+        <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" /></svg>
+      </button>
     </div>
-    <div class="body"></div>
-    <div class="foot"></div>
+    <div class="body" id="body"></div>
+    <div class="foot" id="foot"></div>
   </div>
   <script src="widget.js"></script>
 </body>
