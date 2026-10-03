@@ -63,13 +63,19 @@ const PAGE_JS = (orgId) => `
   if (u.status === 401 || u.status === 403) return { login: true, resetOrg: u.status === 403 };
   if (u.status !== 200) return { error: '取得用量失敗（HTTP ' + u.status + '）', resetOrg: true };
   return { orgId: org, usage: u.body };
-})().then(completion, (e) => completion({ error: String(e && e.message || e) }));
+})().then(
+  (r) => completion(JSON.stringify(r)),
+  (e) => completion(JSON.stringify({ error: String((e && e.message) || e) })),
+);
+// 最後一行必須是簡單的值：WKWebView 不接受把 Promise 當成執行結果傳回
+null;
 `;
 
 async function fetchUsage(orgId) {
   const wv = new WebView();
   await wv.loadURL(`${ORIGIN}/api/organizations`);
-  return wv.evaluateJavaScript(PAGE_JS(orgId), true);
+  const json = await wv.evaluateJavaScript(PAGE_JS(orgId), true);
+  return typeof json === 'string' ? JSON.parse(json) : json;
 }
 
 async function login() {
