@@ -90,14 +90,12 @@ function limits(data) {
   return Object.entries(data)
     .filter(([, v]) => v && typeof v === 'object' && typeof v.utilization === 'number')
     .map(([key, v]) => {
-      const used = Math.max(0, Math.min(100, v.utilization));
-      return {
-        key,
-        label: LABELS[key] || key,
-        used,
-        left: 100 - used,
-        resetsAt: v.resets_at ? new Date(v.resets_at) : null,
-      };
+      let used = Math.max(0, Math.min(100, v.utilization));
+      let resetsAt = v.resets_at ? new Date(v.resets_at) : null;
+      // 快取的資料可能已經過了重置時間：那個額度已經歸零重來
+      const wasReset = !!resetsAt && resetsAt.getTime() <= Date.now();
+      if (wasReset) { used = 0; resetsAt = null; }
+      return { key, label: LABELS[key] || key, used, left: 100 - used, resetsAt, wasReset };
     })
     .sort((a, b) => rank(a.key) - rank(b.key));
 }
@@ -138,6 +136,12 @@ function bar(used, color, width, height = 6) {
 }
 
 function addResetLine(stack, r, size) {
+  if (r.wasReset) {
+    const t = stack.addText('已重置');
+    t.font = Font.systemFont(size);
+    t.textColor = C.muted;
+    return;
+  }
   if (!r.resetsAt) return;
   const line = stack.addStack();
   line.centerAlignContent();
@@ -300,6 +304,8 @@ function buildWidget(view, family) {
 }
 
 // ---------- 主程式 ----------
+// 小工具在背景執行時，iOS 不讓它使用 Scriptable App 裡瀏覽器的登入狀態，
+// 所以通常抓不到；這時改顯示上一次在 App 裡抓到的結果（存在快取）。
 async function load() {
   const cache = readCache();
   let r;
@@ -312,37 +318,59 @@ async function load() {
   if (r && r.usage) {
     Object.assign(cache, { orgId: r.orgId, usage: r.usage, fetchedAt: Date.now() });
     writeCache(cache);
-    return { usage: r.usage, footer: `更新於 ${hhmm(cache.fetchedAt)}`, short: '', message: '' };
+    return { usage: r.usage, fresh: true, footer: `更新於 ${hhmm(cache.fetchedAt)}`, short: '', message: '' };
   }
   writeCache(cache);
   const needLogin = !!(r && r.login);
   const reason = needLogin ? '需要登入' : ((r && r.error) || '讀取失敗');
-  if (cache.usage && !needLogin) {
-    // 抓不到就先顯示上一次的結果
-    return { usage: cache.usage, stale: true, footer: `⚠ 舊資料 ${hhmm(cache.fetchedAt)}・點一下更新`, short: reason, message: reason };
+  if (cache.usage) {
+    const old = Date.now() - cache.fetchedAt > 60 * 60_000;
+    return {
+      usage: cache.usage,
+      needLogin,
+      stale: old,
+      footer: `${hhmm(cache.fetchedAt)} 的數字・點一下更新`,
+      short: reason,
+      message: reason,
+    };
   }
   return {
     usage: null,
     needLogin,
     stale: true,
-    footer: '點一下小工具處理',
-    short: reason,
-    message: needLogin ? '請點一下小工具，登入你的 Claude 帳號。' : `${reason}\n點一下小工具重試。`,
+    footer: '點一下小工具更新',
+    short: '點一下更新',
+    message: config.runsInWidget ? '點一下小工具，抓取最新用量。' : reason,
   };
+}
+
+async function askLogin() {
+  const a = new Alert();
+  a.title = '登入 Claude';
+  a.message = '接下來會打開 claude.ai 登入頁面。\n\n建議用「Email」登入（Google 登入可能會被擋）。登入完成、看到聊天畫面後，按左上角「Close／關閉」即可。';
+  a.addAction('前往登入');
+  a.addCancelAction('取消');
+  if ((await a.present()) !== 0) return false;
+  await login();
+  return true;
+}
+
+async function preview(view, family) {
+  const w = buildWidget(view, family);
+  if (family === 'small') await w.presentSmall();
+  else if (family === 'large') await w.presentLarge();
+  else await w.presentMedium();
 }
 
 async function runInApp() {
   let view = await load();
-  if (view.needLogin) {
-    const a = new Alert();
-    a.title = '登入 Claude';
-    a.message = '接下來會打開 claude.ai 登入頁面。\n\n建議用「Email」登入（Google 登入可能會被擋）。登入完成、看到聊天畫面後，按左上角「Close／關閉」即可。';
-    a.addAction('前往登入');
-    a.addCancelAction('取消');
-    if ((await a.present()) === 0) {
-      await login();
-      view = await load();
-    }
+  if (view.needLogin && !view.fresh && (await askLogin())) view = await load();
+
+  const q = (typeof args !== 'undefined' && args.queryParameters) || {};
+  if (q.from === 'widget') {
+    // 從主畫面小工具點進來：直接顯示最新結果
+    await preview(view, q.family || 'medium');
+    return;
   }
 
   const menu = new Alert();
@@ -357,15 +385,17 @@ async function runInApp() {
   menu.addAction('重新登入 claude.ai');
   menu.addCancelAction('完成');
   const choice = await menu.presentSheet();
-  if (choice === 0) await buildWidget(view, 'small').presentSmall();
-  if (choice === 1) await buildWidget(view, 'medium').presentMedium();
-  if (choice === 2) await buildWidget(view, 'large').presentLarge();
+  if (choice === 0) await preview(view, 'small');
+  if (choice === 1) await preview(view, 'medium');
+  if (choice === 2) await preview(view, 'large');
   if (choice === 3) await login();
 }
 
 if (config.runsInWidget) {
   const view = await load();
-  Script.setWidget(buildWidget(view, config.widgetFamily));
+  const w = buildWidget(view, config.widgetFamily);
+  w.url = `${URLScheme.forRunningScript()}?from=widget&family=${encodeURIComponent(config.widgetFamily || 'medium')}`;
+  Script.setWidget(w);
 } else {
   await runInApp();
 }
