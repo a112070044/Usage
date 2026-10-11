@@ -101,6 +101,10 @@
   .icon-btn { border: 0; background: none; font-size: 20px; padding: 6px; cursor: pointer; border-radius: 8px; color: var(--muted); }
   .icon-btn:active { background: var(--line); }
 
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button { border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 99px; padding: 4px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+  details.more { margin-top: 8px; }
+  details.more summary { color: var(--muted); font-size: 14px; cursor: pointer; padding: 4px 0; }
   .drop { border: 2px dashed var(--line); border-radius: 14px; padding: 22px; text-align: center; cursor: pointer; }
   .drop.over { border-color: var(--accent); background: var(--accent-soft); }
   ol.steps { padding-left: 20px; margin: 8px 0 0; font-size: 14px; }
@@ -124,8 +128,8 @@
 
   <nav>
     <button data-tab="pick" class="active">🎲 抽地點</button>
-    <button data-tab="places">📍 地點清單</button>
-    <button data-tab="import">📥 匯入／備份</button>
+    <button data-tab="places">📍 全部地點</button>
+    <button data-tab="import">⚙️ 匯入／備份</button>
   </nav>
 
   <!-- 抽地點 -->
@@ -136,14 +140,9 @@
       <div class="stat"><b id="st-done">0</b><span>已經去過</span></div>
     </div>
 
-    <div id="empty-hint" class="card hidden">
-      <h2>還沒有任何地點 🥲</h2>
-      <p class="muted">先到「📥 匯入／備份」把 Google 地圖存的地點匯進來，或在「📍 地點清單」手動新增。</p>
-    </div>
-
     <div class="card">
-      <label class="field">從哪個清單抽
-        <select id="pick-list"><option value="">全部清單</option></select>
+      <label class="field">從哪個分類抽
+        <select id="pick-list"><option value="">全部分類</option></select>
       </label>
       <label class="check"><input type="checkbox" id="pick-near"> 只抽離我們近的（需要定位，限有座標的地點）</label>
       <label class="field" id="near-wrap" style="display:none">距離上限
@@ -155,29 +154,35 @@
         </select>
       </label>
       <button class="btn primary big" id="btn-pick">🎲 幫我們決定！</button>
+      <p id="empty-hint" class="muted hidden" style="text-align:center;margin:10px 0 0">還沒有地點，先在下面加幾個想去的地方吧 👇</p>
     </div>
 
     <div class="card hidden" id="result"></div>
+
+    <div class="card">
+      <h2>➕ 加一個想去的地方</h2>
+      <input type="text" id="add-name" placeholder="地點名稱，例如：阿妹茶樓" enterkeyhint="done" style="margin:0 0 8px">
+      <input type="text" id="add-list" list="list-names" placeholder="分類（選填），例如：想吃的、景點、室內" style="margin:0 0 8px">
+      <datalist id="list-names"></datalist>
+      <div id="cat-chips" class="chips"></div>
+      <details class="more">
+        <summary>加上地圖連結或備註（選填）</summary>
+        <input type="url" id="add-url" placeholder="Google 地圖連結 https://…" style="margin:8px 0 0">
+        <input type="text" id="add-note" placeholder="備註，例如：要先訂位、週一公休" style="margin:8px 0 0">
+      </details>
+      <button class="btn primary" id="btn-add" style="width:100%;margin-top:10px">加入清單</button>
+    </div>
+
   </section>
 
   <!-- 地點清單 -->
   <section id="tab-places" class="hidden">
     <div class="card">
-      <h2>➕ 手動新增地點</h2>
-      <label class="field">名稱<input type="text" id="add-name" placeholder="例如：阿妹茶樓"></label>
-      <label class="field">Google 地圖連結（選填）<input type="url" id="add-url" placeholder="https://maps.app.goo.gl/…"></label>
-      <label class="field">清單／分類（選填）<input type="text" id="add-list" list="list-names" placeholder="例如：想吃的、景點"></label>
-      <datalist id="list-names"></datalist>
-      <label class="field">備註（選填）<input type="text" id="add-note" placeholder="例如：要先訂位"></label>
-      <button class="btn primary" id="btn-add">新增</button>
-    </div>
-
-    <div class="card">
       <div class="row" style="margin-bottom:8px">
         <input type="search" id="q" placeholder="🔍 搜尋名稱、地址、備註" style="margin:0">
       </div>
       <div class="row" style="margin-bottom:4px">
-        <select id="f-list" style="margin:0"><option value="">全部清單</option></select>
+        <select id="f-list" style="margin:0"><option value="">全部分類</option></select>
         <select id="f-state" style="margin:0">
           <option value="all">全部</option>
           <option value="todo" selected>還沒去過</option>
@@ -192,7 +197,8 @@
   <!-- 匯入／備份 -->
   <section id="tab-import" class="hidden">
     <div class="card">
-      <h2>📥 匯入 Google 地圖存的地點</h2>
+      <h2>📥 從 Google 地圖一次匯入（選用）</h2>
+      <p class="muted" style="margin-top:0">不想一個一個加的話，可以把 Google 地圖存過的地點整批匯進來。</p>
       <div class="drop" id="drop">
         <div style="font-size:32px">📂</div>
         <div><b>點這裡選檔案</b>，或把檔案拖進來</div>
@@ -516,7 +522,7 @@
 
   function fillSelect(sel, lists) {
     const cur = sel.value;
-    sel.innerHTML = '<option value="">全部清單</option>' +
+    sel.innerHTML = '<option value="">全部分類</option>' +
       lists.map((l) => {
         const n = state.places.filter((p) => !p.visitedAt && (p.lists || []).includes(l)).length;
         return `<option value="${esc(l)}">${esc(l)}（${n} 個沒去過）</option>`;
@@ -536,6 +542,9 @@
     fillSelect($('#pick-list'), lists);
     fillSelect($('#f-list'), lists);
     $('#list-names').innerHTML = lists.map((l) => `<option value="${esc(l)}">`).join('');
+    const defaults = ['想吃的', '景點', '室內', '戶外', '咖啡廳'];
+    const chips = [...new Set([...lists, ...defaults])].slice(0, 10);
+    $('#cat-chips').innerHTML = chips.map((l) => `<button type="button" data-cat="${esc(l)}">${esc(l)}</button>`).join('');
 
     renderList();
   }
@@ -615,15 +624,31 @@
 
   ['#q', '#f-list', '#f-state'].forEach((s) => $(s).addEventListener('input', renderList));
 
-  $('#btn-add').addEventListener('click', () => {
-    const name = $('#add-name').value.trim();
-    if (!name) return toast('請輸入地點名稱');
+  // 從 Google 地圖網址抓地點名稱，例如 …/maps/place/阿妹茶樓/@25.1,121.8…
+  function nameFromUrl(url) {
+    const m = url.match(/\/maps\/place\/([^/@?]+)/);
+    if (!m) return '';
+    try { return decodeURIComponent(m[1].replace(/\+/g, ' ')).trim(); } catch (e) { return ''; }
+  }
+
+  function addFromForm() {
     const url = $('#add-url').value.trim();
+    const name = $('#add-name').value.trim() || nameFromUrl(url);
+    if (!name) { $('#add-name').focus(); return toast('請輸入地點名稱'); }
     const listName = $('#add-list').value.trim();
     const r = addPlaces([{ name, url, note: $('#add-note').value.trim(), lists: listName ? [listName] : [], ...coordsFromUrl(url) }]);
     ['#add-name', '#add-url', '#add-note'].forEach((s) => ($(s).value = ''));
     render();
-    toast(r.added ? `已新增「${name}」` : '這個地點已經在清單裡了');
+    toast(r.added ? `已加入「${name}」✨` : '這個地點已經在清單裡了');
+    $('#add-name').focus();
+  }
+
+  $('#btn-add').addEventListener('click', addFromForm);
+  ['#add-name', '#add-list', '#add-url', '#add-note'].forEach((s) =>
+    $(s).addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addFromForm(); } }));
+  $('#cat-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cat]');
+    if (b) $('#add-list').value = b.dataset.cat;
   });
 
   const drop = $('#drop');
