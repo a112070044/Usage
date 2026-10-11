@@ -13,6 +13,13 @@
 
 資料只存在瀏覽器（localStorage）裡，不會上傳到任何地方。
 
+## 兩個版本
+
+| 檔案 | 說明 |
+|---|---|
+| `index.html` | 單機版：資料存在各自手機，可整批匯入 Google 地圖、只抽附近的、匯出／匯入備份 |
+| `shared.html` | 兩人共用版：發佈在 claude.ai 上，兩個人加的地點存在同一份清單、自動同步（線上版：https://claude.ai/artifact/Uvz2zHAgf6TMdL2rjBezZn ，要在 Share 把對方設為 Contributor）。在 claude.ai 以外打開時，資料只存在這台裝置 |
+
 ## 使用方式
 
 只有一個檔案 `index.html`，不需要安裝任何東西：

@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>今天去哪玩</title>
+<style>
+  /* Layout: one narrow phone column — pick card on top, add form under it, full list on a second tab */
+  :root {
+    --bg: #fff7f5;
+    --card: #ffffff;
+    --text: #2b2024;
+    --muted: #7d6c72;
+    --line: #f0dfdc;
+    --accent: #d9536a;
+    --accent-soft: #fde3e6;
+    --on-accent: #ffffff;
+    --ok: #2f8a5b;
+    --ok-soft: #e1f3e9;
+    --toast-bg: #2b2024;
+    --toast-fg: #fff7f5;
+    --shadow: 0 6px 24px rgba(160, 80, 90, .12);
+    --font: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1c1618; --card: #2a2124; --text: #f5ebee; --muted: #b3a2a8; --line: #3d3135;
+      --accent: #f07b8d; --accent-soft: #4a2a31; --on-accent: #1c1618; --ok: #5cc28d; --ok-soft: #1f3a2c;
+      --toast-bg: #f5ebee; --toast-fg: #1c1618; --shadow: 0 6px 24px rgba(0, 0, 0, .35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1c1618; --card: #2a2124; --text: #f5ebee; --muted: #b3a2a8; --line: #3d3135;
+    --accent: #f07b8d; --accent-soft: #4a2a31; --on-accent: #1c1618; --ok: #5cc28d; --ok-soft: #1f3a2c;
+    --toast-bg: #f5ebee; --toast-fg: #1c1618; --shadow: 0 6px 24px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font: 16px/1.5 var(--font); -webkit-tap-highlight-color: transparent; }
+  main { max-width: 600px; margin: 0 auto; padding-inline: 16px; padding-block: 12px 48px; display: flex; flex-direction: column; gap: 14px; }
+  header { text-align: center; }
+  header h1 { margin: 0; font-size: 26px; letter-spacing: 1px; text-wrap: balance; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+  #sync { font-size: 12px; color: var(--muted); }
+
+  nav { display: flex; gap: 4px; background: var(--card); padding: 4px; border-radius: 14px; box-shadow: var(--shadow); }
+  nav button { flex: 1; border: 0; background: none; padding: 10px 4px; border-radius: 10px; font: inherit; font-size: 15px; color: var(--muted); cursor: pointer; }
+  nav button.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+
+  section { display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--card); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; }
+  .card h2 { margin: 0; font-size: 17px; }
+  .muted { color: var(--muted); font-size: 14px; margin: 0; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 0; border-radius: 12px; padding: 11px 16px; font: inherit; font-size: 15px; font-weight: 600;
+    cursor: pointer; text-decoration: none; background: var(--accent-soft); color: var(--accent);
+  }
+  .btn.primary { background: var(--accent); color: var(--on-accent); }
+  .btn.ok { background: var(--ok-soft); color: var(--ok); }
+  .btn.ghost { background: transparent; color: var(--muted); font-weight: 400; }
+  .btn.big { padding: 18px; font-size: 20px; border-radius: 16px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 140px; }
+
+  select, input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 16px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button { border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 99px; padding: 4px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+  .chips button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  details summary { color: var(--muted); font-size: 14px; cursor: pointer; padding: 2px 0; }
+  details[open] summary { margin-bottom: 8px; }
+  details input + input { margin-top: 8px; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { background: var(--card); border-radius: 14px; padding: 10px; text-align: center; box-shadow: var(--shadow); }
+  .stat b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12px; color: var(--muted); }
+
+  #result { text-align: center; padding: 24px 18px; align-items: center; }
+  #result .emoji { font-size: 42px; line-height: 1.2; }
+  #result .name { font-size: 26px; font-weight: 700; word-break: break-word; text-wrap: balance; }
+  #result .note { background: var(--bg); border-radius: 10px; padding: 8px 12px; font-size: 14px; text-align: left; white-space: pre-wrap; width: 100%; }
+  #result .row { width: 100%; }
+  .pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.92); opacity: .3; } to { transform: scale(1); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .pop { animation: none; } }
+
+  .list { list-style: none; margin: 0; padding: 0; }
+  .item { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .item:last-child { border-bottom: 0; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .sub { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item.visited .title { color: var(--muted); text-decoration: line-through; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-right: 4px; }
+  .tag.done { background: var(--ok-soft); color: var(--ok); }
+  .icon-btn { border: 0; background: none; font-size: 19px; padding: 6px; cursor: pointer; border-radius: 8px; color: var(--muted); text-decoration: none; font-family: inherit; }
+  .icon-btn.confirm { font-size: 13px; background: var(--accent); color: var(--on-accent); padding: 6px 10px; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(160px);
+    background: var(--toast-bg); color: var(--toast-fg); padding: 10px 18px; border-radius: 99px; font-size: 14px;
+    transition: transform .25s ease; max-width: calc(100% - 32px); text-align: center; z-index: 10;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+
+<main>
+  <header>
+    <h1>💞 今天去哪玩</h1>
+    <p>從我們想去、還沒去過的地方抽一個</p>
+    <div id="sync">連線中…</div>
+  </header>
+
+  <nav>
+    <button type="button" id="tab-btn-pick" data-tab="pick" class="active">🎲 抽地點</button>
+    <button type="button" id="tab-btn-places" data-tab="places">📍 全部地點</button>
+  </nav>
+
+  <section id="tab-pick">
+    <div class="stats">
+      <div class="stat"><b id="st-total">0</b><span>想去的地點</span></div>
+      <div class="stat"><b id="st-todo">0</b><span>還沒去過</span></div>
+      <div class="stat"><b id="st-done">0</b><span>已經去過</span></div>
+    </div>
+
+    <div class="card">
+      <select id="pick-cat" aria-label="從哪個分類抽"><option value="">從全部分類抽</option></select>
+      <button type="button" class="btn primary big" id="btn-pick">🎲 幫我們決定！</button>
+      <p id="empty-hint" class="muted" style="text-align:center">還沒有地點，先在下面加幾個想去的地方吧 👇</p>
+    </div>
+
+    <div class="card" id="result" hidden></div>
+
+    <form class="card" id="add-form" autocomplete="off">
+      <h2>➕ 加一個想去的地方</h2>
+      <input type="text" id="add-name" placeholder="地點名稱，例如：阿妹茶樓" enterkeyhint="done" aria-label="地點名稱">
+      <input type="text" id="add-cat" placeholder="分類（選填），例如：想吃的、景點" aria-label="分類">
+      <div id="cat-chips" class="chips"></div>
+      <details>
+        <summary>加上地圖連結或備註（選填）</summary>
+        <input type="url" id="add-url" placeholder="Google 地圖連結 https://…" aria-label="Google 地圖連結">
+        <input type="text" id="add-note" placeholder="備註，例如：要先訂位、週一公休" aria-label="備註">
+      </details>
+      <button type="submit" class="btn primary" id="btn-add">加入清單</button>
+    </form>
+  </section>
+
+  <section id="tab-places" hidden>
+    <div class="card">
+      <input type="search" id="q" placeholder="🔍 搜尋名稱、分類、備註" aria-label="搜尋">
+      <div class="row">
+        <select id="f-cat" aria-label="分類"><option value="">全部分類</option></select>
+        <select id="f-state" aria-label="狀態">
+          <option value="all">全部</option>
+          <option value="todo" selected>還沒去過</option>
+          <option value="done">去過了</option>
+        </select>
+      </div>
+      <ul class="list" id="list"></ul>
+      <p class="muted" id="list-empty" style="text-align:center">沒有符合的地點</p>
+    </div>
+  </section>
+</main>
+
+<div id="toast" role="status"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const LOCAL_KEY = 'date-spots-local-v1';
+  const DEFAULT_CATS = ['想吃的', '景點', '咖啡廳', '室內', '戶外'];
+
+  let places = [];          // {id, name, cat, url, note, visitedAt, addedAt}
+  let col = null;           // shared db collection, or null → this browser only
+  let readOnly = false;
+  let recent = [];
+
+  // ---------- 儲存：優先用共用資料庫，否則存在這台裝置 ----------
+  function loadLocal() {
+    try { places = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); } catch (e) { places = []; }
+  }
+  function saveLocal() {
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify(places)); } catch (e) {}
+  }
+
+  async function write(fn) {
+    if (readOnly) { toast('你只有檢視權限，沒辦法修改'); return false; }
+    try { await fn(); return true; }
+    catch (e) {
+      if (e && e.code === 'invalid_argument') { readOnly = true; setSync('👀 只能看，不能修改（請擁有者把你設為「Contributor」）'); toast('沒有修改權限'); }
+      else if (e && e.code === 'quota_exceeded') toast('地點太多了，刪掉一些再加');
+      else toast('儲存失敗，請再試一次');
+      return false;
+    }
+  }
+
+  async function addPlace(p) {
+    const doc = { name: p.name, cat: p.cat || '', url: p.url || '', note: p.note || '', visitedAt: null, addedAt: new Date().toISOString() };
+    if (col) return write(() => col.add(doc));
+    places.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ...doc });
+    saveLocal(); render(); return true;
+  }
+  async function updatePlace(id, patch) {
+    if (col) return write(() => col.doc(id).update(patch));
+    const p = places.find((x) => x.id === id); if (p) Object.assign(p, patch);
+    saveLocal(); render(); return true;
+  }
+  async function deletePlace(id) {
+    if (col) return write(() => col.doc(id).delete());
+    places = places.filter((x) => x.id !== id);
+    saveLocal(); render(); return true;
+  }
+
+  function setSync(text) { $('#sync').textContent = text; }
+
+  async function connect() {
+    const claude = window.claude;
+    const db = claude && claude.use ? await claude.use('db').catch(() => null) : null;
+    if (!db) { setSync('📱 資料只存在這台裝置'); return; }
+    try {
+      const user = await claude.use('user').catch(() => null);
+      if (user && user.can) {
+        const ok = await Promise.resolve(user.can('data.write')).catch(() => null);
+        if (ok === false) readOnly = true;
+      }
+    } catch (e) {}
+    col = db.collection('places');
+    setSync(readOnly ? '👀 只能看，不能修改' : '☁️ 兩個人共用同一份清單，會自動同步');
+    col.onSnapshot((snap) => {
+      places = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      render();
+    }, () => setSync('⚠️ 同步中斷了，請重新整理頁面'));
+  }
+
+  // ---------- 抽地點 ----------
+  function pick() {
+    const cat = $('#pick-cat').value;
+    const pool = places.filter((p) => !p.visitedAt && (!cat || p.cat === cat));
+    if (!pool.length) return showResult(null);
+    const fresh = pool.filter((p) => !recent.includes(p.id));
+    const choices = fresh.length ? fresh : pool;
+    const chosen = choices[Math.floor(Math.random() * choices.length)];
+    recent = [chosen.id, ...recent.filter((id) => id !== chosen.id)].slice(0, Math.floor(pool.length / 2));
+    showResult(chosen);
+  }
+
+  function mapsUrl(p) {
+    if (/^https?:\/\//i.test(p.url || '')) return p.url;
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name);
+  }
+
+  const EMOJIS = ['✨', '🎉', '💖', '🥳', '🌈', '🍀', '🎈', '🌟'];
+  let shownId = null;
+
+  function showResult(p) {
+    const box = $('#result');
+    box.hidden = false;
+    box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
+    shownId = p ? p.id : null;
+    if (!p) {
+      box.innerHTML = `<div class="emoji">🤔</div><div class="name" style="font-size:20px">沒有可以抽的地點</div>
+        <p class="muted">${places.length ? '這個分類的都去過了，換個分類或再加幾個新地點吧！' : '先在下面加幾個想去的地方吧！'}</p>`;
+      return;
+    }
+    box.innerHTML = `
+      <div class="emoji">${EMOJIS[Math.floor(Math.random() * EMOJIS.length)]}</div>
+      <p class="muted">今天就去</p>
+      <div class="name">${esc(p.name)}</div>
+      ${p.cat ? `<div><span class="tag">${esc(p.cat)}</span></div>` : ''}
+      ${p.note ? `<div class="note">📝 ${esc(p.note)}</div>` : ''}
+      <div class="row">
+        <a class="btn primary" href="${esc(mapsUrl(p))}" target="_blank" rel="noopener">🗺️ 開地圖</a>
+        <button type="button" class="btn ok" data-act="visit">✅ 去過了</button>
+      </div>
+      <button type="button" class="btn ghost" data-act="again">🔄 不想去，換一個</button>`;
+  }
+
+  // ---------- 畫面 ----------
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  const norm = (s) => (s || '').toString().trim().toLowerCase();
+
+  function cats() {
+    return [...new Set(places.map((p) => p.cat).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  }
+
+  function fillSelect(sel, list, allLabel) {
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">${allLabel}</option>` + list.map((c) => {
+      const n = places.filter((p) => !p.visitedAt && p.cat === c).length;
+      return `<option value="${esc(c)}">${esc(c)}（${n} 個沒去過）</option>`;
+    }).join('');
+    if (list.includes(cur)) sel.value = cur;
+  }
+
+  function renderChips() {
+    const cur = $('#add-cat').value.trim();
+    const list = [...new Set([...cats(), ...DEFAULT_CATS])].slice(0, 12);
+    $('#cat-chips').innerHTML = list.map((c) => `<button type="button" data-cat="${esc(c)}" class="${c === cur ? 'on' : ''}">${esc(c)}</button>`).join('');
+  }
+
+  function render() {
+    const done = places.filter((p) => p.visitedAt).length;
+    $('#st-total').textContent = places.length;
+    $('#st-todo').textContent = places.length - done;
+    $('#st-done').textContent = done;
+    $('#empty-hint').hidden = places.length > 0;
+    const list = cats();
+    fillSelect($('#pick-cat'), list, '從全部分類抽');
+    fillSelect($('#f-cat'), list, '全部分類');
+    renderChips();
+    renderList();
+    if (shownId && !places.some((p) => p.id === shownId)) { $('#result').hidden = true; shownId = null; }
+  }
+
+  let confirmId = null;
+  function renderList() {
+    const q = norm($('#q').value), cat = $('#f-cat').value, st = $('#f-state').value;
+    const items = places
+      .filter((p) => !cat || p.cat === cat)
+      .filter((p) => st === 'all' || (st === 'done' ? p.visitedAt : !p.visitedAt))
+      .filter((p) => !q || norm([p.name, p.cat, p.note].join(' ')).includes(q))
+      .sort((a, b) => (b.visitedAt || '').localeCompare(a.visitedAt || '') || (b.addedAt || '').localeCompare(a.addedAt || ''));
+    $('#list-empty').hidden = items.length > 0;
+    $('#list').innerHTML = items.map((p) => `
+      <li class="item ${p.visitedAt ? 'visited' : ''}">
+        <button type="button" class="icon-btn" data-act="toggle" data-id="${esc(p.id)}" aria-label="${p.visitedAt ? '改回沒去過' : '標記去過了'}">${p.visitedAt ? '✅' : '⬜'}</button>
+        <div class="info">
+          <div class="title">${esc(p.name)}</div>
+          <div class="sub">${p.visitedAt ? `<span class="tag done">${esc(p.visitedAt.slice(0, 10))} 去過</span>` : ''}${p.cat ? `<span class="tag">${esc(p.cat)}</span>` : ''}${esc(p.note)}</div>
+        </div>
+        <a class="icon-btn" href="${esc(mapsUrl(p))}" target="_blank" rel="noopener" aria-label="開地圖">🗺️</a>
+        ${confirmId === p.id
+          ? `<button type="button" class="icon-btn confirm" data-act="del" data-id="${esc(p.id)}">確定刪除</button>`
+          : `<button type="button" class="icon-btn" data-act="askdel" data-id="${esc(p.id)}" aria-label="刪除">🗑️</button>`}
+      </li>`).join('');
+  }
+
+  let toastTimer;
+  function toast(msg, ms = 2500) {
+    const t = $('#toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+  }
+
+  // 從完整的 Google 地圖網址抓名稱：…/maps/place/阿妹茶樓/@25.1,121.8…
+  function nameFromUrl(url) {
+    const m = (url || '').match(/\/maps\/place\/([^/@?]+)/);
+    if (!m) return '';
+    try { return decodeURIComponent(m[1].replace(/\+/g, ' ')).trim(); } catch (e) { return ''; }
+  }
+
+  // ---------- 事件 ----------
+  document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('active', x === b));
+    $('#tab-pick').hidden = b.dataset.tab !== 'pick';
+    $('#tab-places').hidden = b.dataset.tab !== 'places';
+  }));
+
+  $('#btn-pick').addEventListener('click', pick);
+
+  $('#result').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    if (b.dataset.act === 'again') pick();
+    if (b.dataset.act === 'visit' && shownId) {
+      const id = shownId;
+      if (await updatePlace(id, { visitedAt: new Date().toISOString() })) {
+        $('#result').hidden = true; shownId = null;
+        toast('已標記去過了，玩得開心 💕');
+      }
+    }
+  });
+
+  $('#list').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const p = places.find((x) => x.id === b.dataset.id);
+    if (!p) return;
+    if (b.dataset.act === 'toggle') { confirmId = null; await updatePlace(p.id, { visitedAt: p.visitedAt ? null : new Date().toISOString() }); }
+    if (b.dataset.act === 'askdel') { confirmId = p.id; renderList(); }
+    if (b.dataset.act === 'del') { confirmId = null; if (await deletePlace(p.id)) toast(`已刪除「${p.name}」`); }
+  });
+
+  ['#q', '#f-cat', '#f-state'].forEach((s) => $(s).addEventListener('input', () => { confirmId = null; renderList(); }));
+
+  let adding = false;
+  $('#add-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (adding) return;
+    const url = $('#add-url').value.trim();
+    const name = $('#add-name').value.trim() || nameFromUrl(url);
+    if (!name) { $('#add-name').focus(); return toast('請輸入地點名稱'); }
+    if (places.some((p) => norm(p.name) === norm(name))) return toast(`「${name}」已經在清單裡了`);
+    adding = true; $('#btn-add').disabled = true;
+    const ok = await addPlace({ name, cat: $('#add-cat').value.trim(), url, note: $('#add-note').value.trim() });
+    adding = false; $('#btn-add').disabled = false;
+    if (!ok) return;
+    $('#add-name').value = ''; $('#add-url').value = ''; $('#add-note').value = '';
+    toast(`已加入「${name}」✨`);
+    $('#add-name').focus();
+  });
+
+  $('#cat-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cat]');
+    if (!b) return;
+    $('#add-cat').value = $('#add-cat').value.trim() === b.dataset.cat ? '' : b.dataset.cat;
+    renderChips();
+  });
+  $('#add-cat').addEventListener('input', renderChips);
+
+  loadLocal();
+  render();
+  connect();
+})();
+</script>
+</body>
+</html>
