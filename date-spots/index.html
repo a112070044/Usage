@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8667a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>今天去哪玩</title>
+<style>
+  :root {
+    --bg: #fff7f5;
+    --card: #ffffff;
+    --text: #2b2024;
+    --muted: #8a7a7f;
+    --line: #f0dfdc;
+    --accent: #e8667a;
+    --accent-soft: #fde3e6;
+    --ok: #3c9d6b;
+    --ok-soft: #e1f3e9;
+    --shadow: 0 6px 24px rgba(160, 80, 90, .12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1618;
+      --card: #2a2124;
+      --text: #f5ebee;
+      --muted: #a8979c;
+      --line: #3d3135;
+      --accent: #f07b8d;
+      --accent-soft: #4a2a31;
+      --ok: #5cc28d;
+      --ok-soft: #1f3a2c;
+      --shadow: 0 6px 24px rgba(0, 0, 0, .35);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+  header { text-align: center; padding: 12px 0 4px; }
+  header h1 { margin: 0; font-size: 26px; letter-spacing: 1px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+
+  nav { display: flex; gap: 6px; margin: 16px 0; background: var(--card); padding: 4px; border-radius: 14px; box-shadow: var(--shadow); }
+  nav button { flex: 1; border: 0; background: none; padding: 10px 4px; border-radius: 10px; font: inherit; font-size: 15px; color: var(--muted); cursor: pointer; }
+  nav button.active { background: var(--accent); color: #fff; font-weight: 600; }
+
+  .card { background: var(--card); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 17px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .hidden { display: none !important; }
+
+  button.btn, a.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 0; border-radius: 12px; padding: 11px 16px; font: inherit; font-size: 15px;
+    cursor: pointer; text-decoration: none; background: var(--accent-soft); color: var(--accent); font-weight: 600;
+  }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.ok { background: var(--ok-soft); color: var(--ok); }
+  .btn.ghost { background: transparent; color: var(--muted); font-weight: 400; }
+  .btn.big { width: 100%; padding: 18px; font-size: 20px; border-radius: 16px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 auto; }
+
+  label.field { display: block; margin-bottom: 12px; font-size: 14px; color: var(--muted); }
+  select, input[type=text], input[type=url], input[type=search], textarea {
+    width: 100%; margin-top: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--bg); color: var(--text); font: inherit; font-size: 16px;
+  }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 15px; margin-bottom: 12px; }
+  .check input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+  #result { text-align: center; padding: 26px 18px; }
+  #result .emoji { font-size: 44px; }
+  #result .name { font-size: 26px; font-weight: 700; margin: 6px 0 4px; word-break: break-word; }
+  #result .meta { color: var(--muted); font-size: 14px; margin-bottom: 4px; }
+  #result .note { background: var(--bg); border-radius: 10px; padding: 8px 12px; margin: 10px 0 0; font-size: 14px; text-align: left; white-space: pre-wrap; }
+  #result .row { margin-top: 16px; }
+  .pop { animation: pop .35s ease; }
+  @keyframes pop { 0% { transform: scale(.92); opacity: .3; } 100% { transform: scale(1); opacity: 1; } }
+
+  .stats { display: flex; gap: 8px; margin-bottom: 16px; }
+  .stat { flex: 1; background: var(--card); border-radius: 14px; padding: 10px; text-align: center; box-shadow: var(--shadow); }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { font-size: 12px; color: var(--muted); }
+
+  .list { list-style: none; margin: 0; padding: 0; }
+  .item { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .item:last-child { border-bottom: 0; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .sub { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item.visited .title { color: var(--muted); text-decoration: line-through; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-right: 4px; }
+  .tag.done { background: var(--ok-soft); color: var(--ok); }
+  .icon-btn { border: 0; background: none; font-size: 20px; padding: 6px; cursor: pointer; border-radius: 8px; color: var(--muted); }
+  .icon-btn:active { background: var(--line); }
+
+  .drop { border: 2px dashed var(--line); border-radius: 14px; padding: 22px; text-align: center; cursor: pointer; }
+  .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  ol.steps { padding-left: 20px; margin: 8px 0 0; font-size: 14px; }
+  ol.steps li { margin-bottom: 4px; }
+  code { background: var(--bg); padding: 1px 5px; border-radius: 5px; font-size: 13px; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px);
+    background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 99px; font-size: 14px;
+    transition: transform .25s ease; max-width: calc(100% - 32px); text-align: center; z-index: 10;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>💞 今天去哪玩</h1>
+    <p>從我們存過、還沒去過的地方抽一個</p>
+  </header>
+
+  <nav>
+    <button data-tab="pick" class="active">🎲 抽地點</button>
+    <button data-tab="places">📍 地點清單</button>
+    <button data-tab="import">📥 匯入／備份</button>
+  </nav>
+
+  <!-- 抽地點 -->
+  <section id="tab-pick">
+    <div class="stats">
+      <div class="stat"><b id="st-total">0</b><span>存過的地點</span></div>
+      <div class="stat"><b id="st-todo">0</b><span>還沒去過</span></div>
+      <div class="stat"><b id="st-done">0</b><span>已經去過</span></div>
+    </div>
+
+    <div id="empty-hint" class="card hidden">
+      <h2>還沒有任何地點 🥲</h2>
+      <p class="muted">先到「📥 匯入／備份」把 Google 地圖存的地點匯進來，或在「📍 地點清單」手動新增。</p>
+    </div>
+
+    <div class="card">
+      <label class="field">從哪個清單抽
+        <select id="pick-list"><option value="">全部清單</option></select>
+      </label>
+      <label class="check"><input type="checkbox" id="pick-near"> 只抽離我們近的（需要定位，限有座標的地點）</label>
+      <label class="field" id="near-wrap" style="display:none">距離上限
+        <select id="pick-km">
+          <option value="3">3 公里內</option>
+          <option value="10" selected>10 公里內</option>
+          <option value="30">30 公里內</option>
+          <option value="80">80 公里內</option>
+        </select>
+      </label>
+      <button class="btn primary big" id="btn-pick">🎲 幫我們決定！</button>
+    </div>
+
+    <div class="card hidden" id="result"></div>
+  </section>
+
+  <!-- 地點清單 -->
+  <section id="tab-places" class="hidden">
+    <div class="card">
+      <h2>➕ 手動新增地點</h2>
+      <label class="field">名稱<input type="text" id="add-name" placeholder="例如：阿妹茶樓"></label>
+      <label class="field">Google 地圖連結（選填）<input type="url" id="add-url" placeholder="https://maps.app.goo.gl/…"></label>
+      <label class="field">清單／分類（選填）<input type="text" id="add-list" list="list-names" placeholder="例如：想吃的、景點"></label>
+      <datalist id="list-names"></datalist>
+      <label class="field">備註（選填）<input type="text" id="add-note" placeholder="例如：要先訂位"></label>
+      <button class="btn primary" id="btn-add">新增</button>
+    </div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:8px">
+        <input type="search" id="q" placeholder="🔍 搜尋名稱、地址、備註" style="margin:0">
+      </div>
+      <div class="row" style="margin-bottom:4px">
+        <select id="f-list" style="margin:0"><option value="">全部清單</option></select>
+        <select id="f-state" style="margin:0">
+          <option value="all">全部</option>
+          <option value="todo" selected>還沒去過</option>
+          <option value="done">去過了</option>
+        </select>
+      </div>
+      <ul class="list" id="list"></ul>
+      <p class="muted" id="list-empty" style="text-align:center">沒有符合的地點</p>
+    </div>
+  </section>
+
+  <!-- 匯入／備份 -->
+  <section id="tab-import" class="hidden">
+    <div class="card">
+      <h2>📥 匯入 Google 地圖存的地點</h2>
+      <div class="drop" id="drop">
+        <div style="font-size:32px">📂</div>
+        <div><b>點這裡選檔案</b>，或把檔案拖進來</div>
+        <div class="muted">支援 <code>.csv</code>（已儲存的清單）、<code>.json</code>（已加星號的地點）、<code>.zip</code> 解壓後的檔案，可一次選多個</div>
+      </div>
+      <input type="file" id="file" multiple accept=".csv,.json,.geojson,application/json,text/csv" hidden>
+      <p class="muted" style="margin-bottom:0">怎麼從 Google 地圖拿到檔案：</p>
+      <ol class="steps">
+        <li>電腦打開 <a href="https://takeout.google.com/" target="_blank" rel="noopener">Google Takeout</a>，先按「取消全選」</li>
+        <li>勾選 <b>已儲存</b>（Saved，是你們建立的各個清單）和 <b>地圖（您的地點）</b>（Maps (your places)，是加星號的地點）</li>
+        <li>建立匯出 → 下載 zip 並解壓縮</li>
+        <li><code>Saved</code> 資料夾裡每個清單一個 <code>.csv</code>；<code>Maps (your places)</code> 裡有 <code>Saved Places.json</code>，全部選進來就好</li>
+      </ol>
+      <p class="muted">重複匯入不會產生重複地點，已標記「去過」的也會保留。清單名稱會用 CSV 的檔名。</p>
+    </div>
+
+    <div class="card">
+      <h2>💾 備份 & 兩人同步</h2>
+      <p class="muted" style="margin-top:0">資料只存在這支手機的瀏覽器裡。想讓兩個人的手機一樣，就一個人「匯出備份」傳給另一個人，另一個人「匯入備份」即可（會合併，不會蓋掉）。</p>
+      <div class="row">
+        <button class="btn" id="btn-export">⬇️ 匯出備份</button>
+        <button class="btn" id="btn-restore">⬆️ 匯入備份</button>
+      </div>
+      <input type="file" id="restore-file" accept=".json,application/json" hidden>
+      <div class="row" style="margin-top:12px">
+        <button class="btn ghost" id="btn-clear">🗑️ 清空全部資料</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORE_KEY = 'date-spots-v1';
+  const $ = (sel) => document.querySelector(sel);
+
+  // ---------- 資料 ----------
+  let state = { places: [], recent: [] };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        state.places = Array.isArray(data.places) ? data.places : [];
+        state.recent = Array.isArray(data.recent) ? data.recent : [];
+      }
+    } catch (e) {
+      toast('讀取資料失敗：' + e.message);
+    }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    } catch (e) {
+      toast('儲存失敗：' + e.message);
+    }
+  }
+
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const norm = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+
+  // 用 Google 地圖的地點 ID（URL 裡的 0x…:0x… 或 cid）或名稱來判斷是否重複
+  function placeKey(p) {
+    const url = p.url || '';
+    const m = url.match(/0x[0-9a-f]+:0x[0-9a-f]+/i) || url.match(/[?&]cid=(\d+)/);
+    if (m) return 'id:' + (m[1] || m[0]).toLowerCase();
+    return 'name:' + norm(p.name) + '|' + norm(p.address);
+  }
+
+  function addPlaces(incoming) {
+    const index = new Map(state.places.map((p) => [placeKey(p), p]));
+    let added = 0, merged = 0;
+    for (const raw of incoming) {
+      if (!raw.name) continue;
+      const key = placeKey(raw);
+      const existing = index.get(key);
+      if (existing) {
+        // 合併：補上缺的資訊、清單、去過的狀態
+        for (const f of ['address', 'url', 'note', 'lat', 'lng']) {
+          if ((existing[f] === undefined || existing[f] === '' || existing[f] === null) && raw[f] != null && raw[f] !== '') existing[f] = raw[f];
+        }
+        existing.lists = [...new Set([...(existing.lists || []), ...(raw.lists || [])])];
+        if (raw.visitedAt && (!existing.visitedAt || raw.visitedAt > existing.visitedAt)) existing.visitedAt = raw.visitedAt;
+        merged++;
+      } else {
+        const p = {
+          id: raw.id || uid(),
+          name: raw.name,
+          address: raw.address || '',
+          url: raw.url || '',
+          note: raw.note || '',
+          lists: raw.lists || [],
+          lat: typeof raw.lat === 'number' ? raw.lat : null,
+          lng: typeof raw.lng === 'number' ? raw.lng : null,
+          visitedAt: raw.visitedAt || null,
+          addedAt: raw.addedAt || new Date().toISOString(),
+        };
+        state.places.push(p);
+        index.set(key, p);
+        added++;
+      }
+    }
+    save();
+    return { added, merged };
+  }
+
+  // ---------- 解析 Google Takeout ----------
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], cell = '', q = false;
+    text = text.replace(/^﻿/, '');
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { cell += '"'; i++; } else q = false;
+        } else cell += c;
+      } else if (c === '"') q = true;
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); rows.push(row); row = []; cell = '';
+      } else cell += c;
+    }
+    if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter((r) => r.some((c) => c.trim() !== ''));
+  }
+
+  function coordsFromUrl(url) {
+    if (!url) return {};
+    const m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || url.match(/[?&](?:q|query|ll)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/) ||
+              url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+    return m ? { lat: parseFloat(m[1]), lng: parseFloat(m[2]) } : {};
+  }
+
+  function fromCSV(text, fileName) {
+    const rows = parseCSV(text);
+    if (!rows.length) return [];
+    const header = rows[0].map((h) => norm(h));
+    const col = (...names) => header.findIndex((h) => names.includes(h));
+    const iTitle = col('title', '標題', '名稱', 'name');
+    const iNote = col('note', '附註', '備註');
+    const iUrl = col('url', '網址');
+    const iComment = col('comment', '留言');
+    const iTags = col('tags', '標記');
+    const listName = fileName.replace(/\.[^.]+$/, '');
+    const hasHeader = iTitle >= 0;
+    const start = hasHeader ? 1 : 0;
+    const out = [];
+    for (let r = start; r < rows.length; r++) {
+      const row = rows[r];
+      const name = (row[hasHeader ? iTitle : 0] || '').trim();
+      if (!name) continue;
+      const url = (row[hasHeader ? iUrl : 2] || '').trim();
+      const note = [iNote >= 0 ? row[iNote] : row[1], iComment >= 0 ? row[iComment] : '', iTags >= 0 ? row[iTags] : '']
+        .map((s) => (s || '').trim()).filter(Boolean).join('｜');
+      out.push({ name, url, note, lists: [listName], ...coordsFromUrl(url) });
+    }
+    return out;
+  }
+
+  function fromJSON(text, fileName) {
+    const data = JSON.parse(text.replace(/^﻿/, ''));
+    // 本網站自己的備份檔
+    if (data && Array.isArray(data.places)) return { backup: data };
+    const features = Array.isArray(data.features) ? data.features : Array.isArray(data) ? data : [];
+    const listName = /saved places|已加星號|your places/i.test(fileName) ? '⭐ 已加星號' : fileName.replace(/\.[^.]+$/, '');
+    const out = [];
+    for (const f of features) {
+      const pr = f.properties || {};
+      const loc = pr.location || pr.Location || {};
+      const name = (loc.name || loc['Business Name'] || pr.Title || pr.name || loc.address || loc.Address || '').trim();
+      if (!name) continue;
+      let lat = null, lng = null;
+      const gc = f.geometry && f.geometry.coordinates;
+      if (Array.isArray(gc) && gc.length >= 2 && !(gc[0] === 0 && gc[1] === 0)) { lng = +gc[0]; lat = +gc[1]; }
+      const geo = loc['Geo Coordinates'];
+      if (lat == null && geo) { lat = parseFloat(geo.Latitude); lng = parseFloat(geo.Longitude); }
+      const url = pr.google_maps_url || pr['Google Maps URL'] || '';
+      if (lat == null) ({ lat = null, lng = null } = coordsFromUrl(url));
+      out.push({
+        name,
+        address: loc.address || loc.Address || '',
+        url,
+        note: (pr.Comment || pr.comment || '').trim(),
+        lists: [listName],
+        lat: Number.isFinite(lat) ? lat : null,
+        lng: Number.isFinite(lng) ? lng : null,
+      });
+    }
+    return out;
+  }
+
+  async function importFiles(files) {
+    let added = 0, merged = 0, failed = [];
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        if (/\.zip$/i.test(file.name)) { failed.push(file.name + '（請先解壓縮）'); continue; }
+        let places;
+        if (/\.(json|geojson)$/i.test(file.name) || /^\s*[\[{]/.test(text)) {
+          const parsed = fromJSON(text, file.name);
+          places = parsed.backup ? parsed.backup.places : parsed;
+        } else {
+          places = fromCSV(text, file.name);
+        }
+        const r = addPlaces(places);
+        added += r.added; merged += r.merged;
+      } catch (e) {
+        failed.push(file.name);
+      }
+    }
+    render();
+    let msg = `新增 ${added} 個地點`;
+    if (merged) msg += `，${merged} 個已存在`;
+    if (failed.length) msg += `；無法讀取：${failed.join('、')}`;
+    toast(msg, 4000);
+  }
+
+  // ---------- 抽地點 ----------
+  let here = null;
+
+  function distanceKm(a, b) {
+    const R = 6371, rad = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function locate() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject(new Error('這個瀏覽器不支援定位'));
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => reject(new Error('沒辦法取得定位，請允許位置權限')),
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+      );
+    });
+  }
+
+  async function pick() {
+    const list = $('#pick-list').value;
+    let pool = state.places.filter((p) => !p.visitedAt && (!list || (p.lists || []).includes(list)));
+
+    if ($('#pick-near').checked) {
+      try {
+        here = await locate();
+      } catch (e) {
+        return toast(e.message);
+      }
+      const km = +$('#pick-km').value;
+      pool = pool.filter((p) => p.lat != null && distanceKm(here, p) <= km);
+    }
+
+    if (!pool.length) {
+      showResult(null);
+      return;
+    }
+    // 盡量不要抽到最近才剛抽過的
+    const recentSet = new Set(state.recent);
+    const fresh = pool.filter((p) => !recentSet.has(p.id));
+    const choices = fresh.length ? fresh : pool;
+    const chosen = choices[Math.floor(Math.random() * choices.length)];
+
+    state.recent = [chosen.id, ...state.recent.filter((id) => id !== chosen.id)].slice(0, Math.min(10, Math.floor(pool.length / 2)));
+    save();
+    showResult(chosen);
+  }
+
+  function mapsUrl(p) {
+    if (p.url) return p.url;
+    if (p.lat != null) return `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + (p.address || ''))}`;
+  }
+
+  const EMOJIS = ['✨', '🎉', '💖', '🥳', '🌈', '🍀', '🎈', '🌟'];
+
+  function showResult(p) {
+    const box = $('#result');
+    box.classList.remove('hidden', 'pop');
+    void box.offsetWidth;
+    box.classList.add('pop');
+    if (!p) {
+      box.innerHTML = `<div class="emoji">🤔</div><div class="name" style="font-size:20px">沒有符合條件的地點</div>
+        <div class="meta">試試換個清單、放寬距離，或是去存更多地點吧！</div>`;
+      return;
+    }
+    const dist = here && p.lat != null ? `・距離約 ${distanceKm(here, p).toFixed(1)} 公里` : '';
+    box.innerHTML = `
+      <div class="emoji">${EMOJIS[Math.floor(Math.random() * EMOJIS.length)]}</div>
+      <div class="muted">今天就去</div>
+      <div class="name">${esc(p.name)}</div>
+      ${p.address ? `<div class="meta">${esc(p.address)}</div>` : ''}
+      <div class="meta">${(p.lists || []).map((l) => `<span class="tag">${esc(l)}</span>`).join('')}${dist}</div>
+      ${p.note ? `<div class="note">📝 ${esc(p.note)}</div>` : ''}
+      <div class="row">
+        <a class="btn primary" href="${esc(mapsUrl(p))}" target="_blank" rel="noopener">🗺️ 開地圖</a>
+        <button class="btn ok" data-act="visit" data-id="${p.id}">✅ 去過了</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost" data-act="again">🔄 不想去，換一個</button>
+      </div>`;
+  }
+
+  // ---------- 畫面 ----------
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function allLists() {
+    const set = new Set();
+    state.places.forEach((p) => (p.lists || []).forEach((l) => set.add(l)));
+    return [...set].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  }
+
+  function fillSelect(sel, lists) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">全部清單</option>' +
+      lists.map((l) => {
+        const n = state.places.filter((p) => !p.visitedAt && (p.lists || []).includes(l)).length;
+        return `<option value="${esc(l)}">${esc(l)}（${n} 個沒去過）</option>`;
+      }).join('');
+    if (lists.includes(cur)) sel.value = cur;
+  }
+
+  function render() {
+    const total = state.places.length;
+    const done = state.places.filter((p) => p.visitedAt).length;
+    $('#st-total').textContent = total;
+    $('#st-todo').textContent = total - done;
+    $('#st-done').textContent = done;
+    $('#empty-hint').classList.toggle('hidden', total > 0);
+
+    const lists = allLists();
+    fillSelect($('#pick-list'), lists);
+    fillSelect($('#f-list'), lists);
+    $('#list-names').innerHTML = lists.map((l) => `<option value="${esc(l)}">`).join('');
+
+    renderList();
+  }
+
+  function renderList() {
+    const q = norm($('#q').value);
+    const list = $('#f-list').value;
+    const st = $('#f-state').value;
+    const items = state.places
+      .filter((p) => !list || (p.lists || []).includes(list))
+      .filter((p) => st === 'all' || (st === 'done' ? p.visitedAt : !p.visitedAt))
+      .filter((p) => !q || norm([p.name, p.address, p.note, ...(p.lists || [])].join(' ')).includes(q))
+      .sort((a, b) => (b.visitedAt || '').localeCompare(a.visitedAt || '') || a.name.localeCompare(b.name, 'zh-Hant'));
+
+    $('#list-empty').classList.toggle('hidden', items.length > 0);
+    $('#list').innerHTML = items.map((p) => `
+      <li class="item ${p.visitedAt ? 'visited' : ''}">
+        <button class="icon-btn" data-act="toggle" data-id="${p.id}" title="${p.visitedAt ? '改回沒去過' : '標記去過了'}">${p.visitedAt ? '✅' : '⬜'}</button>
+        <div class="info">
+          <div class="title">${esc(p.name)}</div>
+          <div class="sub">${p.visitedAt ? `<span class="tag done">${p.visitedAt.slice(0, 10)} 去過</span>` : ''}${(p.lists || []).map((l) => `<span class="tag">${esc(l)}</span>`).join('')}${esc(p.address || p.note || '')}</div>
+        </div>
+        <a class="icon-btn" href="${esc(mapsUrl(p))}" target="_blank" rel="noopener" title="開地圖">🗺️</a>
+        <button class="icon-btn" data-act="del" data-id="${p.id}" title="刪除">🗑️</button>
+      </li>`).join('');
+  }
+
+  let toastTimer;
+  function toast(msg, ms = 2500) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+  }
+
+  function setVisited(id, visited) {
+    const p = state.places.find((x) => x.id === id);
+    if (!p) return;
+    p.visitedAt = visited ? new Date().toISOString() : null;
+    save();
+    render();
+  }
+
+  // ---------- 事件 ----------
+  document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('active', x === b));
+    ['pick', 'places', 'import'].forEach((t) => $('#tab-' + t).classList.toggle('hidden', t !== b.dataset.tab));
+  }));
+
+  $('#btn-pick').addEventListener('click', pick);
+  $('#pick-near').addEventListener('change', (e) => { $('#near-wrap').style.display = e.target.checked ? '' : 'none'; });
+
+  $('#result').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    if (b.dataset.act === 'again') pick();
+    if (b.dataset.act === 'visit') {
+      setVisited(b.dataset.id, true);
+      $('#result').classList.add('hidden');
+      toast('已標記去過了，玩得開心 💕');
+    }
+  });
+
+  $('#list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const p = state.places.find((x) => x.id === b.dataset.id);
+    if (!p) return;
+    if (b.dataset.act === 'toggle') setVisited(p.id, !p.visitedAt);
+    if (b.dataset.act === 'del' && confirm(`確定要刪除「${p.name}」嗎？`)) {
+      state.places = state.places.filter((x) => x.id !== p.id);
+      save();
+      render();
+    }
+  });
+
+  ['#q', '#f-list', '#f-state'].forEach((s) => $(s).addEventListener('input', renderList));
+
+  $('#btn-add').addEventListener('click', () => {
+    const name = $('#add-name').value.trim();
+    if (!name) return toast('請輸入地點名稱');
+    const url = $('#add-url').value.trim();
+    const listName = $('#add-list').value.trim();
+    const r = addPlaces([{ name, url, note: $('#add-note').value.trim(), lists: listName ? [listName] : [], ...coordsFromUrl(url) }]);
+    ['#add-name', '#add-url', '#add-note'].forEach((s) => ($(s).value = ''));
+    render();
+    toast(r.added ? `已新增「${name}」` : '這個地點已經在清單裡了');
+  });
+
+  const drop = $('#drop');
+  drop.addEventListener('click', () => $('#file').click());
+  $('#file').addEventListener('change', (e) => { importFiles([...e.target.files]); e.target.value = ''; });
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); importFiles([...e.dataTransfer.files]); });
+
+  $('#btn-export').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify({ app: 'date-spots', version: 1, exportedAt: new Date().toISOString(), places: state.places }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `今天去哪玩-備份-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  $('#btn-restore').addEventListener('click', () => $('#restore-file').click());
+  $('#restore-file').addEventListener('change', (e) => { importFiles([...e.target.files]); e.target.value = ''; });
+
+  $('#btn-clear').addEventListener('click', () => {
+    if (!confirm('確定要清空全部地點嗎？建議先匯出備份。')) return;
+    state = { places: [], recent: [] };
+    save();
+    render();
+    $('#result').classList.add('hidden');
+    toast('已清空');
+  });
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
