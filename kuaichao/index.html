@@ -227,14 +227,44 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
   .item img { width: 34px; height: 34px; }
   .grid.seas .item img { width: 42px; height: 42px; }
 }
+
+/* ---------- v2: stations, shop ---------- */
+.stations { display: flex; gap: 5px; margin-bottom: 6px; }
+.stations button {
+  pointer-events: auto; position: relative; height: 34px; padding: 0 11px; border-radius: 9px;
+  border: 1px solid var(--glass-line); background: var(--glass); color: var(--muted); font-weight: 700; font-size: 13px;
+}
+.stations button.on { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.stations button i { position: absolute; top: -4px; right: -4px; width: 11px; height: 11px; border-radius: 50%; display: none; box-shadow: 0 0 0 2px var(--stage); }
+.stations button i.cooking { display: block; background: var(--good); }
+.stations button i.hot { display: block; background: var(--bad); animation: blink .6s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.board .bankline { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--f-ui); font-size: 14px; color: var(--ink-soft); }
+.board .bankline b { font-size: 20px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.row2 { display: flex; gap: 8px; }
+.row2 .big { flex: 1; min-width: 0; }
+.board .big.alt { background: var(--ink); box-shadow: 0 4px 0 #000; letter-spacing: .08em; }
+.board.shop { max-height: calc(100% - 24px); overflow-y: auto; }
+.shop-list { display: flex; flex-direction: column; gap: 8px; }
+.up { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; border-top: 1px dashed var(--paper-line); padding-top: 8px; }
+.up h4 { margin: 0; font-size: 17px; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.up .lv { font-family: var(--f-ui); font-size: 11px; font-weight: 500; color: var(--ink-soft); }
+.up p { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--ink-soft); }
+.up button {
+  grid-row: 1 / 3; grid-column: 2; min-width: 82px; height: 40px; border-radius: 9px; border: 0;
+  background: var(--sign); color: var(--paper); font-family: var(--f-ui); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums;
+}
+.up button:disabled { background: var(--paper-line); color: var(--ink-soft); cursor: default; }
+.linkish { background: none; border: 0; color: var(--ink-soft); font-family: var(--f-ui); font-size: 12px; text-decoration: underline; align-self: center; padding: 4px; }
+.k #day-lbl { color: var(--lamp); }
 </style>
 
 <div id="app">
   <header>
-    <div class="sign">阿師快炒</div>
+    <div class="sign" id="sign">阿師快炒</div>
     <div class="hud">
-      <div class="k"><span>時間</span><b id="clock">17:00</b></div>
-      <div class="k"><span>收入</span><b id="money">$0</b></div>
+      <div class="k"><span id="day-lbl">第 1 天</span><b id="clock">17:00</b></div>
+      <div class="k"><span>今天收入</span><b id="money">$0</b></div>
       <div class="k"><span>口碑</span><b id="hearts">♥♥♥</b></div>
       <button class="icon-btn" id="mute" type="button" aria-label="關閉聲音">♪</button>
       <button class="icon-btn" id="pause" type="button" aria-label="暫停">❚❚</button>
@@ -258,10 +288,14 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
       <button type="button" data-f="1">小</button>
       <button type="button" data-f="0">關</button>
     </div>
-    <div class="hint" id="hint">在鍋子上往上滑＝甩鍋</div>
+    <div class="hint" id="hint">往上滑＝甩鍋・按住拖＝鍋鏟翻炒</div>
     <div class="pops" id="pops"></div>
     <div class="acts">
       <button type="button" id="dump">倒掉</button>
+      <div class="stations" id="stations" hidden>
+        <button type="button" data-s="0" class="on">1號爐<i></i></button>
+        <button type="button" data-s="1">2號爐<i></i></button>
+      </div>
       <button type="button" id="serve">出菜！<small id="serve-to">先選一張單</small></button>
     </div>
   </div>
@@ -277,16 +311,20 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
 
   <div class="screen" id="scr-start">
     <div class="board">
-      <div class="sign">阿師快炒</div>
+      <div class="sign" id="sign-start">阿師快炒</div>
       <h2>晚上五點開店，客人會一直點菜。</h2>
       <ol>
-        <li>看上面的點菜單，點一下選你要炒的那張。</li>
-        <li>開火、下油，照單把料和調味下鍋（紅點＝還缺的）。</li>
-        <li>在鍋子上往上滑甩鍋，炒熟、拌勻，大火甩出鍋氣。</li>
+        <li>點一張點菜單，選你要炒的那道。</li>
+        <li>開火、下油，照單下料和調味（紅點＝還缺的）。</li>
+        <li>往上滑甩鍋，按住拖曳用鍋鏟翻炒。炒熟、拌勻，大火甩出鍋氣。</li>
         <li>按「出菜」。等太久或太難吃，口碑會掉。</li>
       </ol>
-      <div class="menu">今晚菜單：蛋炒飯・炒高麗菜・蝦仁炒蛋・沙茶牛肉・宮保雞丁・三杯雞</div>
-      <button type="button" class="big" id="btn-start">開店</button>
+      <div class="menu">菜單：蛋炒飯・炒高麗菜・蝦仁炒蛋・沙茶牛肉・宮保雞丁・三杯雞</div>
+      <div class="bankline"><span id="start-day">第 1 天</span><span>存款 <b id="start-bank">$0</b></span></div>
+      <div class="row2">
+        <button type="button" class="big alt" id="btn-shop1">升級店面</button>
+        <button type="button" class="big" id="btn-start">開店</button>
+      </div>
       <div class="best" id="best-start"></div>
     </div>
   </div>
@@ -296,14 +334,31 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
       <div class="sign">打烊</div>
       <h2 id="end-title">今天辛苦了！</h2>
       <div class="stats">
-        <div><span>收入</span><b id="e-money">$0</b></div>
+        <div><span>今天收入</span><b id="e-money">$0</b></div>
         <div><span>出菜</span><b id="e-served">0 道</b></div>
         <div><span>平均評價</span><b id="e-avg">—</b></div>
         <div><span>跑掉的客人</span><b id="e-missed">0 桌</b></div>
       </div>
       <p id="end-note"></p>
-      <button type="button" class="big" id="btn-again">明天再開店</button>
+      <div class="bankline"><span>存款</span><b id="end-bank">$0</b></div>
+      <div class="row2">
+        <button type="button" class="big alt" id="btn-shop2">去升級</button>
+        <button type="button" class="big" id="btn-again">明天再開店</button>
+      </div>
       <div class="best" id="best-end"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="scr-shop" hidden>
+    <div class="board shop">
+      <h2>升級店面</h2>
+      <div class="bankline"><span>存款（每天打烊會存進來）</span><b id="shop-bank">$0</b></div>
+      <div class="shop-list" id="shop-list"></div>
+      <div class="row2">
+        <button type="button" class="big alt" id="btn-shop-back">返回</button>
+        <button type="button" class="big" id="btn-shop-open">開店</button>
+      </div>
+      <button type="button" class="linkish" id="btn-reset">清除存檔，從第 1 天重來</button>
     </div>
   </div>
 
@@ -372,7 +427,43 @@ const DISHES = [
   { name: '三杯雞',   price: 220, oil: 'sesame', items: ['ginger', 'garlic', 'chicken', 'basil'], sauces: ['soy', 'wine', 'sugar'],  unlock: 100, w: 2 },
 ];
 const DAY_LEN = 210;          // seconds of real time for 17:00 → 22:00
-const FIRE_T = [25, 170, 235, 300];
+
+// ======================= save & upgrades =======================
+const WOKS = [
+  { name: '老鐵鍋',       desc: '開店就有的鍋，夠用。',                   price: 0,    heat: 1,   burn: 1,   cook: 1,    wh: 1,    tint: 0xffffff, rim: 0x6a625b },
+  { name: '精鋼炒鍋',     desc: '熱得快，比較不容易焦。',                 price: 500,  heat: 1.4, burn: .75, cook: 1.1,  wh: 1.15, tint: 0xdfe4ea, rim: 0xa7b0b8 },
+  { name: '碳鋼老師傅鍋', desc: '熱得更快、熟得更快，鍋氣更旺。',         price: 1200, heat: 1.8, burn: .55, cook: 1.22, wh: 1.35, tint: 0x8d97ad, rim: 0x3d4352 },
+  { name: '名家手打鍋',   desc: '一甩就是鍋氣，幾乎不黏、不焦。',         price: 2800, heat: 2.3, burn: .4,  cook: 1.35, wh: 1.6,  tint: 0xe2bb8e, rim: 0xb87333 },
+];
+const UPS = [
+  { id: 'burner2', name: '第二口爐', desc: '多一口鍋，兩道菜同時炒。用下面的「1號爐／2號爐」切換，沒在看的鍋也會繼續熱。', price: [1500] },
+  { id: 'stove',   name: '猛火爐頭', desc: '大火衝到 340°C，中火也更旺，鍋氣更好甩。', price: [900] },
+  { id: 'ac',      name: '裝冷氣',   desc: '店裡涼快，客人願意多等 25%。', price: [600] },
+  { id: 'tables',  name: '加桌子',   desc: '客人來得更快，可以同時接更多單。', price: [800, 1600] },
+  { id: 'sign',    name: '換招牌',   desc: '店變有名，每道菜價錢提高 15%。', price: [700, 1800] },
+];
+const SIGNS = ['阿師快炒', '阿師熱炒', '阿師熱炒總店'];
+const SAVE_KEY = 'kuaichao-save-v2';
+function defaultSave() { return { day: 1, bank: 0, best: null, up: { wok: 0, burner2: 0, stove: 0, ac: 0, tables: 0, sign: 0 } }; }
+function loadSave() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (s && s.up) { const d = defaultSave(); return Object.assign(d, s, { up: Object.assign(d.up, s.up) }); }
+  } catch (e) {}
+  return defaultSave();
+}
+function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+let save = loadSave();
+function perks() {
+  const u = save.up, w = WOKS[u.wok];
+  return {
+    heat: w.heat, burn: w.burn, cook: w.cook, wh: w.wh,
+    fireT: u.stove ? [25, 180, 250, 340] : [25, 170, 235, 300],
+    woks: u.burner2 ? 2 : 1, patience: u.ac ? 1.25 : 1,
+    orderGap: [1, .85, .72][u.tables], maxTickets: 5 + u.tables, price: 1 + .15 * u.sign,
+  };
+}
+let P = perks();
 
 // ======================= three.js scene =======================
 const stageEl = $('#stage'), canvas = $('#gl');
@@ -386,6 +477,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 60);
 const CAM_DIR = new THREE.Vector3(0, 6.6, 4.4).normalize();
 const LOOK = new THREE.Vector3(0, 0.2, 0.15);
+let camX = 0, camDist = 8;
 
 function makeEnv() {
   const s = new THREE.Scene();
@@ -412,20 +504,14 @@ function makeEnv() {
   return tex;
 }
 scene.environment = makeEnv();
-
 scene.add(new THREE.HemisphereLight(col(0xffe8cc), col(0x2a1a10), 0.55));
-const key = new THREE.DirectionalLight(col(0xfff0dc), 1.5);
-key.position.set(-2.5, 7, 3.5); scene.add(key);
-const fireLight = new THREE.PointLight(col(0xff7a2a), 0, 7, 2);
-fireLight.position.set(0, -0.4, 0); scene.add(fireLight);
-const flareLight = new THREE.PointLight(col(0xffa040), 0, 9, 2);
-flareLight.position.set(0, 1.6, 0); scene.add(flareLight);
+const keyLight = new THREE.DirectionalLight(col(0xfff0dc), 1.5);
+keyLight.position.set(-2.5, 7, 3.5); scene.add(keyLight); scene.add(keyLight.target);
 
-// ---- wok: a spherical bowl centered at (0, R, 0), cut at the rim radius ----
+// ---- shared geometry for the wok and stove ----
 const R = 3.0, RIM = 2.15, RIMY = R - Math.sqrt(R * R - RIM * RIM), STOVE_Y = -1.05;
-const wok = new THREE.Group(); scene.add(wok);
 const TMAX = Math.asin(RIM / R);
-{
+const WOK_GEO = (() => {
   const prof = [], R2 = R + 0.05;
   for (let i = 0; i <= 28; i++) { const t = TMAX * i / 28; prof.push(new THREE.Vector2(R * Math.sin(t) + 1e-4, R - R * Math.cos(t))); }
   for (let i = 28; i >= 0; i--) { const t = TMAX * i / 28; prof.push(new THREE.Vector2(R2 * Math.sin(t) + 1e-4, R - R2 * Math.cos(t))); }
@@ -437,39 +523,26 @@ const TMAX = Math.asin(RIM / R);
     tmp.copy(deep).lerp(steel, Math.pow(r, 1.6)); cs.push(tmp.r, tmp.g, tmp.b);
   }
   g.setAttribute('color', new THREE.Float32BufferAttribute(cs, 3));
-  var wokMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: .85, roughness: .36, envMapIntensity: 1.1, side: THREE.DoubleSide });
-  wok.add(new THREE.Mesh(g, wokMat));
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM + 0.02, 0.05, 8, 72), new THREE.MeshStandardMaterial({ color: col(0x6a625b), metalness: .9, roughness: .3 }));
-  rim.rotation.x = PI / 2; rim.position.y = RIMY; wok.add(rim);
-  // handle toward the cook (bottom right of the screen)
-  const dir = new THREE.Vector3(0.62, 0, 0.78).normalize();
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.9, 10), rim.material);
-  neck.position.copy(dir.clone().multiplyScalar(RIM + 0.4)).setY(RIMY - 0.05);
-  neck.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().add(new THREE.Vector3(0, .12, 0)).normalize());
-  wok.add(neck);
-  const wood = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 2.4, 14), new THREE.MeshStandardMaterial({ color: col(0x5b2f1a), roughness: .6 }));
-  wood.position.copy(dir.clone().multiplyScalar(RIM + 2.0)).setY(RIMY + 0.12);
-  wood.quaternion.copy(neck.quaternion); wok.add(wood);
-  const ear = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.04, 6, 16, PI), rim.material);
-  ear.position.copy(dir.clone().multiplyScalar(-(RIM + 0.05))).setY(RIMY);
-  ear.lookAt(0, RIMY, 0); ear.rotateX(PI / 2); wok.add(ear);
-}
-// oil puddle on the wok bottom
-const oilMat = new THREE.MeshStandardMaterial({ color: col(0xe6b52e), transparent: true, opacity: 0, roughness: .05, metalness: 0, envMapIntensity: 1.6, depthWrite: false });
-{
+  return g;
+})();
+const OIL_GEO = (() => {
   const prof = [], tm = Math.asin(1.05 / R);
   for (let i = 0; i <= 10; i++) { const t = tm * i / 10; prof.push(new THREE.Vector2((R - .012) * Math.sin(t) + 1e-4, R - (R - .012) * Math.cos(t))); }
-  const m = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), oilMat); m.renderOrder = 1; wok.add(m);
-}
-// stove
+  return new THREE.LatheGeometry(prof, 40);
+})();
+const RIM_GEO = new THREE.TorusGeometry(RIM + 0.02, 0.05, 8, 72);
+const NECK_GEO = new THREE.CylinderGeometry(0.07, 0.09, 0.9, 10);
+const WOOD_GEO = new THREE.CylinderGeometry(0.11, 0.13, 2.4, 14);
+const EAR_GEO = new THREE.TorusGeometry(0.22, 0.04, 6, 16, PI);
+const WOOD_MAT = new THREE.MeshStandardMaterial({ color: col(0x5b2f1a), roughness: .6 });
+const STEEL_MAT = new THREE.MeshStandardMaterial({ color: col(0x2c2724), metalness: .7, roughness: .45 });
+const RING_GEO = new THREE.CylinderGeometry(1.45, 1.7, 0.55, 40, 1, true);
+const RING_MAT = new THREE.MeshStandardMaterial({ color: col(0x151212), metalness: .5, roughness: .6, side: THREE.DoubleSide });
+const BURNER_GEO = new THREE.TorusGeometry(0.7, 0.09, 8, 32);
+const BURNER_MAT = new THREE.MeshStandardMaterial({ color: col(0x0d0b0b), roughness: .8 });
 {
-  const steel = new THREE.MeshStandardMaterial({ color: col(0x2c2724), metalness: .7, roughness: .45 });
-  const top = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), steel);
-  top.rotation.x = -PI / 2; top.position.y = STOVE_Y; scene.add(top);
-  const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.7, 0.55, 40, 1, true), new THREE.MeshStandardMaterial({ color: col(0x151212), metalness: .5, roughness: .6, side: THREE.DoubleSide }));
-  ring.position.y = STOVE_Y + 0.27; scene.add(ring);
-  const burner = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.09, 8, 32), new THREE.MeshStandardMaterial({ color: col(0x0d0b0b), roughness: .8 }));
-  burner.rotation.x = PI / 2; burner.position.y = STOVE_Y + 0.12; scene.add(burner);
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(40, 12), STEEL_MAT);
+  top.rotation.x = -PI / 2; top.position.set(4, STOVE_Y, 0); scene.add(top);
 }
 
 // ---- particle FX (flames, flare, steam, pouring sauce, specks) ----
@@ -483,7 +556,7 @@ function softTex(inner) {
 const TEX_SOFT = softTex(.35), TEX_DOT = softTex(.75);
 class FX {
   constructor(max, o) {
-    this.max = max; this.i = 0; this.o = o;
+    this.max = max; this.i = 0; this.o = o; this.alive = 0;
     this.pos = new Float32Array(max * 3).fill(-999); this.vel = new Float32Array(max * 3);
     this.col = new Float32Array(max * 3); this.base = new Float32Array(max * 3);
     this.life = new Float32Array(max); this.ml = new Float32Array(max);
@@ -493,10 +566,10 @@ class FX {
     this.geo = g;
     this.pts = new THREE.Points(g, new THREE.PointsMaterial({
       size: o.size, map: o.tex, vertexColors: true, transparent: true, depthWrite: false,
-      blending: o.add ? THREE.AdditiveBlending : THREE.NormalBlending, opacity: o.opacity == null ? 1 : o.opacity,
+      blending: o.add ? THREE.AdditiveBlending : THREE.NormalBlending,
     }));
     this.pts.frustumCulled = false; this.pts.renderOrder = 2;
-    (o.parent || scene).add(this.pts);
+    o.parent.add(this.pts);
   }
   emit(x, y, z, vx, vy, vz, life, c) {
     const i = this.i, k = i * 3; this.i = (i + 1) % this.max;
@@ -504,60 +577,39 @@ class FX {
     this.vel[k] = vx; this.vel[k + 1] = vy; this.vel[k + 2] = vz;
     this.base[k] = c.r; this.base[k + 1] = c.g; this.base[k + 2] = c.b;
     this.life[i] = this.ml[i] = life;
+    this.alive = 1;
   }
   update(dt) {
-    const o = this.o;
+    if (!this.alive) return;
+    const o = this.o; let any = 0;
     for (let i = 0; i < this.max; i++) {
       if (this.life[i] <= 0) continue;
       const k = i * 3;
       this.life[i] -= dt;
       if (this.life[i] <= 0) { this.pos[k + 1] = -999; this.col[k] = this.col[k + 1] = this.col[k + 2] = 0; continue; }
+      any = 1;
       this.vel[k + 1] += (o.g || 0) * dt;
       const dr = Math.max(0, 1 - (o.drag || 0) * dt);
       this.vel[k] *= dr; this.vel[k + 1] *= dr; this.vel[k + 2] *= dr;
       this.pos[k] += this.vel[k] * dt; this.pos[k + 1] += this.vel[k + 1] * dt; this.pos[k + 2] += this.vel[k + 2] * dt;
       if (o.hug) o.hug(this.pos, this.vel, k);
-      const t = this.life[i] / this.ml[i];
-      const f = o.fade ? o.fade(t, this.base, this.col, k) : null;
-      if (f == null && !o.fade) { this.col[k] = this.base[k]; this.col[k + 1] = this.base[k + 1]; this.col[k + 2] = this.base[k + 2]; }
+      if (o.fade) o.fade(this.life[i] / this.ml[i], this.base, this.col, k);
+      else { this.col[k] = this.base[k]; this.col[k + 1] = this.base[k + 1]; this.col[k + 2] = this.base[k + 2]; }
       if (o.floor != null && this.pos[k + 1] < o.floor) this.life[i] = 0.0001;
     }
+    this.alive = any;
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.color.needsUpdate = true;
   }
 }
-const _wp = new THREE.Vector3();
-// flames slide along the underside of the wok and lick up around the rim
-function hugWok(p, v, k) {
-  const x = p[k] - wok.position.x, y = p[k + 1] - wok.position.y, z = p[k + 2] - wok.position.z;
-  const dy = y - R, d = Math.sqrt(x * x + dy * dy + z * z), lim = R + 0.09;
-  if (d < lim && y < RIMY + 0.05) {
-    const nx = x / d, ny = dy / d, nz = z / d;
-    p[k] = wok.position.x + nx * lim; p[k + 1] = wok.position.y + R + ny * lim; p[k + 2] = wok.position.z + nz * lim;
-    const vn = v[k] * nx + v[k + 1] * ny + v[k + 2] * nz;
-    if (vn < 0) { v[k] -= nx * vn; v[k + 1] -= ny * vn; v[k + 2] -= nz * vn; }
-    const r = Math.hypot(x, z) || 1;
-    v[k] += x / r * 0.6; v[k + 2] += z / r * 0.6;
-  }
-}
 const C_BLUE = new THREE.Color(0.12, 0.22, 0.9), C_FIRE = new THREE.Color(1.0, 0.42, 0.08);
-const flames = new FX(700, {
-  size: 0.55, tex: TEX_SOFT, add: true, g: 1.5, drag: 0.6, hug: hugWok,
-  fade: (t, b, c, k) => {
-    const blue = clamp((t - 0.72) / 0.28, 0, 1), a = Math.min(1, t * 1.6) * 0.9;
-    c[k] = lerp(C_FIRE.r, C_BLUE.r, blue) * a; c[k + 1] = lerp(C_FIRE.g, C_BLUE.g, blue) * a; c[k + 2] = lerp(C_FIRE.b, C_BLUE.b, blue) * a;
-  },
-});
-const flare = new FX(500, {
-  size: 0.85, tex: TEX_SOFT, add: true, g: 3, drag: 1.2,
-  fade: (t, b, c, k) => { const a = t * t * 1.1; c[k] = b[k] * a; c[k + 1] = b[k + 1] * a; c[k + 2] = b[k + 2] * a; },
-});
-const steam = new FX(220, {
-  size: 1.3, tex: TEX_SOFT, add: true, g: 0.6, drag: 0.8,
-  fade: (t, b, c, k) => { const a = Math.sin(t * PI) * 0.16; c[k] = b[k] * a; c[k + 1] = b[k + 1] * a; c[k + 2] = b[k + 2] * a; },
-});
-const pourFx = new FX(400, { size: 0.09, tex: TEX_DOT, add: false, g: -14, parent: wok, floor: 0.05 });
-const specks = new FX(300, { size: 0.05, tex: TEX_DOT, add: false, g: -12, parent: wok, floor: 0.04 });
+const FADE_FLAME = (t, b, c, k) => {
+  const blue = clamp((t - 0.72) / 0.28, 0, 1), a = Math.min(1, t * 1.6) * 0.9;
+  c[k] = lerp(C_FIRE.r, C_BLUE.r, blue) * a; c[k + 1] = lerp(C_FIRE.g, C_BLUE.g, blue) * a; c[k + 2] = lerp(C_FIRE.b, C_BLUE.b, blue) * a;
+};
+const FADE_FLARE = (t, b, c, k) => { const a = t * t * 1.1; c[k] = b[k] * a; c[k + 1] = b[k + 1] * a; c[k + 2] = b[k + 2] * a; };
+const FADE_STEAM = (t, b, c, k) => { const a = Math.sin(t * PI) * 0.16; c[k] = b[k] * a; c[k + 1] = b[k + 1] * a; c[k + 2] = b[k + 2] * a; };
+const STEAM_C = new THREE.Color(1, .95, .9);
 
 // ---- food pieces ----
 function hash3(x, y, z) { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); }
@@ -605,7 +657,6 @@ const BURN_C = col(0x1b0e07);
 const SI = Object.fromEntries(SEAS_KEYS.map((s, i) => [s, i]));
 
 const GN = 28, CELL = 2 * RIM / GN, PILE = 0.017, GRAV = -16, FRIC = 5, SPREAD = 16;
-const hgt = new Float32Array(GN * GN), hacc = new Float32Array(GN * GN);
 function cellOf(x, z) {
   const i = Math.floor((x + RIM) / CELL), j = Math.floor((z + RIM) / CELL);
   return (i < 0 || j < 0 || i >= GN || j >= GN) ? -1 : j * GN + i;
@@ -613,8 +664,8 @@ function cellOf(x, z) {
 const dummy = new THREE.Object3D(), tmpC = new THREE.Color();
 
 class Food {
-  constructor(key) {
-    const d = ING[key]; this.key = key; this.d = d; const max = d.max; this.max = max; this.n = 0;
+  constructor(key, S) {
+    const d = ING[key]; this.key = key; this.d = d; this.S = S; const max = d.max; this.max = max; this.n = 0;
     this.mesh = new THREE.InstancedMesh(d.geo3, d.mat, max);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.setColorAt(0, new THREE.Color(1, 1, 1));
@@ -625,7 +676,7 @@ class Food {
     this.st = new Uint8Array(max);   // 0 in the wok, 1 flew out and falling, 2 lying on the stove
     this.on = new Uint8Array(max);   // touching the wok (or the pile) this frame
     this.coat = new Uint8Array(max * NS);
-    wok.add(this.mesh);
+    S.wok.add(this.mesh);
   }
   reset() { this.n = 0; this.mesh.count = 0; this.coat.fill(0); }
   spawn(cnt, cx, cz) {
@@ -648,7 +699,8 @@ class Food {
   }
   step(dt, heat, dryK) {
     const d = this.d, p = this.p, v = this.v, r = this.r, w = this.w, n = this.n, rad = d.rad;
-    const T = W.T;
+    const S = this.S, W = S.W, T = W.T, hgt = S.hgt, hacc = S.hacc;
+    const cookK = d.cs * heat * dt * 0.12 * P.cook, burnK = (T - 215) / 85 * d.bk * dt * 0.1 * dryK * P.burn;
     for (let i = 0; i < n; i++) {
       const k = i * 3, st = this.st[i];
       if (st === 2) continue;
@@ -694,10 +746,8 @@ class Food {
       // cooking: the bottom of the pile touches hot steel, the top barely cooks
       if (heat > 0) {
         const contact = this.on[i] ? (this.layer[i] < 0.35 ? 1 : 0.25) : 0.05;
-        this.cook[i] += d.cs * heat * contact * dt * 0.12;
-        if (this.on[i] && this.layer[i] < 0.3 && T > 215) {
-          this.burn[i] += (T - 215) / 85 * d.bk * dt * 0.1 * dryK * (this.cook[i] > 0.8 ? 1 : 0.3);
-        }
+        this.cook[i] += cookK * contact;
+        if (this.on[i] && this.layer[i] < 0.3 && T > 215) this.burn[i] += burnK * (this.cook[i] > 0.8 ? 1 : 0.3);
       }
     }
   }
@@ -725,18 +775,111 @@ class Food {
     if (paint && this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
   }
 }
-const FOODS = Object.fromEntries(FOOD_KEYS.map((k) => [k, new Food(k)]));
+
+// ======================= stations (one wok + one burner each) =======================
+const STATION_X = [0, 8.5];
+class Station {
+  constructor(idx) {
+    this.idx = idx; this.x = STATION_X[idx]; this.fire = 2;
+    const root = this.root = new THREE.Group(); root.position.x = this.x; scene.add(root);
+    const wok = this.wok = new THREE.Group(); root.add(wok);
+    this.wokMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: .85, roughness: .36, envMapIntensity: 1.1, side: THREE.DoubleSide });
+    this.rimMat = new THREE.MeshStandardMaterial({ color: col(0x6a625b), metalness: .9, roughness: .3 });
+    wok.add(new THREE.Mesh(WOK_GEO, this.wokMat));
+    const rim = new THREE.Mesh(RIM_GEO, this.rimMat); rim.rotation.x = PI / 2; rim.position.y = RIMY; wok.add(rim);
+    const dir = new THREE.Vector3(0.62, 0, 0.78).normalize();   // handle toward the cook
+    const neck = new THREE.Mesh(NECK_GEO, this.rimMat);
+    neck.position.copy(dir.clone().multiplyScalar(RIM + 0.4)).setY(RIMY - 0.05);
+    neck.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().add(new THREE.Vector3(0, .12, 0)).normalize());
+    wok.add(neck);
+    const wood = new THREE.Mesh(WOOD_GEO, WOOD_MAT);
+    wood.position.copy(dir.clone().multiplyScalar(RIM + 2.0)).setY(RIMY + 0.12);
+    wood.quaternion.copy(neck.quaternion); wok.add(wood);
+    const ear = new THREE.Mesh(EAR_GEO, this.rimMat);
+    ear.position.copy(dir.clone().multiplyScalar(-(RIM + 0.05))).setY(RIMY);
+    ear.lookAt(0, RIMY, 0); ear.rotateX(PI / 2); wok.add(ear);
+    this.oilMat = new THREE.MeshStandardMaterial({ color: col(0xe6b52e), transparent: true, opacity: 0, roughness: .05, metalness: 0, envMapIntensity: 1.6, depthWrite: false });
+    const oil = new THREE.Mesh(OIL_GEO, this.oilMat); oil.renderOrder = 1; wok.add(oil);
+    const ring = new THREE.Mesh(RING_GEO, RING_MAT); ring.position.y = STOVE_Y + 0.27; root.add(ring);
+    const burner = new THREE.Mesh(BURNER_GEO, BURNER_MAT); burner.rotation.x = PI / 2; burner.position.y = STOVE_Y + 0.12; root.add(burner);
+    this.fireLight = new THREE.PointLight(col(0xff7a2a), 0, 7, 2); this.fireLight.position.set(0, -0.4, 0); root.add(this.fireLight);
+    this.flareLight = new THREE.PointLight(col(0xffa040), 0, 9, 2); this.flareLight.position.set(0, 1.6, 0); root.add(this.flareLight);
+    this.flames = new FX(700, { size: .55, tex: TEX_SOFT, add: true, g: 1.5, drag: .6, parent: root, fade: FADE_FLAME, hug: (p, v, k) => this.hug(p, v, k) });
+    this.flare = new FX(500, { size: .85, tex: TEX_SOFT, add: true, g: 3, drag: 1.2, parent: root, fade: FADE_FLARE });
+    this.steam = new FX(220, { size: 1.3, tex: TEX_SOFT, add: true, g: .6, drag: .8, parent: root, fade: FADE_STEAM });
+    this.pourFx = new FX(400, { size: .09, tex: TEX_DOT, g: -14, parent: wok, floor: .05 });
+    this.specks = new FX(300, { size: .05, tex: TEX_DOT, g: -12, parent: wok, floor: .04 });
+    this.hgt = new Float32Array(GN * GN); this.hacc = new Float32Array(GN * GN);
+    this.foods = Object.fromEntries(FOOD_KEYS.map((k) => [k, new Food(k, this)]));
+    this.W = { T: 25 };
+    this.reset();
+  }
+  reset() {
+    const T = this.W.T;
+    this.W = { T, oil: 0, oils: {}, adds: {}, sauces: {}, wh: 0, bao: false, hasMain: false, spilled: 0, lastToss: -9, tossAnim: -1, tossPow: 1, impulse: true, dryWarned: false, burnWarned: false, alert: '' };
+    for (const k of FOOD_KEYS) this.foods[k].reset();
+    this.hgt.fill(0);
+  }
+  count() { let n = 0; for (const k of FOOD_KEYS) n += this.foods[k].n; return n; }
+  // flames slide along the underside of the wok and lick up around the rim
+  hug(p, v, k) {
+    const wp = this.wok.position;
+    const x = p[k] - wp.x, y = p[k + 1] - wp.y, z = p[k + 2] - wp.z;
+    const dy = y - R, d = Math.sqrt(x * x + dy * dy + z * z), lim = R + 0.09;
+    if (d < lim && y < RIMY + 0.05) {
+      const nx = x / d, ny = dy / d, nz = z / d;
+      p[k] = wp.x + nx * lim; p[k + 1] = wp.y + R + ny * lim; p[k + 2] = wp.z + nz * lim;
+      const vn = v[k] * nx + v[k + 1] * ny + v[k + 2] * nz;
+      if (vn < 0) { v[k] -= nx * vn; v[k + 1] -= ny * vn; v[k + 2] -= nz * vn; }
+      const r = Math.hypot(x, z) || 1;
+      v[k] += x / r * 0.6; v[k + 2] += z / r * 0.6;
+    }
+  }
+  burstFlare(n, h) {
+    const wp = this.wok.position;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * PI * 2, r = Math.sqrt(Math.random()) * 1.3;
+      this.flare.emit(wp.x + Math.cos(a) * r, wp.y + 0.3 + Math.random() * .3, wp.z + Math.sin(a) * r,
+        gauss() * .8, rand(1.5, 3.5) * h, gauss() * .8, rand(.35, .7), new THREE.Color(1, rand(.45, .65), .15));
+    }
+    this.flareLight.intensity = Math.max(this.flareLight.intensity, 4 * h);
+  }
+  puff(n, spread, up) {
+    for (let i = 0; i < n; i++) this.steam.emit(rand(-spread, spread), .55, rand(-spread, spread), rand(-.25, .25), rand(.6, 1.2) * up, rand(-.25, .25), rand(1.2, 2.4), STEAM_C);
+  }
+}
+const ST = [new Station(0), new Station(1)];
+let cur = 0;
+const S = () => ST[cur];
+function owned(st) { return st.idx < P.woks; }
+function applyLooks() {
+  const w = WOKS[save.up.wok];
+  for (const st of ST) { st.wokMat.color.copy(col(w.tint)); st.rimMat.color.copy(col(w.rim)); }
+  const name = SIGNS[save.up.sign];
+  $('#sign').textContent = name; $('#sign-start').textContent = name;
+  $('#stations').hidden = P.woks < 2;
+  if (P.woks < 2 && cur !== 0) switchStation(0);
+}
+
+// ---- spatula: press and drag on the wok ----
+const spat = new THREE.Group();
+{
+  const metal = new THREE.MeshStandardMaterial({ color: col(0xa7a199), metalness: .9, roughness: .28 });
+  spat.add(new THREE.Mesh(bend(new THREE.BoxGeometry(0.62, 0.025, 0.5, 4, 1, 4), -0.12, 0), metal));
+  const ax = new THREE.Vector3(0, Math.cos(.95), Math.sin(.95));
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 1.4, 8), metal);
+  shaft.rotation.x = .95; shaft.position.set(0, 0, .25).addScaledVector(ax, .7); spat.add(shaft);
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(.055, .06, .9, 10), WOOD_MAT);
+  grip.rotation.x = .95; grip.position.set(0, 0, .25).addScaledVector(ax, 1.85); spat.add(grip);
+}
+const SP = { active: false, pos: new THREE.Vector3(1.45, .62, -.95), target: new THREE.Vector3(), prev: new THREE.Vector3(), vel: new THREE.Vector3(), scrapeT: 0 };
+const SP_REST_POS = new THREE.Vector3(1.45, .62, -.95), SP_REST_Q = new THREE.Quaternion().setFromEuler(new THREE.Euler(.5, -.7, .35));
+const UP = new THREE.Vector3(0, 1, 0), _n = new THREE.Vector3(), _q = new THREE.Quaternion();
+spat.position.copy(SP_REST_POS); spat.quaternion.copy(SP_REST_Q);
+ST[0].wok.add(spat);
 
 // ======================= game state =======================
-const G = { running: false, paused: false, t: 0, money: 0, hearts: 3, served: 0, starSum: 0, missed: 0, tickets: [], nextAt: 1, sel: null, seq: 0, ended: false, tossed: false };
-const W = {};
-function resetWok() {
-  Object.assign(W, { T: W.T == null ? 25 : W.T, oil: 0, oils: {}, adds: {}, sauces: {}, wh: 0, bao: false, hasMain: false, spilled: 0, lastToss: -9, tossAnim: -1, tossPow: 1, impulse: true, dryWarned: false, burnWarned: false });
-  for (const k of FOOD_KEYS) FOODS[k].reset();
-  hgt.fill(0);
-}
-let fire = 2;
-resetWok();
+const G = { running: false, paused: false, t: 0, day: 1, money: 0, hearts: 3, served: 0, starSum: 0, missed: 0, tickets: [], nextAt: 1, sel: null, seq: 0, tossed: false, shopFrom: 'start' };
 
 // ======================= audio =======================
 const AU = { ctx: null, muted: false, sizzle: null, master: null };
@@ -744,7 +887,7 @@ function initAudio() {
   if (AU.ctx) return;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination);
+    const master = ctx.createGain(); master.gain.value = AU.muted ? 0 : 0.7; master.connect(ctx.destination);
     const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), ch = buf.getChannelData(0);
     for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
     const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
@@ -776,19 +919,20 @@ const sfx = {
   cash() { tone(1568, 0.12, 'square', 0.06); tone(2093, 0.35, 'sine', 0.14, 0.08); },
   bad() { tone(196, 0.35, 'sawtooth', 0.07); tone(147, 0.45, 'sawtooth', 0.06, 0.12); },
   click() { tone(880, 0.05, 'triangle', 0.05); },
+  scrape() { whoosh(0.16, 3800, 0.07); tone(rand(1900, 2400), 0.05, 'triangle', 0.015); },
 };
 let sizzleBoost = 0;
 
 // ======================= ingredient icons =======================
 function renderThumb(key) {
-  const d = ING[key], S = new THREE.Scene();
-  S.environment = scene.environment;
-  S.add(new THREE.HemisphereLight(col(0xfff4e6), col(0x6b4a33), 0.9));
-  const dl = new THREE.DirectionalLight(col(0xffffff), 1.5); dl.position.set(-1, 3, 2); S.add(dl);
+  const d = ING[key], Sc = new THREE.Scene();
+  Sc.environment = scene.environment;
+  Sc.add(new THREE.HemisphereLight(col(0xfff4e6), col(0x6b4a33), 0.9));
+  const dl = new THREE.DirectionalLight(col(0xffffff), 1.5); dl.position.set(-1, 3, 2); Sc.add(dl);
   const plate = new THREE.Mesh(new THREE.CylinderGeometry(1, .82, .08, 40), new THREE.MeshStandardMaterial({ color: col(0xf6f3ec), roughness: .3 }));
-  S.add(plate);
+  Sc.add(plate);
   const rimM = new THREE.Mesh(new THREE.TorusGeometry(.96, .025, 6, 48), new THREE.MeshStandardMaterial({ color: col(0x2f5d9e), roughness: .4 }));
-  rimM.rotation.x = PI / 2; rimM.position.y = .045; S.add(rimM);
+  rimM.rotation.x = PI / 2; rimM.position.y = .045; Sc.add(rimM);
   const big = Math.max(...d.size), k = clamp(0.34 / big, 1.4, 4.2);
   const n = key === 'rice' ? 90 : key === 'scallion' || key === 'garlic' ? 26 : 9;
   const m = new THREE.InstancedMesh(d.geo3, d.mat, n), c = new THREE.Color();
@@ -799,15 +943,15 @@ function renderThumb(key) {
     const sc = k * rand(.85, 1.15); dummy.scale.set(d.size[0] * sc, d.size[1] * sc, d.size[2] * sc); dummy.updateMatrix();
     m.setMatrixAt(i, dummy.matrix); m.setColorAt(i, c.copy(d.rawC).multiplyScalar(rand(.9, 1.05)));
   }
-  S.add(m);
+  Sc.add(m);
   const cam = new THREE.PerspectiveCamera(30, 1, .1, 20); cam.position.set(0, 2.7, 2.4); cam.lookAt(0, 0.05, 0);
   const SZ = 128, rt = new THREE.WebGLRenderTarget(SZ, SZ);
   rt.texture.encoding = THREE.sRGBEncoding;
   const prevClear = renderer.getClearAlpha(), prevC = new THREE.Color(); renderer.getClearColor(prevC);
-  renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(S, cam);
+  renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(Sc, cam);
   const buf = new Uint8Array(SZ * SZ * 4); renderer.readRenderTargetPixels(rt, 0, 0, SZ, SZ, buf);
   renderer.setRenderTarget(null); renderer.setClearColor(prevC, prevClear);
-  rt.dispose(); m.dispose && m.dispose();
+  rt.dispose();
   const cv = document.createElement('canvas'); cv.width = cv.height = SZ;
   const g2 = cv.getContext('2d'), img = g2.createImageData(SZ, SZ);
   for (let y = 0; y < SZ; y++) img.data.set(buf.subarray((SZ - 1 - y) * SZ * 4, (SZ - y) * SZ * 4), y * SZ * 4);
@@ -824,11 +968,10 @@ function drawBottle(d) {
     g.font = `900 ${fs}px "Noto Sans TC", "PingFang TC", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(d.ch, x + w / 2, y + h / 2 + 1);
   };
-  g.lineJoin = 'round';
   switch (d.shape) {
     case 'tall':
       g.fillStyle = d.liquid; rrect(g, 44, 36, 40, 86, 10); g.fill(); g.fillRect(56, 14, 16, 26);
-      g.fillStyle = '#c8161d'; if (d.ch === '油') g.fillStyle = '#e8b21c'; rrect(g, 54, 4, 20, 13, 3); g.fill();
+      g.fillStyle = d.ch === '油' ? '#e8b21c' : '#c8161d'; rrect(g, 54, 4, 20, 13, 3); g.fill();
       gloss(44, 36, 40, 86); label(46, 62, 36, 34, 22); break;
     case 'small':
       g.fillStyle = d.liquid; rrect(g, 46, 50, 36, 72, 9); g.fill(); g.fillRect(58, 28, 12, 26);
@@ -848,7 +991,7 @@ function drawBottle(d) {
       g.fillStyle = '#d8d2c8'; g.beginPath(); g.ellipse(64, 44, 36, 9, 0, 0, PI * 2); g.fill();
       g.fillStyle = d.label; g.fillRect(28, 58, 72, 50);
       g.fillStyle = '#f2c230'; g.fillRect(28, 58, 72, 5); g.fillRect(28, 103, 72, 5);
-      g.fillStyle = '#f2c230'; g.font = '900 22px "Noto Sans TC", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(d.ch, 64, 84);
+      g.font = '900 22px "Noto Sans TC", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(d.ch, 64, 84);
       gloss(28, 44, 72, 76); break;
   }
   return c.toDataURL();
@@ -874,11 +1017,20 @@ document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('cli
   document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b));
   gridFood.hidden = b.dataset.tab !== 'food'; gridSeas.hidden = b.dataset.tab !== 'seas';
 }));
+function showFire() { document.querySelectorAll('#heat button').forEach((x) => x.classList.toggle('on', +x.dataset.f === S().fire)); }
 $('#heat').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
-  fire = +b.dataset.f; sfx.click();
-  document.querySelectorAll('#heat button').forEach((x) => x.classList.toggle('on', x === b));
+  S().fire = +b.dataset.f; sfx.click(); showFire();
 });
+function switchStation(i) {
+  if (i === cur || i >= P.woks) return;
+  if (SP.active) endStir();
+  cur = i;
+  S().wok.add(spat); spat.position.copy(SP_REST_POS); spat.quaternion.copy(SP_REST_Q); SP.pos.copy(SP_REST_POS);
+  document.querySelectorAll('#stations button').forEach((x) => x.classList.toggle('on', +x.dataset.s === cur));
+  showFire(); refreshNeeds(); sfx.click();
+}
+$('#stations').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) switchStation(+b.dataset.s); });
 
 function pop(text, cls) {
   const now = performance.now();
@@ -892,7 +1044,6 @@ function pop(text, cls) {
   $('#pops').appendChild(el);
   setTimeout(() => el.remove(), 1500);
 }
-
 const fmtMoney = (n) => '$' + Math.round(n).toLocaleString('en-US');
 function selTicket() { return G.tickets.find((t) => t.id === G.sel) || null; }
 function renderTickets() {
@@ -904,7 +1055,7 @@ function renderTickets() {
     b.type = 'button'; b.className = 'ticket' + (t.id === G.sel ? ' sel' : ''); b.dataset.id = t.id;
     const its = [d.oil, ...d.items].map((k) => `<li data-k="${k}">${(ING[k] || OILS[k]).name}</li>`).join('');
     const ss = d.sauces.map((k) => `<li class="s" data-k="${k}">${SEAS[k].name}</li>`).join('');
-    b.innerHTML = `<div class="t-head"><span>${t.table} 桌</span><em>$${d.price}</em></div><div class="t-dish">${d.name}</div><ul class="t-list">${its}${ss}</ul><div class="t-bar"><i></i></div>`;
+    b.innerHTML = `<div class="t-head"><span>${t.table} 桌</span><em>$${t.price}</em></div><div class="t-dish">${d.name}</div><ul class="t-list">${its}${ss}</ul><div class="t-bar"><i></i></div>`;
     b.addEventListener('click', () => { G.sel = t.id; sfx.click(); renderTickets(); });
     t.el = b; t.bar = b.querySelector('.t-bar i');
     rail.appendChild(b);
@@ -922,109 +1073,92 @@ function updateTicketBars() {
   }
 }
 function refreshNeeds() {
-  const t = selTicket();
+  const t = selTicket(), W = S().W;
   const need = new Set();
   if (t) { need.add(t.dish.oil); t.dish.items.forEach((k) => need.add(k)); t.dish.sauces.forEach((k) => need.add(k)); }
+  const have = (k) => (W.adds[k] || 0) + (W.oils[k] || 0) + (W.sauces[k] || 0);
   let nf = false, ns = false;
   for (const k in btns) {
-    const have = (W.adds[k] || 0) + (W.oils[k] || 0) + (W.sauces[k] || 0);
-    const missing = need.has(k) && !have;
+    const h = have(k), missing = need.has(k) && !h;
     btns[k].need.hidden = !missing;
-    btns[k].cnt.textContent = have ? '×' + have : '';
+    btns[k].cnt.textContent = h ? '×' + h : '';
     if (missing) { if (ING[k]) nf = true; else ns = true; }
   }
   $('#dot-food').hidden = !nf; $('#dot-seas').hidden = !ns;
-  if (t && t.el) t.el.querySelectorAll('li').forEach((li) => {
-    const k = li.dataset.k;
-    li.classList.toggle('ok', !!((W.adds[k] || 0) + (W.oils[k] || 0) + (W.sauces[k] || 0)));
-  });
+  if (t && t.el) t.el.querySelectorAll('li').forEach((li) => li.classList.toggle('ok', !!have(li.dataset.k)));
   $('#serve-to').textContent = t ? `給 ${t.table} 桌・${t.dish.name}` : (G.tickets.length ? '先選一張單' : '等客人點菜');
 }
 function refreshHud() {
   const total = 5 * 60, m = Math.min(total, Math.floor(G.t / DAY_LEN * total));
   $('#clock').textContent = `${17 + Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+  $('#day-lbl').textContent = `第 ${G.day} 天`;
   $('#money').textContent = fmtMoney(G.money);
   $('#hearts').textContent = '♥'.repeat(Math.max(0, G.hearts)) + '♡'.repeat(Math.max(0, 3 - G.hearts));
 }
 
-// ======================= cooking actions =======================
+// ======================= cooking actions (always on the station you are looking at) =======================
 function addFood(k) {
-  const d = ING[k];
+  const st = S(), W = st.W, d = ING[k];
   W.adds[k] = (W.adds[k] || 0) + 1;
-  FOODS[k].spawn(d.n, rand(-.35, .35), rand(-.35, .35));
+  st.foods[k].spawn(d.n, rand(-.35, .35), rand(-.35, .35));
   W.T = Math.max(25, W.T - d.chill);
   sizzleBoost = Math.min(1, sizzleBoost + .6);
   sfx.drop();
   if (d.aroma && W.oil > 0.2 && W.T > 160 && !W.hasMain) { if (!W.bao) pop('爆香！', 'hot'); W.bao = true; }
   else if (d.main && W.oil <= 0.2 && !W.oils.oil && !W.oils.sesame) pop('還沒下油喔', 'bad');
   if (d.main) W.hasMain = true;
-  for (let i = 0; i < 10; i++) steam.emit(rand(-.5, .5), 0.6, rand(-.5, .5), rand(-.2, .2), rand(.6, 1.2), rand(-.2, .2), rand(1.2, 2), new THREE.Color(1, .95, .9));
+  st.puff(10, .5, 1);
   refreshNeeds();
 }
-function pour(colorHex, n, dry) {
-  const c = col(colorHex);
-  const fx = dry ? specks : pourFx;
+function pour(st, colorHex, n, dry) {
+  const c = col(colorHex), fx = dry ? st.specks : st.pourFx;
   const sx = rand(.3, .7), sz = rand(-.5, -.1);
   for (let i = 0; i < n; i++) {
-    const delay = Math.random() * 0.35;
     setTimeout(() => {
       if (dry) fx.emit(sx + gauss() * .25, 2.2, sz + gauss() * .25, gauss() * .6, -1, gauss() * .6, 1.2, c);
       else fx.emit(sx + gauss() * .04, 2.3, sz + gauss() * .04, -sx * .9 + gauss() * .2, -1.5, -sz * .9 + gauss() * .2, 1.2, c);
-    }, delay * 1000);
+    }, Math.random() * 350);
   }
 }
 function addOil(k) {
-  const d = OILS[k];
-  W.oils[k] = (W.oils[k] || 0) + 1; W.oil += 1; W.oilKind = k;
-  oilMat.color.copy(col(d.c));
+  const st = S(), W = st.W, d = OILS[k];
+  W.oils[k] = (W.oils[k] || 0) + 1; W.oil += 1;
+  st.oilMat.color.copy(col(d.c));
   W.T = Math.max(25, W.T - 4);
-  pour(d.c, 80, false);
+  pour(st, d.c, 80, false);
   sizzleBoost = Math.min(1, sizzleBoost + .4);
   whoosh(0.6, 2600, 0.3);
   refreshNeeds();
 }
-function coat(si, frac) {
+function coat(st, si, frac) {
   for (const k of FOOD_KEYS) {
-    const f = FOODS[k];
+    const f = st.foods[k];
     for (let i = 0; i < f.n; i++) if (f.st[i] === 0 && Math.random() < frac) f.coat[i * NS + si] = 1;
   }
 }
 function addSeas(k) {
-  const d = SEAS[k];
+  const st = S(), W = st.W, d = SEAS[k];
   W.sauces[k] = (W.sauces[k] || 0) + 1;
-  pour(d.c, d.kind === 'dry' ? 60 : 90, d.kind === 'dry');
-  if (d.kind !== 'dry') {
-    W.T = Math.max(25, W.T - 8); sizzleBoost = 1; whoosh(0.8, 2200, 0.45);
-    for (let i = 0; i < 24; i++) steam.emit(rand(-.8, .8), 0.5, rand(-.8, .8), rand(-.3, .3), rand(.8, 1.6), rand(-.3, .3), rand(1.4, 2.4), new THREE.Color(1, .95, .9));
-  } else sfx.click();
-  setTimeout(() => coat(SI[k], 0.2), 400);
-  if (k === 'wine' && W.T > 200) {
-    W.wh += 0.6; pop('米酒嗆鍋！', 'hot');
-    burstFlare(160, 1.4);
-  }
+  pour(st, d.c, d.kind === 'dry' ? 60 : 90, d.kind === 'dry');
+  if (d.kind !== 'dry') { W.T = Math.max(25, W.T - 8); sizzleBoost = 1; whoosh(0.8, 2200, 0.45); st.puff(24, .8, 1.3); }
+  else sfx.click();
+  setTimeout(() => coat(st, SI[k], 0.2), 400);
+  if (k === 'wine' && W.T > 200) { W.wh += 0.6 * P.wh; pop('米酒嗆鍋！', 'hot'); st.burstFlare(160, 1.4); }
   refreshNeeds();
 }
-function burstFlare(n, h) {
-  for (let i = 0; i < n; i++) {
-    const a = Math.random() * PI * 2, r = Math.sqrt(Math.random()) * 1.3;
-    flare.emit(wok.position.x + Math.cos(a) * r, wok.position.y + 0.3 + Math.random() * .3, wok.position.z + Math.sin(a) * r,
-      gauss() * .8, rand(1.5, 3.5) * h, gauss() * .8, rand(.35, .7), new THREE.Color(1, rand(.45, .65), .15));
-  }
-  flareLight.intensity = Math.max(flareLight.intensity, 4 * h);
-}
-function contentsCount() { let n = 0; for (const k of FOOD_KEYS) n += FOODS[k].n; return n; }
 function toss(power) {
   if (!G.running || G.paused) return;
+  const W = S().W;
   if (G.t - W.lastToss < 0.32) return;
   W.lastToss = G.t; W.tossAnim = 0; W.tossPow = power; W.impulse = false;
   sfx.toss();
   if (!G.tossed) { G.tossed = true; $('#hint').hidden = true; }
 }
-function applyToss(power) {
-  const up = 4.0 + power * 2.0, spread = 1.0 + Math.max(0, power - 1.15) * 5;
+function applyToss(st, power) {
+  const W = st.W, up = 4.0 + power * 2.0, spread = 1.0 + Math.max(0, power - 1.15) * 5;
   let moved = 0;
   for (const k of FOOD_KEYS) {
-    const f = FOODS[k], p = f.p, v = f.v, big = ING[k].size[0] > .2 ? 1.15 : 1;
+    const f = st.foods[k], p = f.p, v = f.v, big = ING[k].size[0] > .2 ? 1.15 : 1;
     for (let i = 0; i < f.n; i++) {
       if (f.st[i] !== 0 || p[i * 3 + 1] > RIMY) continue;
       const j = i * 3;
@@ -1035,17 +1169,90 @@ function applyToss(power) {
       f.layer[i] = Math.random(); f.on[i] = 0; moved++;
     }
   }
-  for (const s in W.sauces) coat(SI[s], 0.4);
+  for (const s in W.sauces) coat(st, SI[s], 0.4);
   if (moved && W.T > 230 && W.oil > 0.1) {
-    const gain = (W.T - 230) / 70 * power * 0.5;
+    const gain = (W.T - 230) / 70 * power * 0.5 * P.wh;
     W.wh += gain;
-    burstFlare(Math.round(30 + gain * 160), 0.8 + gain);
+    st.burstFlare(Math.round(30 + gain * 160), 0.8 + gain);
     if (gain > 0.25) pop('鍋氣！', 'hot');
   }
 }
 
+// ---- spatula input ----
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), inv = new THREE.Matrix4();
+const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _c = new THREE.Vector3(0, R, 0);
+function hitWok(cx, cy) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const st = S(); st.wok.updateMatrixWorld();
+  inv.copy(st.wok.matrixWorld).invert();
+  _o.copy(ray.ray.origin).applyMatrix4(inv); _d.copy(ray.ray.direction).transformDirection(inv);
+  const ocx = _o.x - _c.x, ocy = _o.y - _c.y, ocz = _o.z - _c.z, rr = R - 0.05;
+  const b = ocx * _d.x + ocy * _d.y + ocz * _d.z, c = ocx * ocx + ocy * ocy + ocz * ocz - rr * rr, disc = b * b - c;
+  if (disc < 0) return null;
+  const t = -b + Math.sqrt(disc), p = new THREE.Vector3().copy(_o).addScaledVector(_d, t);
+  const h = Math.hypot(p.x, p.z), lim = RIM * .9;
+  if (h > lim) { p.x *= lim / h; p.z *= lim / h; }
+  const h2 = p.x * p.x + p.z * p.z;
+  p.y = R - Math.sqrt(R * R - h2);
+  const cell = cellOf(p.x, p.z);
+  if (cell >= 0) p.y += st.hgt[cell] * PILE * .55;
+  return p;
+}
+function startStir(cx, cy) {
+  if (!G.running || G.paused) return;
+  const p = hitWok(cx, cy); if (!p) return;
+  SP.active = true; SP.target.copy(p); SP.prev.copy(p); SP.vel.set(0, 0, 0);
+  if (!G.tossed) { G.tossed = true; $('#hint').hidden = true; }
+}
+function moveStir(cx, cy) { const p = hitWok(cx, cy); if (p) SP.target.copy(p); }
+function endStir() { SP.active = false; }
+function updateSpatula(dt) {
+  const st = S();
+  if (SP.active) {
+    SP.pos.lerp(SP.target, Math.min(1, dt * 22));
+    const vx = (SP.pos.x - SP.prev.x) / dt, vz = (SP.pos.z - SP.prev.z) / dt;
+    SP.vel.x = lerp(SP.vel.x, clamp(vx, -7, 7), .5); SP.vel.z = lerp(SP.vel.z, clamp(vz, -7, 7), .5);
+    SP.prev.copy(SP.pos);
+    _n.set(-SP.pos.x, R - SP.pos.y, -SP.pos.z).normalize();
+    _q.setFromUnitVectors(UP, _n);
+    spat.quaternion.slerp(_q, Math.min(1, dt * 14));
+    spat.position.copy(SP.pos).addScaledVector(_n, .03);
+    const speed = Math.hypot(SP.vel.x, SP.vel.z);
+    if (speed > 0.35) stirPush(st, speed, dt);
+  } else {
+    spat.position.lerp(SP_REST_POS, Math.min(1, dt * 8));
+    spat.quaternion.slerp(SP_REST_Q, Math.min(1, dt * 8));
+    SP.pos.copy(spat.position);
+  }
+}
+function stirPush(st, speed, dt) {
+  const W = st.W, R2 = .42 * .42, px = SP.pos.x, pz = SP.pos.z;
+  const sauces = Object.keys(W.sauces), coatP = Math.min(1, dt * 5);
+  let touched = 0;
+  for (const k of FOOD_KEYS) {
+    const f = st.foods[k], p = f.p, v = f.v;
+    for (let i = 0; i < f.n; i++) {
+      if (f.st[i] !== 0) continue;
+      const j = i * 3, dx = p[j] - px, dz = p[j + 2] - pz, d2 = dx * dx + dz * dz;
+      if (d2 > R2 || p[j + 1] > SP.pos.y + .35) continue;
+      const fall = 1 - Math.sqrt(d2) / .42;
+      v[j] += SP.vel.x * .7 * fall; v[j + 2] += SP.vel.z * .7 * fall;
+      v[j + 1] += rand(.2, .9) * Math.min(1, speed / 3) * fall;
+      f.w[j] += rand(-3, 3); f.w[j + 2] += rand(-3, 3);
+      f.layer[i] = Math.random();
+      if (sauces.length && Math.random() < coatP) for (const s of sauces) f.coat[i * NS + SI[s]] = 1;
+      touched++;
+    }
+  }
+  SP.scrapeT -= dt;
+  if (touched && SP.scrapeT <= 0) { SP.scrapeT = .14; sfx.scrape(); }
+}
+
 // ======================= orders & scoring =======================
-function unlocked() { return DISHES.filter((d) => d.unlock <= G.t); }
+function dayK() { return Math.min(1.4, 1 + 0.05 * (G.day - 1)); }
+function unlocked() { const shift = (G.day - 1) * 25; return DISHES.filter((d) => d.unlock - shift <= G.t); }
 function spawnOrder() {
   const pool = unlocked(), tot = pool.reduce((a, d) => a + d.w, 0);
   let r = Math.random() * tot, dish = pool[0];
@@ -1053,34 +1260,36 @@ function spawnOrder() {
   const used = new Set(G.tickets.map((t) => t.table));
   let table; do { table = 1 + Math.floor(Math.random() * 12); } while (used.has(table) && used.size < 12);
   const prog = G.t / DAY_LEN;
-  const t = { id: ++G.seq, dish, table, t0: G.t, patience: (60 + dish.items.length * 7 + dish.sauces.length * 5) * lerp(1, .78, prog) };
+  const t = {
+    id: ++G.seq, dish, table, t0: G.t, price: Math.round(dish.price * P.price / 5) * 5,
+    patience: (60 + dish.items.length * 7 + dish.sauces.length * 5) * lerp(1, .78, prog) * P.patience / dayK(),
+  };
   G.tickets.push(t);
   if (!selTicket()) G.sel = t.id;
   sfx.bell();
   renderTickets();
 }
-function wokStats() {
-  let mainN = 0, mainCook = 0, all = 0, burnt = 0, lost = 0, total = 0;
+function wokStats(st) {
+  let mainN = 0, mainCook = 0, all = 0, burnt = 0, lost = 0, total = 0, allCook = 0;
   const coated = new Array(NS).fill(0);
   for (const k of FOOD_KEYS) {
-    const f = FOODS[k], d = ING[k];
+    const f = st.foods[k], d = ING[k];
     for (let i = 0; i < f.n; i++) {
       total++;
       if (f.st[i] !== 0) { lost++; continue; }
-      all++;
+      all++; allCook += f.cook[i];
       if (d.main) { mainN++; mainCook += f.cook[i]; }
       if (f.burn[i] > 0.45) burnt++;
       for (let s = 0; s < NS; s++) coated[s] += f.coat[i * NS + s];
     }
   }
-  let cook = mainN ? mainCook / mainN : 0;
-  if (!mainN) { let s = 0; for (const k of FOOD_KEYS) { const f = FOODS[k]; for (let i = 0; i < f.n; i++) if (f.st[i] === 0) s += f.cook[i]; } cook = all ? s / all : 0; }
-  const poured = Object.keys(W.sauces);
+  const cook = mainN ? mainCook / mainN : all ? allCook / all : 0;
+  const poured = Object.keys(st.W.sauces);
   const mix = poured.length && all ? poured.reduce((a, s) => a + coated[SI[s]] / all, 0) / poured.length : null;
   return { cook, burn: all ? burnt / all : 0, mix, spill: total ? lost / total : 0, count: all };
 }
-function evaluate(t) {
-  const d = t.dish, st = wokStats(), bad = [], good = [];
+function evaluate(st, t) {
+  const d = t.dish, W = st.W, s = wokStats(st), bad = [], good = [];
   let score = 100;
   const oilTot = (W.oils.oil || 0) + (W.oils.sesame || 0);
   if (!oilTot) { score -= 15; bad.push('沒放油，黏鍋了'); }
@@ -1089,21 +1298,21 @@ function evaluate(t) {
   if (oilTot >= 3) { score -= 8; bad.push('好油喔'); }
   for (const k of d.items) if (!W.adds[k]) { score -= 18; bad.push('少了' + ING[k].name); }
   for (const k in W.adds) if (!d.items.includes(k)) { score -= 8; bad.push('怎麼有' + ING[k].name + '？'); }
-  for (const s of d.sauces) {
-    const c = W.sauces[s] || 0;
-    if (!c) { score -= 10; bad.push(SEAS[s].strong ? '味道太淡' : '少了' + SEAS[s].name); }
-    else if (c > 1) { score -= (SEAS[s].strong ? 6 : 3) * (c - 1); bad.push(SEAS[s].strong ? '太鹹了' : SEAS[s].name + '放太多'); }
+  for (const sk of d.sauces) {
+    const c = W.sauces[sk] || 0;
+    if (!c) { score -= 10; bad.push(SEAS[sk].strong ? '味道太淡' : '少了' + SEAS[sk].name); }
+    else if (c > 1) { score -= (SEAS[sk].strong ? 6 : 3) * (c - 1); bad.push(SEAS[sk].strong ? '太鹹了' : SEAS[sk].name + '放太多'); }
   }
-  for (const s in W.sauces) if (!d.sauces.includes(s)) { score -= 6; bad.push('怎麼有' + SEAS[s].name + '的味道？'); }
-  if (st.cook < .5) { score -= 30; bad.push('裡面還是生的…'); }
-  else if (st.cook < .85) { score -= 12; bad.push('有點不夠熟'); }
-  else if (st.cook > 2.2) { score -= 14; bad.push('炒太老了，好柴'); }
-  else if (st.cook > 1.6) { score -= 6; bad.push('稍微炒過頭'); }
-  if (st.burn > .25) { score -= 25; bad.push('焦掉了啦！'); }
-  else if (st.burn > .1) { score -= 10; bad.push('有點焦'); }
-  else if (st.burn > .02) { score += 3; good.push('有焦香'); }
-  if (st.mix != null && st.mix < .6) { score -= 10; bad.push('調味沒拌勻'); }
-  if (st.spill > .25) { score -= 10; bad.push('份量好少'); }
+  for (const sk in W.sauces) if (!d.sauces.includes(sk)) { score -= 6; bad.push('怎麼有' + SEAS[sk].name + '的味道？'); }
+  if (s.cook < .5) { score -= 30; bad.push('裡面還是生的…'); }
+  else if (s.cook < .85) { score -= 12; bad.push('有點不夠熟'); }
+  else if (s.cook > 2.2) { score -= 14; bad.push('炒太老了，好柴'); }
+  else if (s.cook > 1.6) { score -= 6; bad.push('稍微炒過頭'); }
+  if (s.burn > .25) { score -= 25; bad.push('焦掉了啦！'); }
+  else if (s.burn > .1) { score -= 10; bad.push('有點焦'); }
+  else if (s.burn > .02) { score += 3; good.push('有焦香'); }
+  if (s.mix != null && s.mix < .6) { score -= 10; bad.push('調味沒拌勻'); }
+  if (s.spill > .25) { score -= 10; bad.push('份量好少'); }
   const wh = Math.min(12, W.wh * 1.5); score += wh;
   if (wh >= 6) good.push('鍋氣十足！');
   if (W.bao) { score += 4; good.push('爆香得好'); }
@@ -1118,19 +1327,19 @@ function evaluate(t) {
 }
 function serve() {
   if (!G.running || G.paused) return;
-  const t = selTicket();
+  const st = S(), t = selTicket();
   if (!t) { pop(G.tickets.length ? '先點一張單' : '還沒有客人點這道', 'bad'); return; }
-  if (contentsCount() === 0) { pop('鍋裡還沒有東西', 'bad'); return; }
-  const r = evaluate(t);
+  if (st.count() === 0) { pop('鍋裡還沒有東西', 'bad'); return; }
+  const r = evaluate(st, t);
   const left = clamp(1 - (G.t - t.t0) / t.patience, 0, 1);
   let pay = 0, tip = 0;
-  if (r.stars > 0) { pay = t.dish.price; if (r.stars >= 2) tip = Math.round(t.dish.price * .3 * left * (r.stars - 1) / 2 / 5) * 5; }
+  if (r.stars > 0) { pay = t.price; if (r.stars >= 2) tip = Math.round(t.price * .3 * left * (r.stars - 1) / 2 / 5) * 5; }
   G.money += pay + tip; G.served++; G.starSum += r.stars;
   if (r.stars === 0) { G.hearts--; sfx.bad(); } else sfx.cash();
   showResult(t, r, pay, tip);
   G.tickets = G.tickets.filter((x) => x !== t);
   G.sel = G.tickets.length ? G.tickets[0].id : null;
-  clearWok();
+  st.reset();
   renderTickets(); refreshHud();
   if (G.hearts <= 0) endDay(true);
 }
@@ -1144,44 +1353,89 @@ function showResult(t, r, pay, tip) {
   $('#stage').appendChild(el);
   setTimeout(() => el.remove(), 2700);
 }
-function clearWok() { const T = W.T; resetWok(); W.T = T; }
 $('#serve').addEventListener('click', serve);
 $('#dump').addEventListener('click', () => {
-  if (!G.running || G.paused || contentsCount() === 0) return;
-  clearWok(); whoosh(.5, 400, .4); pop('整鍋倒掉了'); refreshNeeds();
+  if (!G.running || G.paused || S().count() === 0) return;
+  S().reset(); whoosh(.5, 400, .4); pop('整鍋倒掉了'); refreshNeeds();
 });
 
-// ======================= day flow =======================
+// ======================= day flow, shop =======================
+function showScreen(id) {
+  for (const s of ['scr-start', 'scr-end', 'scr-shop', 'scr-pause']) $('#' + s).hidden = s !== id;
+}
+function refreshStart() {
+  $('#start-day').textContent = `第 ${save.day} 天`;
+  $('#start-bank').textContent = fmtMoney(save.bank);
+  const b = save.best;
+  $('#best-start').textContent = b ? `最佳紀錄：一晚 ${fmtMoney(b.money)}・出菜 ${b.served} 道` : '';
+}
 function startDay() {
   initAudio(); if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
-  Object.assign(G, { running: true, paused: false, t: 0, money: 0, hearts: 3, served: 0, starSum: 0, missed: 0, tickets: [], nextAt: 1.5, sel: null, ended: false, tossed: false });
-  W.T = 25; clearWok();
+  Object.assign(G, { running: true, paused: false, t: 0, day: save.day, money: 0, hearts: 3, served: 0, starSum: 0, missed: 0, tickets: [], nextAt: 1.5, sel: null, tossed: false });
+  for (const st of ST) { st.W.T = 25; st.reset(); st.fire = 2; }
+  if (cur !== 0) switchStation(0);
+  showFire();
   $('#hint').hidden = false;
-  $('#scr-start').hidden = true; $('#scr-end').hidden = true;
+  showScreen(null);
   renderTickets(); refreshHud();
 }
-function loadBest() { try { return JSON.parse(localStorage.getItem('kuaichao-best') || 'null'); } catch (e) { return null; } }
-function saveBest(b) { try { localStorage.setItem('kuaichao-best', JSON.stringify(b)); } catch (e) {} }
-function showBest(el) { const b = loadBest(); el.textContent = b ? `最佳紀錄：一晚 ${fmtMoney(b.money)}・出菜 ${b.served} 道` : ''; }
 function endDay(broke) {
-  G.running = false; G.ended = true;
+  G.running = false; endStir();
   const avg = G.served ? G.starSum / G.served : 0;
-  $('#end-title').textContent = broke ? '口碑掉光，今天先收攤了…' : '22:00 打烊，今天辛苦了！';
+  $('#end-title').textContent = broke ? `第 ${G.day} 天：口碑掉光，先收攤了…` : `第 ${G.day} 天 22:00 打烊，辛苦了！`;
   $('#e-money').textContent = fmtMoney(G.money);
   $('#e-served').textContent = G.served + ' 道';
   $('#e-avg').textContent = G.served ? '★'.repeat(Math.round(avg)) + '☆'.repeat(3 - Math.round(avg)) + ' ' + avg.toFixed(1) : '—';
   $('#e-missed').textContent = G.missed + ' 桌';
   $('#end-note').textContent = G.served === 0 ? '下次先選單、下油，再照單下料。'
     : avg >= 2.5 ? '整條街都聞到你的鍋氣了。' : avg >= 1.5 ? '客人吃得滿意，明天再快一點。' : '多甩幾下鍋，熟了再出菜。';
-  const b = loadBest();
-  if (!b || G.money > b.money) saveBest({ money: G.money, served: G.served });
-  showBest($('#best-end'));
-  $('#scr-end').hidden = false;
+  save.bank += G.money; save.day += 1;
+  if (!save.best || G.money > save.best.money) save.best = { money: G.money, served: G.served };
+  writeSave();
+  $('#end-bank').textContent = fmtMoney(save.bank);
+  $('#best-end').textContent = `最佳紀錄：一晚 ${fmtMoney(save.best.money)}・出菜 ${save.best.served} 道`;
+  showScreen('scr-end');
   G.tickets = []; renderTickets();
 }
+function renderShop() {
+  const u = save.up, next = WOKS[u.wok + 1];
+  let h = `<div class="up"><h4>換鍋子<span class="lv">現在：${WOKS[u.wok].name}</span></h4>`
+    + (next ? `<p><b>${next.name}</b>：${next.desc}</p><button type="button" data-buy="wok" ${save.bank < next.price ? 'disabled' : ''}>${fmtMoney(next.price)}</button>`
+            : `<p>已經是最好的鍋了。</p><button type="button" disabled>已滿級</button>`) + '</div>';
+  for (const up of UPS) {
+    const lv = u[up.id], max = up.price.length, price = up.price[lv];
+    h += `<div class="up"><h4>${up.name}${max > 1 ? `<span class="lv">${lv} / ${max}</span>` : ''}</h4><p>${up.desc}</p>`
+      + (lv >= max ? `<button type="button" disabled>${max > 1 ? '已滿級' : '已購買'}</button>`
+                   : `<button type="button" data-buy="${up.id}" ${save.bank < price ? 'disabled' : ''}>${fmtMoney(price)}</button>`) + '</div>';
+  }
+  $('#shop-list').innerHTML = h;
+  $('#shop-bank').textContent = fmtMoney(save.bank);
+}
+$('#shop-list').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-buy]'); if (!b || b.disabled) return;
+  const id = b.dataset.buy, u = save.up;
+  const price = id === 'wok' ? WOKS[u.wok + 1].price : UPS.find((x) => x.id === id).price[u[id]];
+  if (save.bank < price) return;
+  save.bank -= price; u[id] += 1; writeSave();
+  P = perks(); applyLooks();
+  initAudio(); sfx.cash();
+  renderShop();
+});
+function openShop(from) { G.shopFrom = from; renderShop(); showScreen('scr-shop'); }
+$('#btn-shop1').addEventListener('click', () => openShop('scr-start'));
+$('#btn-shop2').addEventListener('click', () => openShop('scr-end'));
+$('#btn-shop-back').addEventListener('click', () => { refreshStart(); showScreen(G.shopFrom); });
+$('#btn-shop-open').addEventListener('click', startDay);
+$('#btn-reset').addEventListener('click', (e) => {
+  const b = e.currentTarget;
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = '確定要清除？再按一次'; setTimeout(() => { delete b.dataset.armed; b.textContent = '清除存檔，從第 1 天重來'; }, 3000); return; }
+  save = defaultSave(); writeSave(); P = perks(); applyLooks(); renderShop(); refreshStart();
+  delete b.dataset.armed; b.textContent = '已清除存檔';
+});
 function setPaused(p) {
   if (!G.running) return;
   G.paused = p; $('#scr-pause').hidden = !p;
+  if (p) endStir();
   if (AU.ctx) { if (p) AU.ctx.suspend(); else AU.ctx.resume(); }
 }
 $('#btn-start').addEventListener('click', startDay);
@@ -1194,50 +1448,122 @@ $('#mute').addEventListener('click', () => {
   $('#mute').setAttribute('aria-label', AU.muted ? '打開聲音' : '關閉聲音');
   if (AU.master) AU.master.gain.value = AU.muted ? 0 : 0.7;
 });
-showBest($('#best-start'));
 
-// ======================= input: swipe up on the wok to toss =======================
-let drag = null;
-canvas.addEventListener('pointerdown', (e) => { drag = { y: e.clientY, t: performance.now() }; canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointerup', (e) => {
-  if (!drag) return;
-  const dy = drag.y - e.clientY, dt = Math.max(60, performance.now() - drag.t);
-  drag = null;
-  if (dy > 25) toss(clamp(0.6 + dy / 220 + 120 / dt * 0.25, 0.6, 1.7));
-  else toss(1.0);
+// ======================= input: flick up = toss, press and drag = spatula =======================
+let ptr = null;
+canvas.addEventListener('pointerdown', (e) => {
+  ptr = { x: e.clientX, y: e.clientY, t: performance.now(), mode: 'pending', id: e.pointerId };
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
 });
-canvas.addEventListener('pointercancel', () => { drag = null; });
+canvas.addEventListener('pointermove', (e) => {
+  if (!ptr || e.pointerId !== ptr.id) return;
+  const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y, el = performance.now() - ptr.t;
+  if (ptr.mode === 'pending') {
+    const flick = -dy > Math.abs(dx) * 1.3 && el < 220;
+    if (!flick && (el > 170 || Math.hypot(dx, dy) > 22)) { ptr.mode = 'stir'; startStir(e.clientX, e.clientY); }
+  }
+  if (ptr.mode === 'stir') moveStir(e.clientX, e.clientY);
+});
+function release(e) {
+  if (!ptr || e.pointerId !== ptr.id) return;
+  if (ptr.mode === 'pending') {
+    const dy = ptr.y - e.clientY, dt = Math.max(60, performance.now() - ptr.t);
+    if (performance.now() - ptr.t < 170 || dy > 25) toss(dy > 25 ? clamp(0.6 + dy / 220 + 120 / dt * 0.25, 0.6, 1.7) : 1.0);
+    else startStir(e.clientX, e.clientY);
+  }
+  endStir();
+  ptr = null;
+}
+canvas.addEventListener('pointerup', release);
+canvas.addEventListener('pointercancel', release);
+// a still press that never moves still becomes a spatula press
+setInterval(() => { if (ptr && ptr.mode === 'pending' && performance.now() - ptr.t > 170) { ptr.mode = 'stir'; startStir(ptr.x, ptr.y); } }, 50);
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); toss(e.shiftKey ? 1.5 : 1.0); }
   else if (e.code === 'Enter') serve();
+  else if (e.code === 'Digit1') switchStation(0);
+  else if (e.code === 'Digit2') switchStation(1);
 });
 
 // ======================= main loop =======================
+function placeCamera() {
+  camera.position.copy(CAM_DIR).multiplyScalar(camDist).add(LOOK); camera.position.x += camX;
+  camera.lookAt(LOOK.x + camX, LOOK.y, LOOK.z);
+}
 function resize() {
   const w = stageEl.clientWidth, h = stageEl.clientHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  const dist = Math.max(6.5, 2.75 / (Math.tan(camera.fov / 2 * PI / 180) * camera.aspect));
-  camera.position.copy(CAM_DIR).multiplyScalar(dist).add(LOOK);
-  camera.lookAt(LOOK);
-  camera.updateProjectionMatrix();
+  camDist = Math.max(6.5, 2.75 / (Math.tan(camera.fov / 2 * PI / 180) * camera.aspect));
+  camera.updateProjectionMatrix(); placeCamera();
 }
 new ResizeObserver(resize).observe(stageEl);
 resize();
 
+function updateStation(st, dt, live, frame) {
+  const W = st.W, food = st.count(), active = st === S();
+  // temperature
+  const target = P.fireT[st.fire];
+  W.T += (target - W.T) * dt * (target > W.T ? 0.5 * P.heat : 0.12);
+  if (food) W.oil = Math.max(0, W.oil - dt * 0.012);
+  const dry = food > 0 && W.oil < 0.25;
+  if (dry && W.T > 200 && live && !W.dryWarned && active) { W.dryWarned = true; pop('沒油了，會黏鍋', 'bad'); }
+  // toss animation: lift, tilt, flick
+  if (W.tossAnim >= 0) {
+    W.tossAnim += dt;
+    const u = W.tossAnim / 0.34, s = Math.sin(PI * clamp(u, 0, 1)) * Math.min(1.3, W.tossPow);
+    st.wok.position.y = s * 0.22; st.wok.position.z = -s * 0.16; st.wok.rotation.x = -s * 0.2;
+    if (!W.impulse && u > 0.22) { W.impulse = true; applyToss(st, W.tossPow); }
+    if (u >= 1) { W.tossAnim = -1; st.wok.position.set(0, 0, 0); st.wok.rotation.set(0, 0, 0); }
+  }
+  // food physics
+  if (food) {
+    const heat = Math.max(0, W.T - 100) / 120;
+    for (const k of FOOD_KEYS) if (st.foods[k].n) st.foods[k].step(dt, heat, dry ? 2.5 : 1);
+    const hgt = st.hgt, hacc = st.hacc;
+    for (let j = 1; j < GN - 1; j++) for (let i = 1; i < GN - 1; i++) {   // blur the pile so it reads as one heap
+      const c = j * GN + i;
+      hgt[c] = hacc[c] * .5 + (hacc[c - 1] + hacc[c + 1] + hacc[c - GN] + hacc[c + GN]) * .125;
+    }
+    hacc.fill(0);
+  }
+  if (st.root.visible) {
+    const paint = frame % 2 === 0;
+    for (const k of FOOD_KEYS) if (st.foods[k].n || st.foods[k].mesh.count) st.foods[k].draw(paint);
+  }
+  if (live && food && frame % 30 === st.idx * 15) {
+    const s = wokStats(st);
+    if (s.burn > .08 && !W.burnWarned) { W.burnWarned = true; pop(P.woks > 1 ? `${st.idx + 1}號爐焦味飄出來了…` : '焦味飄出來了…', 'bad'); }
+    W.alert = (s.burn > .06 || (W.T > 275 && food)) ? 'hot' : 'cooking';
+  } else if (!food) W.alert = '';
+  // fire, steam, light
+  const fl = [0, 3, 6, 11][st.fire] * dt * 60 * (st.root.visible ? 1 : 0);
+  for (let i = 0; i < fl; i++) {
+    const a = Math.random() * PI * 2, rr = rand(.45, .85), sp = rand(.4, 1.2) * st.fire;
+    st.flames.emit(Math.cos(a) * rr, STOVE_Y + .15, Math.sin(a) * rr, Math.cos(a) * sp, rand(1.8, 3) + st.fire * .5, Math.sin(a) * sp, rand(.45, .7) + st.fire * .08, C_FIRE);
+  }
+  st.fireLight.intensity = lerp(st.fireLight.intensity, [0, .8, 1.6, 2.8][st.fire] * rand(.85, 1.15), .3);
+  st.flareLight.intensity *= Math.pow(0.02, dt);
+  if (food && W.T > 140 && st.root.visible && Math.random() < dt * (3 + (active ? sizzleBoost : 0) * 30)) st.puff(1, .9, 1);
+  st.flames.update(dt); st.flare.update(dt); st.steam.update(dt); st.pourFx.update(dt); st.specks.update(dt);
+  st.oilMat.opacity = lerp(st.oilMat.opacity, Math.min(.6, W.oil * .35), .1);
+  const glow = clamp((W.T - 250) / 60, 0, 1) * (food ? .25 : 1);
+  st.wokMat.emissive.setRGB(glow * .35, glow * .06, 0);
+  return (food || W.oil > .1) ? clamp((W.T - 110) / 170, 0, 1) * (.35 + .65 * Math.min(1, food / 500)) : 0;
+}
+
 let last = performance.now(), frame = 0, uiT = 0;
 function loop(now) {
   requestAnimationFrame(loop);
-  let dt = Math.min(1 / 30, (now - last) / 1000); last = now;
+  const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
   if (G.paused) { renderer.render(scene, camera); return; }
   frame++;
   const live = G.running;
   if (live) {
     G.t += dt;
-    // orders
     if (G.t >= G.nextAt && G.t < DAY_LEN - 12) {
-      if (G.tickets.length < 5) spawnOrder();
-      G.nextAt = G.t + lerp(17, 9, G.t / DAY_LEN) * rand(.8, 1.2);
+      if (G.tickets.length < P.maxTickets) spawnOrder();
+      G.nextAt = G.t + lerp(17, 9, G.t / DAY_LEN) * rand(.8, 1.2) * P.orderGap / dayK();
     }
     for (const t of [...G.tickets]) {
       if (G.t - t.t0 > t.patience) {
@@ -1249,80 +1575,43 @@ function loop(now) {
     if (G.hearts <= 0) endDay(true);
     else if (G.t >= DAY_LEN) endDay(false);
   }
-  // wok temperature
-  const target = FIRE_T[fire];
-  W.T += (target - W.T) * dt * (target > W.T ? 0.5 : 0.12);
-  const food = contentsCount();
-  if (food) W.oil = Math.max(0, W.oil - dt * 0.012);
-  const dry = food > 0 && W.oil < 0.25;
-  if (dry && W.T > 200 && live && !W.dryWarned) { W.dryWarned = true; pop('沒油了，會黏鍋', 'bad'); }
-  // toss animation: lift, tilt, flick
-  if (W.tossAnim >= 0) {
-    W.tossAnim += dt;
-    const u = W.tossAnim / 0.34, s = Math.sin(PI * clamp(u, 0, 1)) * Math.min(1.3, W.tossPow);
-    wok.position.y = s * 0.22; wok.position.z = -s * 0.16; wok.rotation.x = -s * 0.2;
-    if (!W.impulse && u > 0.22) { W.impulse = true; applyToss(W.tossPow); }
-    if (u >= 1) { W.tossAnim = -1; wok.position.set(0, 0, 0); wok.rotation.set(0, 0, 0); }
+  // camera glides to the station you are working on
+  const tx = S().x;
+  if (Math.abs(camX - tx) > 1e-3) { camX = lerp(camX, tx, Math.min(1, dt * 7)); if (Math.abs(camX - tx) < .01) camX = tx; placeCamera(); }
+  keyLight.position.x = camX - 2.5; keyLight.target.position.x = camX;
+  let sizzle = 0;
+  for (const st of ST) {
+    const own = owned(st);
+    st.root.visible = own && Math.abs(camX - st.x) < 7;
+    if (own) sizzle += updateStation(st, dt, live, frame);
   }
-  // food physics
-  const heat = Math.max(0, W.T - 100) / 120;
-  for (const k of FOOD_KEYS) if (FOODS[k].n) FOODS[k].step(dt, heat, dry ? 2.5 : 1);
-  for (let j = 1; j < GN - 1; j++) for (let i = 1; i < GN - 1; i++) {   // blur the pile so it reads as one heap
-    const c = j * GN + i;
-    hgt[c] = hacc[c] * .5 + (hacc[c - 1] + hacc[c + 1] + hacc[c - GN] + hacc[c + GN]) * .125;
-  }
-  hacc.fill(0);
-  const paint = frame % 2 === 0;
-  for (const k of FOOD_KEYS) if (FOODS[k].n || FOODS[k].mesh.count) FOODS[k].draw(paint);
-  // burn warning
-  if (live && food && frame % 30 === 0) {
-    const st = wokStats();
-    if (st.burn > .08 && !W.burnWarned) { W.burnWarned = true; pop('焦味飄出來了…', 'bad'); }
-  }
-  // fire, steam, light
-  const fl = [0, 3, 6, 11][fire] * dt * 60;
-  for (let i = 0; i < fl; i++) {
-    const a = Math.random() * PI * 2, rr = rand(.45, .85), sp = rand(.4, 1.2) * fire;
-    flames.emit(Math.cos(a) * rr, STOVE_Y + .15, Math.sin(a) * rr, Math.cos(a) * sp, rand(1.8, 3) + fire * .5, Math.sin(a) * sp, rand(.45, .7) + fire * .08, C_FIRE);
-  }
-  fireLight.intensity = lerp(fireLight.intensity, [0, .8, 1.6, 2.8][fire] * rand(.85, 1.15), .3);
-  flareLight.intensity *= Math.pow(0.02, dt);
-  if (food && W.T > 140 && Math.random() < dt * (3 + sizzleBoost * 30)) {
-    steam.emit(rand(-.9, .9), .5, rand(-.9, .9), rand(-.2, .2), rand(.6, 1.2), rand(-.2, .2), rand(1.5, 2.6), new THREE.Color(1, .96, .9));
-  }
-  flames.update(dt); flare.update(dt); steam.update(dt); pourFx.update(dt); specks.update(dt);
-  oilMat.opacity = lerp(oilMat.opacity, Math.min(.6, W.oil * .35), .1);
-  const glow = clamp((W.T - 250) / 60, 0, 1) * (food ? .25 : 1);
-  wokMat.emissive.setRGB(glow * .35, glow * .06, 0);
-  // sizzle sound
+  updateSpatula(dt);
   sizzleBoost = Math.max(0, sizzleBoost - dt * .8);
-  if (AU.sizzle && !AU.muted) {
-    const lvl = (food || W.oil > .1) ? clamp((W.T - 110) / 170, 0, 1) * (.35 + .65 * Math.min(1, food / 500)) + sizzleBoost * .5 : 0;
-    AU.sizzle.gain.setTargetAtTime(lvl * .22, AU.ctx.currentTime, .08);
-  }
+  if (AU.sizzle && !AU.muted) AU.sizzle.gain.setTargetAtTime((Math.min(1.3, sizzle) + sizzleBoost * .5) * .22, AU.ctx.currentTime, .08);
   // HUD
   uiT += dt;
   if (uiT > .2) {
     uiT = 0;
     updateTicketBars(); refreshHud();
-    const T = Math.round(W.T);
-    $('#c-temp').textContent = T + '°C';
-    $('#m-temp').style.width = clamp((W.T - 25) / 290 * 100, 0, 100) + '%';
+    const st = S(), W = st.W, food = st.count();
+    $('#c-temp').textContent = Math.round(W.T) + '°C';
+    $('#m-temp').style.width = clamp((W.T - 25) / 315 * 100, 0, 100) + '%';
     $('#m-temp').style.background = W.T > 270 ? 'var(--bad)' : W.T > 200 ? 'var(--lamp)' : 'var(--muted)';
-    const st = food ? wokStats() : null;
-    if (st && st.count) {
-      const c = st.cook, label = c < .5 ? '生' : c < .85 ? '半生' : c < 1.6 ? '剛好' : c < 2.2 ? '有點老' : '過老';
-      $('#c-cook').textContent = label + (st.burn > .1 ? '・焦' : '');
+    const s = food ? wokStats(st) : null;
+    if (s && s.count) {
+      const c = s.cook, label = c < .5 ? '生' : c < .85 ? '半生' : c < 1.6 ? '剛好' : c < 2.2 ? '有點老' : '過老';
+      $('#c-cook').textContent = label + (s.burn > .1 ? '・焦' : '');
       $('#m-cook').style.width = clamp(c / 2.2 * 100, 0, 100) + '%';
       $('#m-cook').style.background = c < .85 ? 'var(--warn)' : c < 1.6 ? 'var(--good)' : 'var(--bad)';
-      $('#c-mix').textContent = st.mix == null ? '—' : Math.round(st.mix * 100) + '%';
-      $('#m-mix').style.width = (st.mix == null ? 0 : st.mix * 100) + '%';
-      $('#m-mix').style.background = st.mix != null && st.mix >= .6 ? 'var(--good)' : 'var(--warn)';
+      $('#c-mix').textContent = s.mix == null ? '—' : Math.round(s.mix * 100) + '%';
+      $('#m-mix').style.width = (s.mix == null ? 0 : s.mix * 100) + '%';
+      $('#m-mix').style.background = s.mix != null && s.mix >= .6 ? 'var(--good)' : 'var(--warn)';
     } else {
       $('#c-cook').textContent = '—'; $('#m-cook').style.width = '0'; $('#c-mix').textContent = '—'; $('#m-mix').style.width = '0';
     }
     $('#c-wh').textContent = W.wh.toFixed(1);
     $('#m-wh').style.width = clamp(W.wh / 8 * 100, 0, 100) + '%';
+    if (P.woks > 1) document.querySelectorAll('#stations button').forEach((b) => { b.querySelector('i').className = ST[+b.dataset.s].W.alert || ''; });
   }
   renderer.render(scene, camera);
 }
@@ -1330,7 +1619,7 @@ function loop(now) {
 // fonts first, so the bottle labels draw with the right face
 const fontsReady = document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]) : Promise.resolve();
 fontsReady.then(() => { buildRack(); refreshNeeds(); });
-refreshHud();
+applyLooks(); refreshStart(); refreshHud();
 requestAnimationFrame(loop);
 })();
 </script>
