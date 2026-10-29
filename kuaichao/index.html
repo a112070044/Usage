@@ -244,18 +244,98 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
 .row2 { display: flex; gap: 8px; }
 .row2 .big { flex: 1; min-width: 0; }
 .board .big.alt { background: var(--ink); box-shadow: 0 4px 0 #000; letter-spacing: .08em; }
-.board.shop { max-height: calc(100% - 24px); overflow-y: auto; }
-.shop-list { display: flex; flex-direction: column; gap: 8px; }
-.up { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; border-top: 1px dashed var(--paper-line); padding-top: 8px; }
-.up h4 { margin: 0; font-size: 17px; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
-.up .lv { font-family: var(--f-ui); font-size: 11px; font-weight: 500; color: var(--ink-soft); }
-.up p { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--ink-soft); }
-.up button {
-  grid-row: 1 / 3; grid-column: 2; min-width: 82px; height: 40px; border-radius: 9px; border: 0;
-  background: var(--sign); color: var(--paper); font-family: var(--f-ui); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums;
+.linkish { background: none; border: 0; color: var(--muted); font-family: var(--f-ui); font-size: 12px; text-decoration: underline; align-self: center; padding: 4px; }
+.cta {
+  height: 54px; border: 0; border-radius: 12px; background: var(--sign); color: var(--paper);
+  font-family: var(--f-ui); font-weight: 900; font-size: 20px; letter-spacing: .18em;
+  box-shadow: 0 4px 0 #8c1f18, 0 0 24px var(--sign-glow);
 }
-.up button:disabled { background: var(--paper-line); color: var(--ink-soft); cursor: default; }
-.linkish { background: none; border: 0; color: var(--ink-soft); font-family: var(--f-ui); font-size: 12px; text-decoration: underline; align-self: center; padding: 4px; }
+.cta:active { transform: translateY(3px); box-shadow: 0 1px 0 #8c1f18; }
+
+/* ---------- home screen: the shopfront at night ---------- */
+.screen.full { background: radial-gradient(120% 70% at 50% 0%, #2a1912 0%, var(--bg) 70%); backdrop-filter: none; align-items: stretch; padding-block: 12px; overflow-y: auto; }
+.home-in { width: min(460px, 100%); margin: auto; display: flex; flex-direction: column; gap: 12px; }
+.front { position: relative; border-radius: 14px; overflow: hidden; background: linear-gradient(#170f1a, #21150f 55%, #2a1c13); padding: 20px 16px 0; display: flex; flex-direction: column; align-items: center; }
+.front::before { content: ""; position: absolute; inset: 0; background: radial-gradient(1px 1px at 12% 18%, #fff8 50%, transparent 51%), radial-gradient(1px 1px at 80% 10%, #fff6 50%, transparent 51%), radial-gradient(1.5px 1.5px at 64% 26%, #fff5 50%, transparent 51%), radial-gradient(1px 1px at 30% 8%, #fff5 50%, transparent 51%); pointer-events: none; }
+.neon {
+  position: relative; font-family: var(--f-sign); font-weight: 900; font-size: clamp(32px, 10.5vw, 46px); letter-spacing: .16em;
+  color: #ffeede; padding: 4px 6px 4px 22px; border: 3px solid #ff6b4e; border-radius: 8px; background: rgba(70, 12, 6, .55);
+  text-shadow: 0 0 6px #ff4a2a, 0 0 18px #ff2a10, 0 0 36px var(--sign);
+  box-shadow: 0 0 14px #ff3a1d, inset 0 0 14px rgba(255, 80, 40, .55);
+  animation: flicker 7s infinite;
+}
+@keyframes flicker { 0%, 92%, 100% { opacity: 1; } 93% { opacity: .5; } 94% { opacity: 1; } 96% { opacity: .72; } }
+.front .sub { position: relative; margin-top: 10px; font-family: var(--f-hand); color: var(--lamp); font-size: 15px; letter-spacing: .32em; }
+.awning {
+  position: relative; align-self: stretch; height: 30px; margin: 16px -16px 0;
+  background: repeating-linear-gradient(90deg, var(--sign) 0 30px, var(--paper) 30px 60px);
+}
+.awning::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px;
+  background: radial-gradient(circle at 15px 0, var(--sign) 14px, transparent 15px) 0 0 / 60px 10px repeat-x,
+              radial-gradient(circle at 45px 0, var(--paper) 14px, transparent 15px) 0 0 / 60px 10px repeat-x;
+}
+.window {
+  position: relative; align-self: stretch; height: 158px; margin-top: 0; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 25%, #ffe2a0 0%, #eba84a 42%, #7e3f17 100%);
+  display: flex; gap: 7px; justify-content: center; align-items: flex-start; padding-top: 18px;
+}
+.menu-strip {
+  writing-mode: vertical-rl; background: var(--paper); color: var(--ink); font-family: var(--f-hand); font-weight: 700;
+  font-size: 15px; letter-spacing: .1em; padding: 8px 4px; border-radius: 2px; box-shadow: 0 2px 0 rgba(0, 0, 0, .25);
+}
+.menu-strip:nth-child(odd) { transform: rotate(-1.5deg); }
+.menu-strip:nth-child(3n) { background: #fbe3a1; }
+.puff { position: absolute; bottom: 10px; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .55), transparent 65%); animation: rise 3.6s ease-out infinite; }
+.puff:nth-of-type(1) { left: 18%; }
+.puff:nth-of-type(2) { left: 46%; animation-delay: 1.2s; }
+.puff:nth-of-type(3) { left: 70%; animation-delay: 2.4s; }
+@keyframes rise { 0% { transform: translateY(40px) scale(.6); opacity: 0; } 30% { opacity: .9; } 100% { transform: translateY(-120px) scale(1.5); opacity: 0; } }
+.counter { position: relative; align-self: stretch; height: 46px; margin: 0 -16px; background: linear-gradient(#5a524c, #2e2925 30%, #1c1815); display: flex; justify-content: center; gap: 34px; align-items: flex-end; }
+.stool { width: 34px; height: 30px; margin-bottom: -2px; background: linear-gradient(#e2352a, #a81f17); clip-path: polygon(8% 0, 92% 0, 100% 100%, 82% 100%, 74% 30%, 26% 30%, 18% 100%, 0 100%); }
+.home-meta { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.home-meta b { color: var(--fg); font-size: 20px; }
+.home-meta #home-day { color: var(--lamp); font-weight: 700; }
+.home-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.home-grid button {
+  position: relative; height: 66px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+  font-weight: 700; font-size: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.home-grid small { font-size: 11px; color: var(--muted); font-weight: 500; }
+.home-grid .badge { position: absolute; top: 7px; right: 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--sign); box-shadow: 0 0 8px var(--sign-glow); }
+.home-in .best { color: var(--muted); }
+
+/* ---------- shop ---------- */
+.shop-in { width: min(460px, 100%); margin: 0 auto; height: 100%; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.shop-top { display: flex; align-items: center; gap: 10px; }
+.shop-top h2 { margin: 0; font-family: var(--f-sign); font-size: 22px; letter-spacing: .12em; }
+.shop-top .bank { margin-left: auto; text-align: right; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.shop-top .bank span { display: block; font-size: 11px; color: var(--muted); letter-spacing: .06em; }
+.shop-top .bank b { font-size: 22px; color: var(--lamp); }
+.shop-tabs { display: flex; gap: 6px; }
+.shop-tabs button { flex: 1; height: 36px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-weight: 700; font-size: 14px; }
+.shop-tabs button.on { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.shop-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.card { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 3px 12px; align-items: center; background: var(--paper); color: var(--ink); border-radius: 10px; padding: 10px 12px; }
+.card img { grid-row: 1 / 3; width: 64px; height: 64px; }
+.card h4 { margin: 0; font-family: var(--f-hand); font-size: 18px; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.card .tag { font-family: var(--f-ui); font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--good); color: var(--paper); }
+.card .tag.lv { background: var(--paper-line); color: var(--ink); }
+.card p { grid-column: 2; margin: 0; font-size: 13px; line-height: 1.4; color: var(--ink-soft); }
+.card > button {
+  grid-column: 3; grid-row: 1 / 3; min-width: 80px; height: 40px; border-radius: 9px; border: 0;
+  background: var(--sign); color: var(--paper); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums;
+}
+.card > button:disabled { background: var(--paper-line); color: var(--ink-soft); cursor: default; }
+.card.locked { opacity: .55; }
+.bars { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.bars span { display: block; font-size: 11px; color: var(--ink-soft); margin-bottom: 2px; }
+.bars .bar { height: 5px; border-radius: 3px; background: var(--paper-line); overflow: hidden; }
+.bars .bar i { display: block; height: 100%; border-radius: 3px; background: var(--sign); }
+.shop-foot { display: flex; flex-direction: column; gap: 2px; }
+.board .ctrl { font-family: var(--f-ui); font-size: 13px; color: var(--ink-soft); border-top: 1px dashed var(--paper-line); padding-top: 8px; line-height: 1.7; }
+.board .ctrl b { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .neon, .puff { animation: none; } .puff { display: none; } }
 .k #day-lbl { color: var(--lamp); }
 </style>
 
@@ -309,23 +389,57 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
     <div class="grid seas" id="grid-seas" hidden></div>
   </div>
 
-  <div class="screen" id="scr-start">
+  <div class="screen full" id="scr-home">
+    <div class="home-in">
+      <div class="front" aria-hidden="true">
+        <div class="neon" id="home-sign">阿師快炒</div>
+        <div class="sub">現點現炒・鍋氣十足</div>
+        <div class="awning"></div>
+        <div class="window">
+          <div class="menu-strip">蛋炒飯</div><div class="menu-strip">炒高麗菜</div><div class="menu-strip">蝦仁炒蛋</div>
+          <div class="menu-strip">沙茶牛肉</div><div class="menu-strip">宮保雞丁</div><div class="menu-strip">三杯雞</div>
+          <i class="puff"></i><i class="puff"></i><i class="puff"></i>
+        </div>
+        <div class="counter"><span class="stool"></span><span class="stool"></span><span class="stool"></span></div>
+      </div>
+      <div class="home-meta"><span id="home-day">第 1 天</span><span>存款 <b id="home-bank">$0</b></span></div>
+      <button type="button" class="cta" id="btn-start">開店營業</button>
+      <div class="home-grid">
+        <button type="button" id="btn-shop1">商店<small>鍋具・爐具・店面</small><i class="badge" id="shop-badge" hidden></i></button>
+        <button type="button" id="btn-help">怎麼玩<small>操作說明</small></button>
+        <button type="button" id="btn-stats">紀錄<small>開店成績</small></button>
+      </div>
+      <div class="best" id="best-start"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="scr-help" hidden>
     <div class="board">
-      <div class="sign" id="sign-start">阿師快炒</div>
-      <h2>晚上五點開店，客人會一直點菜。</h2>
+      <h2>怎麼玩</h2>
       <ol>
         <li>點一張點菜單，選你要炒的那道。</li>
         <li>開火、下油，照單下料和調味（紅點＝還缺的）。</li>
         <li>往上滑甩鍋，按住拖曳用鍋鏟翻炒。炒熟、拌勻，大火甩出鍋氣。</li>
-        <li>按「出菜」。等太久或太難吃，口碑會掉。</li>
+        <li>按「出菜」。等太久或太難吃，口碑會掉；三顆心掉光就收攤。</li>
+        <li>打烊後賺的錢存進存款，去商店換好鍋、加爐子、升級店面。</li>
       </ol>
-      <div class="menu">菜單：蛋炒飯・炒高麗菜・蝦仁炒蛋・沙茶牛肉・宮保雞丁・三杯雞</div>
-      <div class="bankline"><span id="start-day">第 1 天</span><span>存款 <b id="start-bank">$0</b></span></div>
-      <div class="row2">
-        <button type="button" class="big alt" id="btn-shop1">升級店面</button>
-        <button type="button" class="big" id="btn-start">開店</button>
+      <div class="ctrl"><b>小技巧</b>：熱油再下蒜、薑、辣椒會爆香；鍋子夠熱時下米酒會嗆鍋；不翻不甩，鍋底會焦。<br><b>電腦</b>：空白鍵甩鍋（Shift＋空白大力甩）、Enter 出菜、1／2 切換爐子。</div>
+      <button type="button" class="big" data-back>知道了</button>
+    </div>
+  </div>
+
+  <div class="screen" id="scr-stats" hidden>
+    <div class="board">
+      <h2>開店紀錄</h2>
+      <div class="stats">
+        <div><span>開店天數</span><b id="s-days">0 天</b></div>
+        <div><span>總收入</span><b id="s-earned">$0</b></div>
+        <div><span>總共出菜</span><b id="s-served">0 道</b></div>
+        <div><span>三星好評</span><b id="s-three">0 道</b></div>
+        <div><span>最佳一晚</span><b id="s-best">—</b></div>
+        <div><span>現在的鍋</span><b id="s-wok">老鐵鍋</b></div>
       </div>
-      <div class="best" id="best-start"></div>
+      <button type="button" class="big" data-back>返回</button>
     </div>
   </div>
 
@@ -341,24 +455,32 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
       </div>
       <p id="end-note"></p>
       <div class="bankline"><span>存款</span><b id="end-bank">$0</b></div>
+      <button type="button" class="big" id="btn-again">明天再開店</button>
       <div class="row2">
-        <button type="button" class="big alt" id="btn-shop2">去升級</button>
-        <button type="button" class="big" id="btn-again">明天再開店</button>
+        <button type="button" class="big alt" id="btn-home2">回主畫面</button>
+        <button type="button" class="big alt" id="btn-shop2">商店</button>
       </div>
       <div class="best" id="best-end"></div>
     </div>
   </div>
 
-  <div class="screen" id="scr-shop" hidden>
-    <div class="board shop">
-      <h2>升級店面</h2>
-      <div class="bankline"><span>存款（每天打烊會存進來）</span><b id="shop-bank">$0</b></div>
-      <div class="shop-list" id="shop-list"></div>
-      <div class="row2">
-        <button type="button" class="big alt" id="btn-shop-back">返回</button>
-        <button type="button" class="big" id="btn-shop-open">開店</button>
+  <div class="screen full" id="scr-shop" hidden>
+    <div class="shop-in">
+      <div class="shop-top">
+        <button type="button" class="icon-btn" id="btn-shop-back" aria-label="返回">←</button>
+        <h2>商店</h2>
+        <div class="bank"><span>存款</span><b id="shop-bank">$0</b></div>
       </div>
-      <button type="button" class="linkish" id="btn-reset">清除存檔，從第 1 天重來</button>
+      <div class="shop-tabs" id="shop-tabs">
+        <button type="button" class="on" data-cat="wok">鍋具</button>
+        <button type="button" data-cat="stove">爐具</button>
+        <button type="button" data-cat="store">店面</button>
+      </div>
+      <div class="shop-list" id="shop-list"></div>
+      <div class="shop-foot">
+        <button type="button" class="cta" id="btn-shop-open">開店營業</button>
+        <button type="button" class="linkish" id="btn-reset">清除存檔，從第 1 天重來</button>
+      </div>
     </div>
   </div>
 
@@ -367,6 +489,7 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
       <h2>休息一下</h2>
       <p>客人和鍋子都會等你。</p>
       <button type="button" class="big" id="btn-resume">繼續</button>
+      <button type="button" class="big alt" id="btn-quit">回主畫面（今天不算）</button>
     </div>
   </div>
 </div>
@@ -436,19 +559,19 @@ const WOKS = [
   { name: '名家手打鍋',   desc: '一甩就是鍋氣，幾乎不黏、不焦。',         price: 2800, heat: 2.3, burn: .4,  cook: 1.35, wh: 1.6,  tint: 0xe2bb8e, rim: 0xb87333 },
 ];
 const UPS = [
-  { id: 'burner2', name: '第二口爐', desc: '多一口鍋，兩道菜同時炒。用下面的「1號爐／2號爐」切換，沒在看的鍋也會繼續熱。', price: [1500] },
-  { id: 'stove',   name: '猛火爐頭', desc: '大火衝到 340°C，中火也更旺，鍋氣更好甩。', price: [900] },
-  { id: 'ac',      name: '裝冷氣',   desc: '店裡涼快，客人願意多等 25%。', price: [600] },
-  { id: 'tables',  name: '加桌子',   desc: '客人來得更快，可以同時接更多單。', price: [800, 1600] },
-  { id: 'sign',    name: '換招牌',   desc: '店變有名，每道菜價錢提高 15%。', price: [700, 1800] },
+  { id: 'burner2', cat: 'stove', icon: 'burner2', name: '第二口爐', desc: '多一口鍋，兩道菜同時炒。用下面的「1號爐／2號爐」切換，沒在看的鍋也會繼續熱。', price: [1500] },
+  { id: 'stove',   cat: 'stove', icon: 'stove', name: '猛火爐頭', desc: '大火衝到 340°C，中火也更旺，鍋氣更好甩。', price: [900] },
+  { id: 'ac',      cat: 'store', icon: 'ac', name: '裝冷氣',   desc: '店裡涼快，客人願意多等 25%。', price: [600] },
+  { id: 'tables',  cat: 'store', icon: 'tables', name: '加桌子',   desc: '客人來得更快，可以同時接更多單。', price: [800, 1600] },
+  { id: 'sign',    cat: 'store', icon: 'sign', name: '換招牌',   desc: '店變有名，每道菜價錢提高 15%。', price: [700, 1800] },
 ];
 const SIGNS = ['阿師快炒', '阿師熱炒', '阿師熱炒總店'];
 const SAVE_KEY = 'kuaichao-save-v2';
-function defaultSave() { return { day: 1, bank: 0, best: null, up: { wok: 0, burner2: 0, stove: 0, ac: 0, tables: 0, sign: 0 } }; }
+function defaultSave() { return { day: 1, bank: 0, best: null, up: { wok: 0, burner2: 0, stove: 0, ac: 0, tables: 0, sign: 0 }, stats: { days: 0, earned: 0, served: 0, three: 0 } }; }
 function loadSave() {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-    if (s && s.up) { const d = defaultSave(); return Object.assign(d, s, { up: Object.assign(d.up, s.up) }); }
+    if (s && s.up) { const d = defaultSave(); return Object.assign(d, s, { up: Object.assign(d.up, s.up), stats: Object.assign(d.stats, s.stats || {}) }); }
   } catch (e) {}
   return defaultSave();
 }
@@ -856,7 +979,7 @@ function applyLooks() {
   const w = WOKS[save.up.wok];
   for (const st of ST) { st.wokMat.color.copy(col(w.tint)); st.rimMat.color.copy(col(w.rim)); }
   const name = SIGNS[save.up.sign];
-  $('#sign').textContent = name; $('#sign-start').textContent = name;
+  $('#sign').textContent = name; $('#home-sign').textContent = name;
   $('#stations').hidden = P.woks < 2;
   if (P.woks < 2 && cur !== 0) switchStation(0);
 }
@@ -879,7 +1002,7 @@ spat.position.copy(SP_REST_POS); spat.quaternion.copy(SP_REST_Q);
 ST[0].wok.add(spat);
 
 // ======================= game state =======================
-const G = { running: false, paused: false, t: 0, day: 1, money: 0, hearts: 3, served: 0, starSum: 0, missed: 0, tickets: [], nextAt: 1, sel: null, seq: 0, tossed: false, shopFrom: 'start' };
+const G = { running: false, paused: false, t: 0, day: 1, money: 0, hearts: 3, served: 0, starSum: 0, three: 0, missed: 0, tickets: [], nextAt: 1, sel: null, seq: 0, tossed: false };
 
 // ======================= audio =======================
 const AU = { ctx: null, muted: false, sizzle: null, master: null };
@@ -1334,7 +1457,7 @@ function serve() {
   const left = clamp(1 - (G.t - t.t0) / t.patience, 0, 1);
   let pay = 0, tip = 0;
   if (r.stars > 0) { pay = t.price; if (r.stars >= 2) tip = Math.round(t.price * .3 * left * (r.stars - 1) / 2 / 5) * 5; }
-  G.money += pay + tip; G.served++; G.starSum += r.stars;
+  G.money += pay + tip; G.served++; G.starSum += r.stars; if (r.stars === 3) G.three++;
   if (r.stars === 0) { G.hearts--; sfx.bad(); } else sfx.cash();
   showResult(t, r, pay, tip);
   G.tickets = G.tickets.filter((x) => x !== t);
@@ -1359,19 +1482,42 @@ $('#dump').addEventListener('click', () => {
   S().reset(); whoosh(.5, 400, .4); pop('整鍋倒掉了'); refreshNeeds();
 });
 
-// ======================= day flow, shop =======================
-function showScreen(id) {
-  for (const s of ['scr-start', 'scr-end', 'scr-shop', 'scr-pause']) $('#' + s).hidden = s !== id;
+// ======================= screens: home, shop, help, records =======================
+const SCREENS = ['scr-home', 'scr-end', 'scr-shop', 'scr-help', 'scr-stats', 'scr-pause'];
+let backTo = 'scr-home';
+function showScreen(id) { for (const s of SCREENS) $('#' + s).hidden = s !== id; }
+function nextPrice(id) {
+  const u = save.up;
+  if (id === 'wok') return WOKS[u.wok + 1] ? WOKS[u.wok + 1].price : null;
+  const up = UPS.find((x) => x.id === id);
+  return u[id] < up.price.length ? up.price[u[id]] : null;
 }
-function refreshStart() {
-  $('#start-day').textContent = `第 ${save.day} 天`;
-  $('#start-bank').textContent = fmtMoney(save.bank);
+function canAffordSomething() { return ['wok', ...UPS.map((x) => x.id)].some((id) => { const p = nextPrice(id); return p != null && p <= save.bank; }); }
+function refreshHome() {
+  $('#home-day').textContent = `第 ${save.day} 天`;
+  $('#home-bank').textContent = fmtMoney(save.bank);
+  $('#shop-badge').hidden = !canAffordSomething();
   const b = save.best;
-  $('#best-start').textContent = b ? `最佳紀錄：一晚 ${fmtMoney(b.money)}・出菜 ${b.served} 道` : '';
+  $('#best-start').textContent = b ? `最佳紀錄：一晚 ${fmtMoney(b.money)}・出菜 ${b.served} 道` : '第一天開店，先從蛋炒飯和炒高麗菜練起。';
 }
+function goHome() { refreshHome(); showScreen('scr-home'); }
+function openStats() {
+  const s = save.stats;
+  $('#s-days').textContent = s.days + ' 天';
+  $('#s-earned').textContent = fmtMoney(s.earned);
+  $('#s-served').textContent = s.served + ' 道';
+  $('#s-three').textContent = s.three + ' 道';
+  $('#s-best').textContent = save.best ? fmtMoney(save.best.money) : '—';
+  $('#s-wok').textContent = WOKS[save.up.wok].name;
+  backTo = 'scr-home'; showScreen('scr-stats');
+}
+document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => (backTo === 'scr-home' ? goHome() : showScreen(backTo))));
+$('#btn-help').addEventListener('click', () => { backTo = 'scr-home'; showScreen('scr-help'); });
+$('#btn-stats').addEventListener('click', openStats);
+
 function startDay() {
   initAudio(); if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
-  Object.assign(G, { running: true, paused: false, t: 0, day: save.day, money: 0, hearts: 3, served: 0, starSum: 0, missed: 0, tickets: [], nextAt: 1.5, sel: null, tossed: false });
+  Object.assign(G, { running: true, paused: false, t: 0, day: save.day, money: 0, hearts: 3, served: 0, starSum: 0, three: 0, missed: 0, tickets: [], nextAt: 1.5, sel: null, tossed: false });
   for (const st of ST) { st.W.T = 25; st.reset(); st.fire = 2; }
   if (cur !== 0) switchStation(0);
   showFire();
@@ -1379,8 +1525,14 @@ function startDay() {
   showScreen(null);
   renderTickets(); refreshHud();
 }
+function stopDay() {
+  G.running = false; G.paused = false; endStir();
+  G.tickets = []; G.sel = null; renderTickets();
+  for (const st of ST) { st.reset(); st.fire = 0; }
+  showFire();
+  if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
+}
 function endDay(broke) {
-  G.running = false; endStir();
   const avg = G.served ? G.starSum / G.served : 0;
   $('#end-title').textContent = broke ? `第 ${G.day} 天：口碑掉光，先收攤了…` : `第 ${G.day} 天 22:00 打烊，辛苦了！`;
   $('#e-money').textContent = fmtMoney(G.money);
@@ -1390,46 +1542,140 @@ function endDay(broke) {
   $('#end-note').textContent = G.served === 0 ? '下次先選單、下油，再照單下料。'
     : avg >= 2.5 ? '整條街都聞到你的鍋氣了。' : avg >= 1.5 ? '客人吃得滿意，明天再快一點。' : '多甩幾下鍋，熟了再出菜。';
   save.bank += G.money; save.day += 1;
+  const s = save.stats; s.days += 1; s.earned += G.money; s.served += G.served; s.three += G.three;
   if (!save.best || G.money > save.best.money) save.best = { money: G.money, served: G.served };
   writeSave();
   $('#end-bank').textContent = fmtMoney(save.bank);
   $('#best-end').textContent = `最佳紀錄：一晚 ${fmtMoney(save.best.money)}・出菜 ${save.best.served} 道`;
+  stopDay();
   showScreen('scr-end');
-  G.tickets = []; renderTickets();
 }
+
+// ---- shop icons ----
+const ICONS = {};
+function wokThumb(tier) {
+  const w = WOKS[tier], Sc = new THREE.Scene();
+  Sc.environment = scene.environment;
+  Sc.add(new THREE.HemisphereLight(col(0xfff4e6), col(0x3a2a20), 0.6));
+  const dl = new THREE.DirectionalLight(col(0xffffff), 1.6); dl.position.set(-2, 6, 3); Sc.add(dl);
+  const g = new THREE.Group(); Sc.add(g);
+  const wm = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: .85, roughness: .36, envMapIntensity: 1.2, side: THREE.DoubleSide, color: col(w.tint) });
+  const rm = new THREE.MeshStandardMaterial({ color: col(w.rim), metalness: .9, roughness: .3 });
+  g.add(new THREE.Mesh(WOK_GEO, wm));
+  const rim = new THREE.Mesh(RIM_GEO, rm); rim.rotation.x = PI / 2; rim.position.y = RIMY; g.add(rim);
+  const dir = new THREE.Vector3(0.62, 0, 0.78).normalize();
+  const neck = new THREE.Mesh(NECK_GEO, rm);
+  neck.position.copy(dir.clone().multiplyScalar(RIM + 0.4)).setY(RIMY - 0.05);
+  neck.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().add(new THREE.Vector3(0, .12, 0)).normalize()); g.add(neck);
+  const wood = new THREE.Mesh(WOOD_GEO, WOOD_MAT);
+  wood.position.copy(dir.clone().multiplyScalar(RIM + 2.0)).setY(RIMY + 0.12); wood.quaternion.copy(neck.quaternion); g.add(wood);
+  g.rotation.y = 0.5;
+  const cam = new THREE.PerspectiveCamera(36, 1, .1, 40); cam.position.set(0.6, 6.2, 6.4); cam.lookAt(0.6, 0.1, 0.5);
+  return snapshot(Sc, cam);
+}
+function snapshot(Sc, cam) {
+  const SZ = 128, rt = new THREE.WebGLRenderTarget(SZ, SZ);
+  rt.texture.encoding = THREE.sRGBEncoding;
+  const prevClear = renderer.getClearAlpha(), prevC = new THREE.Color(); renderer.getClearColor(prevC);
+  renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(Sc, cam);
+  const buf = new Uint8Array(SZ * SZ * 4); renderer.readRenderTargetPixels(rt, 0, 0, SZ, SZ, buf);
+  renderer.setRenderTarget(null); renderer.setClearColor(prevC, prevClear); rt.dispose();
+  const cv = document.createElement('canvas'); cv.width = cv.height = SZ;
+  const g2 = cv.getContext('2d'), img = g2.createImageData(SZ, SZ);
+  for (let y = 0; y < SZ; y++) img.data.set(buf.subarray((SZ - 1 - y) * SZ * 4, (SZ - y) * SZ * 4), y * SZ * 4);
+  g2.putImageData(img, 0, 0);
+  return cv.toDataURL();
+}
+function drawIcon(id) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  const flame = (x, y, s) => {
+    for (const [col2, k] of [['#ff8a1e', 1], ['#ffd24a', .62], ['#5a8cff', .28]]) {
+      g.fillStyle = col2; g.beginPath(); g.moveTo(x - 9 * s * k, y); g.quadraticCurveTo(x - 7 * s * k, y - 22 * s * k, x, y - 34 * s * k);
+      g.quadraticCurveTo(x + 7 * s * k, y - 22 * s * k, x + 9 * s * k, y); g.closePath(); g.fill();
+    }
+  };
+  const burner = (cx, cy, rx, s) => {
+    g.fillStyle = '#2a2522'; g.beginPath(); g.ellipse(cx, cy + 6, rx + 8, (rx + 8) * .34, 0, 0, PI * 2); g.fill();
+    g.strokeStyle = '#0e0c0b'; g.lineWidth = 6; g.beginPath(); g.ellipse(cx, cy, rx, rx * .34, 0, 0, PI * 2); g.stroke();
+    for (let i = -2; i <= 2; i++) flame(cx + i * rx * .42, cy - 2, s * (1 - Math.abs(i) * .12));
+  };
+  switch (id) {
+    case 'stove': burner(64, 92, 34, 1.35); break;
+    case 'burner2': burner(36, 88, 20, .8); burner(92, 88, 20, .8); break;
+    case 'ac':
+      g.fillStyle = '#f2f0ea'; rrect(g, 14, 28, 100, 44, 10); g.fill(); g.strokeStyle = '#bdb7ad'; g.lineWidth = 2; g.stroke();
+      g.fillStyle = '#8b867d'; g.fillRect(24, 58, 80, 4);
+      g.fillStyle = '#5fae4a'; g.beginPath(); g.arc(100, 40, 3, 0, PI * 2); g.fill();
+      g.strokeStyle = '#7cc4f0'; g.lineWidth = 4; g.lineCap = 'round';
+      for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(36 + i * 28, 82); g.quadraticCurveTo(28 + i * 28, 96, 36 + i * 28, 110); g.stroke(); }
+      break;
+    case 'tables': {
+      g.fillStyle = '#d9c7a3'; g.beginPath(); g.ellipse(64, 46, 46, 15, 0, 0, PI * 2); g.fill();
+      g.fillStyle = '#b8a27a'; g.fillRect(60, 50, 8, 34);
+      const stool = (x) => { g.fillStyle = '#d4352b'; g.beginPath(); g.moveTo(x - 15, 84); g.lineTo(x + 15, 84); g.lineTo(x + 19, 116); g.lineTo(x + 11, 116); g.lineTo(x + 8, 94); g.lineTo(x - 8, 94); g.lineTo(x - 11, 116); g.lineTo(x - 19, 116); g.closePath(); g.fill(); };
+      stool(30); stool(98); break;
+    }
+    case 'sign':
+      g.shadowColor = '#ff3a1d'; g.shadowBlur = 14;
+      g.fillStyle = '#5a0f08'; rrect(g, 12, 34, 104, 56, 8); g.fill();
+      g.strokeStyle = '#ff6b4e'; g.lineWidth = 4; rrect(g, 12, 34, 104, 56, 8); g.stroke();
+      g.fillStyle = '#ffeede'; g.font = '900 32px "Noto Serif TC", serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('熱炒', 64, 63);
+      break;
+  }
+  return c.toDataURL();
+}
+function icon(key) {
+  if (!ICONS[key]) ICONS[key] = key.startsWith('wok') ? wokThumb(+key.slice(3)) : drawIcon(key);
+  return ICONS[key];
+}
+
+// ---- shop ----
+let shopCat = 'wok';
+const pct = (x) => Math.round(clamp(x, 0, 1) * 100);
 function renderShop() {
-  const u = save.up, next = WOKS[u.wok + 1];
-  let h = `<div class="up"><h4>換鍋子<span class="lv">現在：${WOKS[u.wok].name}</span></h4>`
-    + (next ? `<p><b>${next.name}</b>：${next.desc}</p><button type="button" data-buy="wok" ${save.bank < next.price ? 'disabled' : ''}>${fmtMoney(next.price)}</button>`
-            : `<p>已經是最好的鍋了。</p><button type="button" disabled>已滿級</button>`) + '</div>';
-  for (const up of UPS) {
-    const lv = u[up.id], max = up.price.length, price = up.price[lv];
-    h += `<div class="up"><h4>${up.name}${max > 1 ? `<span class="lv">${lv} / ${max}</span>` : ''}</h4><p>${up.desc}</p>`
-      + (lv >= max ? `<button type="button" disabled>${max > 1 ? '已滿級' : '已購買'}</button>`
-                   : `<button type="button" data-buy="${up.id}" ${save.bank < price ? 'disabled' : ''}>${fmtMoney(price)}</button>`) + '</div>';
+  const u = save.up; let h = '';
+  if (shopCat === 'wok') {
+    WOKS.forEach((w, i) => {
+      const state = i === u.wok ? '<span class="tag">使用中</span>' : i < u.wok ? '<span class="tag lv">已擁有</span>' : '';
+      const buy = i === u.wok + 1 ? `<button type="button" data-buy="wok" ${save.bank < w.price ? 'disabled' : ''}>${fmtMoney(w.price)}</button>`
+        : i > u.wok ? '<button type="button" disabled>先買前一個</button>' : '<button type="button" disabled>已擁有</button>';
+      const bars = [['加熱', w.heat / 2.3], ['熟得快', (w.cook - .7) / .65], ['不易焦', (1 / w.burn) / 2.5], ['鍋氣', w.wh / 1.6]]
+        .map(([n, v]) => `<div><span>${n}</span><div class="bar"><i style="width:${pct(v)}%"></i></div></div>`).join('');
+      h += `<div class="card${i > u.wok + 1 ? ' locked' : ''}"><img alt="" src="${icon('wok' + i)}"><h4>${w.name}${state}</h4><p>${w.desc}</p>${buy}<div class="bars">${bars}</div></div>`;
+    });
+  } else {
+    for (const up of UPS.filter((x) => x.cat === shopCat)) {
+      const lv = u[up.id], max = up.price.length, price = up.price[lv];
+      const tag = max > 1 ? `<span class="tag lv">${lv} / ${max}</span>` : lv ? '<span class="tag">已購買</span>' : '';
+      const btn = lv >= max ? `<button type="button" disabled>${max > 1 ? '已滿級' : '已購買'}</button>`
+        : `<button type="button" data-buy="${up.id}" ${save.bank < price ? 'disabled' : ''}>${fmtMoney(price)}</button>`;
+      h += `<div class="card"><img alt="" src="${icon(up.icon)}"><h4>${up.name}${tag}</h4><p>${up.desc}</p>${btn}</div>`;
+    }
   }
   $('#shop-list').innerHTML = h;
   $('#shop-bank').textContent = fmtMoney(save.bank);
+  document.querySelectorAll('#shop-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.cat === shopCat));
 }
+$('#shop-tabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; shopCat = b.dataset.cat; renderShop(); });
 $('#shop-list').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-buy]'); if (!b || b.disabled) return;
-  const id = b.dataset.buy, u = save.up;
-  const price = id === 'wok' ? WOKS[u.wok + 1].price : UPS.find((x) => x.id === id).price[u[id]];
-  if (save.bank < price) return;
-  save.bank -= price; u[id] += 1; writeSave();
+  const id = b.dataset.buy, price = nextPrice(id);
+  if (price == null || save.bank < price) return;
+  save.bank -= price; save.up[id] += 1; writeSave();
   P = perks(); applyLooks();
   initAudio(); sfx.cash();
   renderShop();
 });
-function openShop(from) { G.shopFrom = from; renderShop(); showScreen('scr-shop'); }
-$('#btn-shop1').addEventListener('click', () => openShop('scr-start'));
-$('#btn-shop2').addEventListener('click', () => openShop('scr-end'));
-$('#btn-shop-back').addEventListener('click', () => { refreshStart(); showScreen(G.shopFrom); });
+function openShop(from) { backTo = from; renderShop(); showScreen('scr-shop'); }
+$('#btn-shop1').addEventListener('click', () => openShop('scr-home'));
+$('#btn-shop2').addEventListener('click', () => openShop('scr-home'));
+$('#btn-shop-back').addEventListener('click', goHome);
 $('#btn-shop-open').addEventListener('click', startDay);
+$('#btn-home2').addEventListener('click', goHome);
 $('#btn-reset').addEventListener('click', (e) => {
   const b = e.currentTarget;
   if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = '確定要清除？再按一次'; setTimeout(() => { delete b.dataset.armed; b.textContent = '清除存檔，從第 1 天重來'; }, 3000); return; }
-  save = defaultSave(); writeSave(); P = perks(); applyLooks(); renderShop(); refreshStart();
+  save = defaultSave(); writeSave(); P = perks(); applyLooks(); renderShop();
   delete b.dataset.armed; b.textContent = '已清除存檔';
 });
 function setPaused(p) {
@@ -1441,6 +1687,12 @@ function setPaused(p) {
 $('#btn-start').addEventListener('click', startDay);
 $('#btn-again').addEventListener('click', startDay);
 $('#btn-resume').addEventListener('click', () => setPaused(false));
+$('#btn-quit').addEventListener('click', (e) => {
+  const b = e.currentTarget;
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = '今天的錢會不見，再按一次確定'; setTimeout(() => { delete b.dataset.armed; b.textContent = '回主畫面（今天不算）'; }, 3000); return; }
+  delete b.dataset.armed; b.textContent = '回主畫面（今天不算）';
+  stopDay(); goHome();
+});
 $('#pause').addEventListener('click', () => setPaused(!G.paused));
 document.addEventListener('visibilitychange', () => { if (document.hidden && G.running) setPaused(true); });
 $('#mute').addEventListener('click', () => {
@@ -1619,7 +1871,7 @@ function loop(now) {
 // fonts first, so the bottle labels draw with the right face
 const fontsReady = document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]) : Promise.resolve();
 fontsReady.then(() => { buildRack(); refreshNeeds(); });
-applyLooks(); refreshStart(); refreshHud();
+applyLooks(); goHome(); refreshHud();
 requestAnimationFrame(loop);
 })();
 </script>
