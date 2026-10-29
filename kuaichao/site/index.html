@@ -277,6 +277,24 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
 }
 .cta.alt { height: 48px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); font-size: 17px; letter-spacing: .12em; box-shadow: none; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .cta.alt small { font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--muted); }
+#scr-end { align-items: flex-start; overflow-y: auto; padding-block: 12px; touch-action: pan-y; }
+#scr-end .board { margin: auto 0; }
+.end-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.end-sub { font-size: 16px; font-weight: 700; }
+.chef-card { --tier: var(--good); display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: center; border: 2px solid var(--tier); border-radius: 10px; padding: 8px 12px 10px 6px; background: color-mix(in srgb, var(--tier) 9%, var(--paper)); }
+.chef-card[data-tier="S"] { --tier: #c99a1a; } .chef-card[data-tier="A"] { --tier: #d07a1a; } .chef-card[data-tier="B"] { --tier: var(--good); }
+.chef-card[data-tier="C"] { --tier: #7d8a5a; } .chef-card[data-tier="D"] { --tier: #8a7666; } .chef-card[data-tier="E"], .chef-card[data-tier="F"] { --tier: var(--bad); }
+.chef-art svg { display: block; width: 112px; height: auto; animation: chefbob 2.4s ease-in-out infinite; transform-origin: 50% 100%; }
+.chef-card[data-tier="E"] .chef-art svg, .chef-card[data-tier="F"] .chef-art svg { animation: chefshake .5s ease-in-out infinite; }
+@keyframes chefbob { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-4px) rotate(1.5deg); } }
+@keyframes chefshake { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+.chef-txt { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.chef-k { font-family: var(--f-ui); font-size: 11px; letter-spacing: .14em; color: var(--ink-soft); }
+.chef-rank { display: flex; align-items: center; gap: 8px; }
+.chef-rank b { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--tier); color: var(--paper); font-family: var(--f-ui); font-size: 24px; font-weight: 900; box-shadow: 0 2px 0 rgba(0, 0, 0, .25); }
+.chef-rank span { font-family: var(--f-sign); font-weight: 900; font-size: 22px; line-height: 1.15; color: var(--ink); text-wrap: balance; }
+.chef-txt p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .chef-art svg { animation: none !important; } }
 #scr-practice { align-items: flex-start; overflow-y: auto; padding-block: 12px; touch-action: pan-y; }
 #scr-practice .board { margin: auto 0; }
 .pick-list { display: flex; flex-direction: column; gap: 8px; }
@@ -490,8 +508,15 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
 
   <div class="screen" id="scr-end" hidden>
     <div class="board">
-      <div class="sign">打烊</div>
-      <h2 id="end-title">今天辛苦了！</h2>
+      <div class="end-top"><span class="sign">打烊</span><span class="end-sub" id="end-title">今天辛苦了！</span></div>
+      <div class="chef-card" id="chef-card">
+        <div class="chef-art" id="chef-art" aria-hidden="true"></div>
+        <div class="chef-txt">
+          <span class="chef-k">今日廚師評鑑</span>
+          <div class="chef-rank"><b id="chef-grade">B</b><span id="chef-title">正港總舖師</span></div>
+          <p id="chef-quote"></p>
+        </div>
+      </div>
       <div class="stats">
         <div><span>今天收入</span><b id="e-money">$0</b></div>
         <div><span>出菜</span><b id="e-served">0 道</b></div>
@@ -2080,7 +2105,106 @@ function stopDay() {
   showFire(); refreshFryButtons();
   if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
 }
+// ---- end-of-day chef review: exaggerated praise or roast, with a cartoon chef to match ----
+const CHEF_RANKS = {
+  S: { title: '炒神降臨', mood: 'legend', lines: [
+    '鍋氣衝上天，三條街外的阿嬤都循著香味找過來。米其林評審連夜搬到對面租房子。',
+    '你一甩鍋，整條夜市安靜了三秒。客人吃完當場站起來鼓掌，喊你一聲「師父」。',
+    '這不是炒菜，這是藝術。隔壁餐廳老闆偷偷來吃，吃完默默把自己的招牌拆了。'] },
+  A: { title: '傳說級大廚', mood: 'proud', lines: [
+    '客人吃到眼眶泛淚，說想起小時候媽媽的味道，而且比媽媽炒得還好吃。',
+    '門口開始排隊了，一路排到捷運站，還有人帶小板凳來等。',
+    '美食部落客拍完照忘了發文，因為他一直吃、停不下來。'] },
+  B: { title: '正港總舖師', mood: 'happy', lines: [
+    '穩！手腳俐落、火候到位，辦桌找你準沒錯。',
+    '客人吃得心滿意足，臨走前還多點一盤要帶回家。',
+    '阿華老闆拍拍你的肩膀說：「明天也拜託你了。」'] },
+  C: { title: '及格的快炒師傅', mood: 'meh', lines: [
+    '還可以啦。客人吃得完，但應該不會特地再來。',
+    '有幾盤不錯，有幾盤……我們就當作沒看到。',
+    '味道像是「有在努力」的那種，阿華老闆給你一個勉強的微笑。'] },
+  D: { title: '菜鳥學徒', mood: 'nervous', lines: [
+    '客人吃一口，默默拿出手機開始搜尋附近的其他店。',
+    '鍋子在哭，菜也在哭，阿華老闆躲在後面也在哭。',
+    '有一桌客人吃完問：「請問你們是新開的嗎？」'] },
+  E: { title: '災難級廚師', mood: 'disaster', lines: [
+    '客人吃完直接打 119，消防隊來了說：「這個焦味我們很熟。」',
+    'Google 評論出現一顆星：「廚師可能是今天第一次看到火。」',
+    '連店裡的蟑螂都連夜打包搬家了。'] },
+  F: { title: '鍋子殺手', mood: 'dead', lines: [
+    '口碑燒得比菜還快。阿華老闆默默拉下鐵門：「我們明天……還是先休息好了。」',
+    '今天的炒鍋申請了職災理賠，抽油煙機也想離職。',
+    '客人逃跑的速度，比你出菜的速度快多了。'] },
+};
+function chefRank(broke) {
+  if (!G.served) return 'F';
+  const avg = G.starSum / G.served;
+  const score = avg * 25 + Math.min(25, G.served * 2) - G.missed * 5;
+  if (broke) return score >= 35 ? 'E' : 'F';
+  return score >= 90 ? 'S' : score >= 76 ? 'A' : score >= 60 ? 'B' : score >= 45 ? 'C' : score >= 30 ? 'D' : 'E';
+}
+function chefSVG(mood) {
+  const ink = '#2b1d13', skin = '#f2c49b', burnt = mood === 'dead' || mood === 'disaster';
+  const hatFill = burnt ? '#9b958c' : '#ffffff', hatLift = mood === 'legend' || mood === 'proud' ? -6 : 0;
+  const eyes = {
+    legend: `<path d="M43 77 q6 -7 12 0 M65 77 q6 -7 12 0" stroke="${ink}" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+    proud: `<path d="M43 77 q6 -6 12 0 M65 77 q6 -6 12 0" stroke="${ink}" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+    happy: `<circle cx="49" cy="76" r="3.6" fill="${ink}"/><circle cx="71" cy="76" r="3.6" fill="${ink}"/><circle cx="50.2" cy="74.8" r="1.1" fill="#fff"/><circle cx="72.2" cy="74.8" r="1.1" fill="#fff"/>`,
+    meh: `<path d="M44 77 h10 M66 77 h10" stroke="${ink}" stroke-width="3" stroke-linecap="round"/><path d="M44 73 h10 M66 73 h10" stroke="${ink}" stroke-width="1.5" opacity=".5" stroke-linecap="round"/>`,
+    nervous: `<circle cx="49" cy="77" r="2.6" fill="${ink}"/><circle cx="71" cy="77" r="2.6" fill="${ink}"/><path d="M42 69 l10 3 M78 69 l-10 3" stroke="${ink}" stroke-width="2" stroke-linecap="round"/>`,
+    disaster: `<path d="M45 73 l8 8 M53 73 l-8 8 M67 73 l8 8 M75 73 l-8 8" stroke="${ink}" stroke-width="2.6" stroke-linecap="round"/>`,
+    dead: `<path d="M44 73 l9 8 M53 73 l-9 8 M67 73 l9 8 M76 73 l-9 8" stroke="${ink}" stroke-width="3" stroke-linecap="round"/><path d="M47 84 q-2 6 0 9 q2 -3 0 -9 M73 84 q-2 6 0 9 q2 -3 0 -9" fill="#6fb6e8"/>`,
+  }[mood];
+  const mouth = {
+    legend: `<path d="M50 98 q10 14 20 0 z" fill="#8c1f18"/><path d="M53 99 h14" stroke="#fff" stroke-width="2"/>`,
+    proud: `<path d="M51 98 q9 11 18 0 z" fill="#8c1f18"/>`,
+    happy: `<path d="M52 99 q8 7 16 0" stroke="${ink}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
+    meh: `<path d="M53 101 h14" stroke="${ink}" stroke-width="2.6" stroke-linecap="round"/>`,
+    nervous: `<path d="M51 101 q3 -3 6 0 q3 3 6 0 q3 -3 6 0" stroke="${ink}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    disaster: `<ellipse cx="60" cy="102" rx="6" ry="7" fill="#5a1410"/>`,
+    dead: `<path d="M52 104 q8 -8 16 0" stroke="${ink}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
+  }[mood];
+  const blush = mood === 'legend' || mood === 'proud' || mood === 'happy' ? `<ellipse cx="42" cy="88" rx="5" ry="3" fill="#f0806e" opacity=".55"/><ellipse cx="78" cy="88" rx="5" ry="3" fill="#f0806e" opacity=".55"/>` : '';
+  const star = (x, y, r, c) => `<path d="M${x} ${y - r} L${x + r * .3} ${y - r * .3} L${x + r} ${y} L${x + r * .3} ${y + r * .3} L${x} ${y + r} L${x - r * .3} ${y + r * .3} L${x - r} ${y} L${x - r * .3} ${y - r * .3} Z" fill="${c}"/>`;
+  let extra = '', glow = '';
+  if (mood === 'legend') {
+    glow = `<defs><radialGradient id="cg"><stop offset="0" stop-color="#ffd76a" stop-opacity=".9"/><stop offset="1" stop-color="#ffd76a" stop-opacity="0"/></radialGradient></defs><circle cx="60" cy="70" r="60" fill="url(#cg)"/>`;
+    extra = `<path d="M44 ${14 + hatLift} l6 10 l10 -14 l10 14 l6 -10 l-3 18 h-26 z" fill="#f2c230" stroke="#a87a10" stroke-width="1.5"/>` + star(14, 40, 7, '#f2c230') + star(106, 30, 6, '#f2c230') + star(102, 96, 5, '#f2c230') + star(18, 100, 4, '#f2c230');
+  } else if (mood === 'proud') extra = star(14, 44, 6, '#f2b33d') + star(104, 36, 5, '#f2b33d');
+  else if (mood === 'nervous') extra = `<path d="M90 60 q-6 9 0 13 q6 -4 0 -13" fill="#6fb6e8"/>`;
+  else if (burnt) {
+    extra = `<circle cx="40" cy="${10 + hatLift}" r="8" fill="#6b6560" opacity=".55"/><circle cx="54" cy="4" r="10" fill="#6b6560" opacity=".45"/><circle cx="72" cy="8" r="7" fill="#6b6560" opacity=".5"/>`
+      + `<ellipse cx="44" cy="68" rx="7" ry="4" fill="#3a2a20" opacity=".45"/><ellipse cx="78" cy="94" rx="6" ry="3.5" fill="#3a2a20" opacity=".4"/>`
+      + (mood === 'disaster' ? `<path d="M92 58 q-6 9 0 13 q6 -4 0 -13" fill="#6fb6e8"/>` : '');
+  }
+  const tilt = burnt ? 'rotate(-14 60 46)' : mood === 'meh' ? 'rotate(-5 60 46)' : '';
+  return `<svg viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg">${glow}
+    <path d="M20 150 C20 118 38 106 60 106 C82 106 100 118 100 150 Z" fill="#fbf8f2" stroke="#d6ccbc" stroke-width="2"/>
+    <circle cx="52" cy="124" r="2.6" fill="#c2b7a5"/><circle cx="68" cy="124" r="2.6" fill="#c2b7a5"/><circle cx="52" cy="138" r="2.6" fill="#c2b7a5"/><circle cx="68" cy="138" r="2.6" fill="#c2b7a5"/>
+    <path d="M45 105 L60 121 L75 105 Z" fill="#d4352b"/>
+    <circle cx="33" cy="80" r="5" fill="${skin}"/><circle cx="87" cy="80" r="5" fill="${skin}"/>
+    <circle cx="60" cy="78" r="28" fill="${skin}"/>
+    <g transform="${tilt}">
+      <rect x="35" y="${44 + hatLift}" width="50" height="${14 - hatLift}" rx="3" fill="${hatFill}" stroke="#d6ccbc" stroke-width="2"/>
+      <circle cx="43" cy="${36 + hatLift}" r="13" fill="${hatFill}" stroke="#d6ccbc" stroke-width="2"/><circle cx="77" cy="${36 + hatLift}" r="13" fill="${hatFill}" stroke="#d6ccbc" stroke-width="2"/>
+      <circle cx="60" cy="${27 + hatLift}" r="16" fill="${hatFill}" stroke="#d6ccbc" stroke-width="2"/>
+      <rect x="37" y="${43 + hatLift}" width="46" height="8" fill="${hatFill}"/>
+    </g>
+    ${eyes}${blush}
+    <path d="M42 92 Q51 85 60 91 Q69 85 78 92 Q69 97 60 93 Q51 97 42 92 Z" fill="${ink}"/>
+    ${mouth}${extra}
+  </svg>`;
+}
+function showChefReview(broke) {
+  const g = chefRank(broke), r = CHEF_RANKS[g];
+  $('#chef-card').dataset.tier = g;
+  $('#chef-grade').textContent = g;
+  $('#chef-title').textContent = r.title;
+  $('#chef-quote').textContent = !G.served ? '整晚一道菜都沒出，客人以為你在拍整人節目。' : r.lines[Math.floor(Math.random() * r.lines.length)];
+  $('#chef-art').innerHTML = chefSVG(r.mood);
+}
 function endDay(broke) {
+  showChefReview(broke);
   const avg = G.served ? G.starSum / G.served : 0;
   $('#end-title').textContent = broke ? `第 ${G.day} 天：口碑掉光，先收攤了…` : `第 ${G.day} 天 22:00 打烊，辛苦了！`;
   $('#e-money').textContent = fmtMoney(G.money);
@@ -2287,7 +2411,7 @@ $('#mute').addEventListener('click', () => {
 
 // ======================= keep the screen still while cooking =======================
 // no pinch zoom, no double-tap zoom, no page bounce; only the order rail and the shop list may scroll
-const SCROLLERS = '.rail, .shop-list, .screen.full, .board.shop, #scr-practice';
+const SCROLLERS = '.rail, .shop-list, .screen.full, .board.shop, #scr-practice, #scr-end';
 document.addEventListener('touchmove', (e) => {
   if (e.touches.length > 1 || !e.target.closest(SCROLLERS)) e.preventDefault();
 }, { passive: false });

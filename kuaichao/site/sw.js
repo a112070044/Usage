@@ -1,6 +1,6 @@
 // 阿華熱炒 service worker: the game page always tries the network first so updates show up,
 // while three.js, fonts and icons are kept for offline play.
-const CACHE = 'kuaichao-v10';
+const CACHE = 'kuaichao-v11';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png', './icon-32.png'];
 
 self.addEventListener('install', (e) => {
