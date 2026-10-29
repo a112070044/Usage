@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="description" content="阿華熱炒：3D 快炒店網頁遊戲。客人一直點菜，甩鍋、鍋鏟翻炒、油炸，賺錢升級店面。">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#120e0c">
@@ -51,11 +51,14 @@ img { max-width: 100%; }
   color-scheme: dark;
 }
 html, body { height: 100%; }
+html { overflow: hidden; overscroll-behavior: none; }
 body {
   background: var(--bg); color: var(--fg); font-family: var(--f-ui);
-  overflow: hidden; -webkit-user-select: none; user-select: none; touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
+  overflow: hidden; overscroll-behavior: none; -webkit-user-select: none; user-select: none; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-text-size-adjust: 100%;
 }
+#app, #stage { touch-action: none; }
+.rail, .shop-list, .screen.full, .board.shop { touch-action: pan-x pan-y; }
 button { font-family: inherit; cursor: pointer; }
 button:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
 #app {
@@ -2173,6 +2176,22 @@ $('#mute').addEventListener('click', () => {
   $('#mute').setAttribute('aria-label', AU.muted ? '打開聲音' : '關閉聲音');
   if (AU.master) AU.master.gain.value = AU.muted ? 0 : 0.7;
 });
+
+// ======================= keep the screen still while cooking =======================
+// no pinch zoom, no double-tap zoom, no page bounce; only the order rail and the shop list may scroll
+const SCROLLERS = '.rail, .shop-list, .screen.full, .board.shop';
+document.addEventListener('touchmove', (e) => {
+  if (e.touches.length > 1 || !e.target.closest(SCROLLERS)) e.preventDefault();
+}, { passive: false });
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  const now = performance.now();
+  if (now - lastTouchEnd < 350 && !e.target.closest('button, a, input')) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+document.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', (e) => { if (e.target === canvas) e.preventDefault(); });
 
 // ======================= input: flick up = toss, press and drag = spatula =======================
 let ptr = null;

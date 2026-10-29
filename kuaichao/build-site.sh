@@ -9,7 +9,7 @@ end=$(grep -n '^</style>' index.html | head -1 | cut -d: -f1)
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="description" content="阿華熱炒：3D 快炒店網頁遊戲。客人一直點菜，甩鍋、鍋鏟翻炒、油炸，賺錢升級店面。">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#120e0c">
