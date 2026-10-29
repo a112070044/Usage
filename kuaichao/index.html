@@ -1,0 +1,1336 @@
+<title>阿師快炒</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@900&display=swap">
+<style>
+/* Layout: one-screen portrait game column. Order tickets clip on a rail at the top, the wok stage fills the middle, the ingredient rack sits at the bottom. A night-time stir-fry shop: dark kitchen, red signboard, paper order slips. */
+:root {
+  --bg: #120e0c;
+  --stage: #1c1512;
+  --panel: #231a15;
+  --line: #3b2e26;
+  --paper: #f5eddc;
+  --paper-line: #cdbb9b;
+  --ink: #2b1d13;
+  --ink-soft: #6a5443;
+  --sign: #d4352b;
+  --sign-glow: rgba(212, 53, 43, .45);
+  --lamp: #f1b23c;
+  --fg: #f4e7d3;
+  --muted: #a69079;
+  --good: #5fae4a;
+  --warn: #e7a23a;
+  --bad: #e0533e;
+  --glass: rgba(18, 13, 10, .74);
+  --glass-line: rgba(255, 228, 196, .14);
+  --rack: #efe4cf;
+  --f-sign: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --f-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --f-hand: "LXGW WenKai TC", "Kaiti TC", "DFKai-SB", "Noto Sans TC", serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--f-ui);
+  overflow: hidden; -webkit-user-select: none; user-select: none; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font-family: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+#app {
+  position: relative; height: 100%; max-width: 540px; margin: 0 auto; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 8px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 8px;
+}
+
+/* ---------- header ---------- */
+header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
+.sign {
+  font-family: var(--f-sign); font-weight: 900; font-size: 19px; letter-spacing: .14em;
+  color: var(--paper); background: var(--sign); padding: 2px 6px 2px 10px; border-radius: 4px;
+  box-shadow: 0 0 18px var(--sign-glow), inset 0 0 0 2px rgba(255, 220, 180, .22);
+  white-space: nowrap;
+}
+.hud { margin-left: auto; display: flex; gap: 12px; align-items: center; font-variant-numeric: tabular-nums; }
+.hud .k { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.05; }
+.hud .k span { font-size: 10px; color: var(--muted); letter-spacing: .08em; }
+.hud .k b { font-size: 16px; font-weight: 700; }
+#hearts { color: var(--sign); letter-spacing: 1px; }
+.icon-btn {
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel);
+  color: var(--fg); font-size: 14px; display: grid; place-items: center; padding: 0;
+}
+
+/* ---------- order rail ---------- */
+.rail-wrap { position: relative; }
+.rail-wrap::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 3px; height: 4px; border-radius: 2px;
+  background: linear-gradient(var(--line), #4b3b31); z-index: 0;
+}
+.rail {
+  position: relative; z-index: 1; display: flex; gap: 8px; overflow-x: auto; min-height: 118px;
+  scrollbar-width: none; padding-top: 0;
+}
+.rail::-webkit-scrollbar { display: none; }
+.rail-empty { color: var(--muted); font-size: 13px; align-self: center; padding: 14px 4px 0; font-family: var(--f-hand); }
+.ticket {
+  flex: 0 0 118px; position: relative; text-align: left; border: 0; margin-top: 6px;
+  background: var(--paper); color: var(--ink); border-radius: 2px 2px 4px 4px;
+  padding: 10px 8px 12px; font-family: var(--f-hand);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .35);
+  transform-origin: top center; animation: drop .45s cubic-bezier(.3, 1.6, .5, 1);
+}
+.ticket::before {
+  content: ""; position: absolute; top: -6px; left: 50%; width: 26px; height: 9px; margin-left: -13px;
+  background: #8b8f94; border-radius: 2px; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .25);
+}
+.ticket.sel { box-shadow: 0 0 0 3px var(--lamp), 0 3px 0 rgba(0, 0, 0, .35); }
+.ticket.urgent { animation: shake .5s infinite; }
+.t-head { display: flex; justify-content: space-between; font-family: var(--f-ui); font-size: 11px; font-weight: 700; color: var(--sign); border-bottom: 1px dashed var(--paper-line); padding-bottom: 3px; }
+.t-head em { font-style: normal; color: var(--ink-soft); font-weight: 500; }
+.t-dish { font-size: 19px; font-weight: 700; margin: 4px 0 3px; line-height: 1.1; }
+.t-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0 6px; font-size: 12.5px; line-height: 1.35; color: var(--ink-soft); }
+.t-list li.s { color: #9a5a1e; }
+.t-list li.ok { color: var(--good); text-decoration: line-through; }
+.t-bar { position: absolute; left: 8px; right: 8px; bottom: 5px; height: 3px; border-radius: 2px; background: var(--paper-line); overflow: hidden; }
+.t-bar i { display: block; height: 100%; background: var(--good); border-radius: 2px; }
+
+/* ---------- stage ---------- */
+#stage { position: relative; flex: 1; min-height: 210px; border-radius: 14px; overflow: hidden; background: var(--stage); }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.chips { position: absolute; left: 10px; top: 10px; display: grid; grid-template-columns: auto auto; gap: 4px; pointer-events: none; }
+.chip {
+  background: var(--glass); border: 1px solid var(--glass-line); border-radius: 6px;
+  padding: 3px 7px 4px; min-width: 64px; display: flex; flex-direction: column; line-height: 1.15;
+}
+.chip span { font-size: 10px; color: var(--muted); letter-spacing: .08em; }
+.chip b { font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 700; }
+.chip .meter { height: 3px; margin-top: 3px; border-radius: 2px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.chip .meter i { display: block; height: 100%; width: 0; background: var(--lamp); }
+.heat { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 5px; align-items: center; }
+.heat .lbl { font-size: 10px; color: var(--muted); letter-spacing: .1em; }
+.heat button {
+  width: 40px; height: 34px; border-radius: 8px; border: 1px solid var(--glass-line);
+  background: var(--glass); color: var(--fg); font-weight: 700; font-size: 15px; padding: 0;
+}
+.heat button.on { background: var(--lamp); color: var(--ink); border-color: var(--lamp); box-shadow: 0 0 14px rgba(241, 178, 60, .45); }
+.heat button[data-f="0"].on { background: var(--muted); border-color: var(--muted); box-shadow: none; }
+.acts { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end; pointer-events: none; }
+.acts button { pointer-events: auto; }
+#dump {
+  height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--glass-line);
+  background: var(--glass); color: var(--fg); font-weight: 700; font-size: 14px;
+}
+#serve {
+  height: 52px; padding: 0 22px; border-radius: 12px; border: 0;
+  background: var(--sign); color: var(--paper); font-weight: 900; font-size: 20px; letter-spacing: .12em;
+  box-shadow: 0 4px 0 #8c1f18, 0 0 22px var(--sign-glow);
+}
+#serve:active { transform: translateY(3px); box-shadow: 0 1px 0 #8c1f18; }
+#serve small { display: block; font-size: 10px; font-weight: 500; letter-spacing: .04em; opacity: .85; margin-top: -2px; }
+.hint {
+  position: absolute; left: 50%; bottom: 72px; transform: translateX(-50%); pointer-events: none;
+  background: var(--glass); border: 1px solid var(--glass-line); border-radius: 999px;
+  padding: 4px 12px; font-size: 13px; white-space: nowrap; animation: bob 1.6s ease-in-out infinite;
+}
+.pops { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.pop {
+  position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%);
+  font-weight: 900; font-size: 19px; color: var(--paper); white-space: nowrap;
+  background: rgba(46, 26, 12, .78); border: 1px solid rgba(255, 210, 150, .25);
+  padding: 4px 14px; border-radius: 999px; animation: pop 1.4s ease-out forwards;
+}
+.pop.hot { color: var(--lamp); font-size: 22px; }
+.pop.bad { color: #ffb4a6; }
+.result {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(280px, 82%);
+  background: var(--paper); color: var(--ink); border-radius: 6px; padding: 12px 14px 14px;
+  font-family: var(--f-hand); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); animation: card 2.6s ease forwards;
+  pointer-events: none;
+}
+.result h3 { margin: 0; font-size: 22px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; text-wrap: balance; }
+.result .stars { color: var(--sign); font-size: 20px; letter-spacing: 2px; }
+.result .pay { font-family: var(--f-ui); font-weight: 700; font-size: 14px; color: var(--good); margin: 4px 0 6px; }
+.result .pay.no { color: var(--bad); }
+.result p { margin: 2px 0 0; font-size: 15px; line-height: 1.4; }
+
+/* ---------- rack ---------- */
+.rack { display: flex; flex-direction: column; gap: 6px; }
+.tabs { display: flex; gap: 6px; }
+.tabs button {
+  flex: 1; height: 32px; border-radius: 8px 8px 0 0; border: 1px solid var(--line); border-bottom: 0;
+  background: var(--panel); color: var(--muted); font-weight: 700; font-size: 14px; position: relative;
+}
+.tabs button.on { background: var(--rack); color: var(--ink); border-color: var(--rack); }
+.tabs button .dot { position: absolute; top: 6px; right: 10px; width: 7px; height: 7px; border-radius: 50%; background: var(--sign); }
+.grid { display: grid; gap: 6px; grid-template-columns: repeat(5, minmax(0, 1fr)); align-content: start; height: calc(3 * 60px + 2 * 6px); }
+.grid.seas { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: calc((3 * 60px + 6px) / 2); }
+.item {
+  position: relative; height: 60px; border-radius: 10px; border: 0; background: var(--rack); color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 2px 0 4px;
+  font-size: 12px; font-weight: 700; transition: transform .08s;
+}
+.grid.seas .item { height: 100%; font-size: 13px; }
+.item img { width: 40px; height: 40px; pointer-events: none; }
+.grid.seas .item img { width: 50px; height: 50px; }
+.item:active { transform: scale(.93); }
+.item .need { position: absolute; top: 5px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--sign); box-shadow: 0 0 0 2px var(--rack); }
+.item .cnt { position: absolute; top: 3px; left: 6px; font-size: 11px; color: var(--good); font-family: var(--f-ui); }
+
+/* ---------- overlays ---------- */
+.screen {
+  position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 7, 6, .72); backdrop-filter: blur(2px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.board {
+  width: min(380px, 100%); background: var(--paper); color: var(--ink); border-radius: 6px;
+  padding: 20px 20px 18px; font-family: var(--f-hand); box-shadow: 0 16px 40px rgba(0, 0, 0, .55);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.board .sign { align-self: flex-start; font-size: 26px; }
+.board h2 { margin: 0; font-size: 22px; text-wrap: balance; }
+.board p { margin: 0; font-size: 16px; line-height: 1.5; color: var(--ink-soft); }
+.board ol { margin: 0; padding-left: 1.3em; font-size: 16px; line-height: 1.6; }
+.board .menu { font-size: 14px; color: var(--ink-soft); border-top: 1px dashed var(--paper-line); padding-top: 8px; line-height: 1.6; }
+.board .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: var(--f-ui); }
+.board .stats div { border: 1px dashed var(--paper-line); border-radius: 4px; padding: 6px 8px; }
+.board .stats span { display: block; font-size: 11px; color: var(--ink-soft); letter-spacing: .06em; }
+.board .stats b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.board .big {
+  margin-top: 4px; height: 50px; border: 0; border-radius: 10px; background: var(--sign); color: var(--paper);
+  font-family: var(--f-ui); font-weight: 900; font-size: 19px; letter-spacing: .16em; box-shadow: 0 4px 0 #8c1f18;
+}
+.board .big:active { transform: translateY(3px); box-shadow: 0 1px 0 #8c1f18; }
+.board .best { font-family: var(--f-ui); font-size: 13px; color: var(--ink-soft); text-align: center; }
+
+@keyframes drop { from { transform: translateY(-30px) rotate(-4deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-2deg); } 75% { transform: rotate(2deg); } }
+@keyframes pop { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.8); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -120%); } }
+@keyframes card { 0% { opacity: 0; transform: translate(-50%, -40%) scale(.9); } 10% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -60%); } }
+@keyframes bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -5px); } }
+@media (prefers-reduced-motion: reduce) {
+  .ticket, .ticket.urgent, .hint { animation: none; }
+  .pop { animation: fade 1.4s forwards; }
+  .result { animation: fade 2.6s forwards; }
+  @keyframes fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+}
+@media (max-height: 700px) {
+  .rail { min-height: 104px; }
+  .t-dish { font-size: 17px; }
+  .grid { height: calc(3 * 52px + 2 * 6px); }
+  .item { height: 52px; }
+  .grid.seas { grid-auto-rows: calc((3 * 52px + 6px) / 2); }
+  .item img { width: 34px; height: 34px; }
+  .grid.seas .item img { width: 42px; height: 42px; }
+}
+</style>
+
+<div id="app">
+  <header>
+    <div class="sign">阿師快炒</div>
+    <div class="hud">
+      <div class="k"><span>時間</span><b id="clock">17:00</b></div>
+      <div class="k"><span>收入</span><b id="money">$0</b></div>
+      <div class="k"><span>口碑</span><b id="hearts">♥♥♥</b></div>
+      <button class="icon-btn" id="mute" type="button" aria-label="關閉聲音">♪</button>
+      <button class="icon-btn" id="pause" type="button" aria-label="暫停">❚❚</button>
+    </div>
+  </header>
+
+  <div class="rail-wrap"><div class="rail" id="rail"><div class="rail-empty">還沒有客人，先熱鍋吧。</div></div></div>
+
+  <div id="stage">
+    <canvas id="gl"></canvas>
+    <div class="chips">
+      <div class="chip"><span>鍋溫</span><b id="c-temp">25°C</b><div class="meter"><i id="m-temp"></i></div></div>
+      <div class="chip"><span>熟度</span><b id="c-cook">—</b><div class="meter"><i id="m-cook"></i></div></div>
+      <div class="chip"><span>拌勻</span><b id="c-mix">—</b><div class="meter"><i id="m-mix"></i></div></div>
+      <div class="chip"><span>鍋氣</span><b id="c-wh">0.0</b><div class="meter"><i id="m-wh"></i></div></div>
+    </div>
+    <div class="heat" id="heat">
+      <div class="lbl">火力</div>
+      <button type="button" data-f="3">大</button>
+      <button type="button" data-f="2" class="on">中</button>
+      <button type="button" data-f="1">小</button>
+      <button type="button" data-f="0">關</button>
+    </div>
+    <div class="hint" id="hint">在鍋子上往上滑＝甩鍋</div>
+    <div class="pops" id="pops"></div>
+    <div class="acts">
+      <button type="button" id="dump">倒掉</button>
+      <button type="button" id="serve">出菜！<small id="serve-to">先選一張單</small></button>
+    </div>
+  </div>
+
+  <div class="rack">
+    <div class="tabs">
+      <button type="button" class="on" data-tab="food">食材<i class="dot" id="dot-food" hidden></i></button>
+      <button type="button" data-tab="seas">油・調味<i class="dot" id="dot-seas" hidden></i></button>
+    </div>
+    <div class="grid" id="grid-food"></div>
+    <div class="grid seas" id="grid-seas" hidden></div>
+  </div>
+
+  <div class="screen" id="scr-start">
+    <div class="board">
+      <div class="sign">阿師快炒</div>
+      <h2>晚上五點開店，客人會一直點菜。</h2>
+      <ol>
+        <li>看上面的點菜單，點一下選你要炒的那張。</li>
+        <li>開火、下油，照單把料和調味下鍋（紅點＝還缺的）。</li>
+        <li>在鍋子上往上滑甩鍋，炒熟、拌勻，大火甩出鍋氣。</li>
+        <li>按「出菜」。等太久或太難吃，口碑會掉。</li>
+      </ol>
+      <div class="menu">今晚菜單：蛋炒飯・炒高麗菜・蝦仁炒蛋・沙茶牛肉・宮保雞丁・三杯雞</div>
+      <button type="button" class="big" id="btn-start">開店</button>
+      <div class="best" id="best-start"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="scr-end" hidden>
+    <div class="board">
+      <div class="sign">打烊</div>
+      <h2 id="end-title">今天辛苦了！</h2>
+      <div class="stats">
+        <div><span>收入</span><b id="e-money">$0</b></div>
+        <div><span>出菜</span><b id="e-served">0 道</b></div>
+        <div><span>平均評價</span><b id="e-avg">—</b></div>
+        <div><span>跑掉的客人</span><b id="e-missed">0 桌</b></div>
+      </div>
+      <p id="end-note"></p>
+      <button type="button" class="big" id="btn-again">明天再開店</button>
+      <div class="best" id="best-end"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="scr-pause" hidden>
+    <div class="board">
+      <h2>休息一下</h2>
+      <p>客人和鍋子都會等你。</p>
+      <button type="button" class="big" id="btn-resume">繼續</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = (s) => document.querySelector(s);
+const PI = Math.PI;
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+const col = (h) => new THREE.Color(h).convertSRGBToLinear();
+
+// ======================= data =======================
+// size: piece size in wok units (wok rim radius 2.15 ≈ 18 cm). rad: resting half-thickness.
+// cs: cooking speed. bk: how easily it burns. vol: how much it piles up. chill: how much it cools the wok.
+const ING = {
+  garlic:   { name: '蒜末',   geo: 'cube',  size: [.05, .05, .05],    rad: .025, n: 50,  raw: 0xf4efd9, done: 0xe2b562, cs: 2.4, bk: 2.0, vol: .3, chill: 3,  aroma: true },
+  ginger:   { name: '薑片',   geo: 'disc',  size: [.17, .17, .14],    rad: .015, n: 16,  raw: 0xefd28c, done: 0xd8a24f, cs: 1.6, bk: 1.4, vol: 1,  chill: 3,  aroma: true },
+  chili:    { name: '乾辣椒', geo: 'pod',   size: [.075, .075, .25],  rad: .035, n: 18,  raw: 0xc4231b, done: 0x8c160f, cs: 1.6, bk: 1.6, vol: 1,  chill: 2,  aroma: true },
+  egg:      { name: '蛋',     geo: 'blob',  size: [.24, .09, .2],     rad: .04,  n: 46,  raw: 0xf8c128, done: 0xf6d35c, cs: 2.2, bk: 1.0, vol: 4,  chill: 14, main: true },
+  rice:     { name: '白飯',   geo: 'grain', size: [.085, .042, .042], rad: .02,  n: 900, raw: 0xf2eee3, done: 0xf0dfb2, cs: .6,  bk: .8,  vol: 1,  chill: 34, main: true, cook0: .78, max: 1800, spread: .45 },
+  cabbage:  { name: '高麗菜', geo: 'leaf',  size: [.34, .22, .28],    rad: .02,  n: 60,  raw: 0xc3e295, done: 0x96c665, cs: 1.2, bk: 1.2, vol: 3,  chill: 26, main: true, flat: true },
+  spinach:  { name: '空心菜', geo: 'stick', size: [.05, .05, .42],    rad: .025, n: 50,  raw: 0x4f9e36, done: 0x2e6d25, cs: 1.8, bk: 1.2, vol: 2,  chill: 22, main: true },
+  chicken:  { name: '雞丁',   geo: 'chunk', size: [.2, .17, .18],     rad: .08,  n: 34,  raw: 0xf1c3b6, done: 0xe5bd86, cs: .7,  bk: 1.0, vol: 6,  chill: 24, main: true },
+  beef:     { name: '牛肉片', geo: 'slice', size: [.3, .3, .18],      rad: .02,  n: 36,  raw: 0xb3313e, done: 0x744330, cs: 1.2, bk: 1.0, vol: 3,  chill: 22, main: true, flat: true },
+  shrimp:   { name: '蝦仁',   geo: 'curl',  size: [.24, .24, .24],    rad: .04,  n: 22,  raw: 0xc9d1cb, done: 0xff8d5f, cs: 1.4, bk: 1.0, vol: 4,  chill: 16, main: true },
+  peanut:   { name: '花生',   geo: 'nut',   size: [.09, .065, .065],  rad: .03,  n: 40,  raw: 0xd49c5c, done: 0xa96b33, cs: .8,  bk: 1.5, vol: 1.2, chill: 4 },
+  basil:    { name: '九層塔', geo: 'leaf',  size: [.16, .1, .11],     rad: .01,  n: 28,  raw: 0x3a9b3f, done: 0x1f5b25, cs: 3,   bk: 1.3, vol: .8, chill: 3,  flat: true },
+  scallion: { name: '蔥花',   geo: 'ring',  size: [.065, .065, .065], rad: .015, n: 70,  raw: 0x7ac64f, done: 0x5d9f3b, cs: 2.5, bk: 1.2, vol: .4, chill: 3 },
+};
+const FOOD_KEYS = ['garlic', 'ginger', 'chili', 'egg', 'rice', 'cabbage', 'spinach', 'chicken', 'beef', 'shrimp', 'peanut', 'basil', 'scallion'];
+
+const OILS = {
+  oil:    { name: '沙拉油', shape: 'tall',  liquid: '#f3c94a', label: '#1f7a3a', ch: '油', c: 0xe6b52e },
+  sesame: { name: '麻油',   shape: 'small', liquid: '#8f4d12', label: '#b8202a', ch: '麻', c: 0x9a5414 },
+};
+const SEAS = {
+  salt:   { name: '鹽',     shape: 'shaker', liquid: '#f5f4ef', label: '#2c6fb5', ch: '鹽', kind: 'dry', c: 0xffffff, strong: true },
+  soy:    { name: '醬油',   shape: 'small',  liquid: '#2b130a', label: '#e8c46a', ch: '醬', kind: 'liquid', c: 0x3a1a0c, tint: 0x4a2410, ts: .5, strong: true },
+  sugar:  { name: '糖',     shape: 'jar',    liquid: '#fbf7ee', label: '#d9822b', ch: '糖', kind: 'dry', c: 0xfffaf0 },
+  wine:   { name: '米酒',   shape: 'tall',   liquid: '#e8efec', label: '#c8161d', ch: '酒', kind: 'liquid', c: 0xdfe8e4 },
+  sacha:  { name: '沙茶醬', shape: 'can',    liquid: '#7b3f1d', label: '#c8161d', ch: '沙茶', kind: 'liquid', c: 0x7b3f1d, tint: 0x7b3f1d, ts: .45, strong: true },
+  pepper: { name: '白胡椒', shape: 'shaker', liquid: '#cfc8b8', label: '#5b5b5b', ch: '椒', kind: 'dry', c: 0x9a9488 },
+};
+const SEAS_KEYS = Object.keys(SEAS);
+const NS = SEAS_KEYS.length;
+
+const DISHES = [
+  { name: '蛋炒飯',   price: 90,  oil: 'oil',    items: ['egg', 'rice', 'scallion'],             sauces: ['salt', 'pepper'],        unlock: 0,  w: 3 },
+  { name: '炒高麗菜', price: 100, oil: 'oil',    items: ['garlic', 'cabbage'],                    sauces: ['salt'],                  unlock: 0,  w: 3 },
+  { name: '蝦仁炒蛋', price: 160, oil: 'oil',    items: ['shrimp', 'egg', 'scallion'],            sauces: ['salt', 'wine'],          unlock: 25, w: 2 },
+  { name: '沙茶牛肉', price: 180, oil: 'oil',    items: ['garlic', 'beef', 'spinach'],            sauces: ['sacha', 'soy'],          unlock: 50, w: 2 },
+  { name: '宮保雞丁', price: 180, oil: 'oil',    items: ['chili', 'chicken', 'peanut'],           sauces: ['soy', 'sugar'],          unlock: 75, w: 2 },
+  { name: '三杯雞',   price: 220, oil: 'sesame', items: ['ginger', 'garlic', 'chicken', 'basil'], sauces: ['soy', 'wine', 'sugar'],  unlock: 100, w: 2 },
+];
+const DAY_LEN = 210;          // seconds of real time for 17:00 → 22:00
+const FIRE_T = [25, 170, 235, 300];
+
+// ======================= three.js scene =======================
+const stageEl = $('#stage'), canvas = $('#gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.setClearColor(col(0x1c1512));
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 60);
+const CAM_DIR = new THREE.Vector3(0, 6.6, 4.4).normalize();
+const LOOK = new THREE.Vector3(0, 0.2, 0.15);
+
+function makeEnv() {
+  const s = new THREE.Scene();
+  const g = new THREE.SphereGeometry(10, 32, 16);
+  const pos = g.attributes.position, cs = [];
+  const top = col(0x7d5f44), bot = col(0x0e0907), tmp = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const t = (pos.getY(i) / 10 + 1) / 2;
+    tmp.copy(bot).lerp(top, t * t); cs.push(tmp.r, tmp.g, tmp.b);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cs, 3));
+  s.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+  const panel = (w, h, c, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); s.add(m);
+  };
+  panel(5, 1.2, new THREE.Color(7, 6, 4.8), -3, 7, -3);   // fluorescent tubes over the stove
+  panel(4, 1, new THREE.Color(5, 4.4, 3.6), 3.5, 6.5, 2);
+  panel(3, 1.2, new THREE.Color(4, .5, .3), -7, 3, 3);    // red signboard glow
+  panel(6, 2, new THREE.Color(1.2, 1.1, 1), 0, 3, 8);
+  const pm = new THREE.PMREMGenerator(renderer);
+  const tex = pm.fromScene(s, 0.03).texture;
+  pm.dispose();
+  return tex;
+}
+scene.environment = makeEnv();
+
+scene.add(new THREE.HemisphereLight(col(0xffe8cc), col(0x2a1a10), 0.55));
+const key = new THREE.DirectionalLight(col(0xfff0dc), 1.5);
+key.position.set(-2.5, 7, 3.5); scene.add(key);
+const fireLight = new THREE.PointLight(col(0xff7a2a), 0, 7, 2);
+fireLight.position.set(0, -0.4, 0); scene.add(fireLight);
+const flareLight = new THREE.PointLight(col(0xffa040), 0, 9, 2);
+flareLight.position.set(0, 1.6, 0); scene.add(flareLight);
+
+// ---- wok: a spherical bowl centered at (0, R, 0), cut at the rim radius ----
+const R = 3.0, RIM = 2.15, RIMY = R - Math.sqrt(R * R - RIM * RIM), STOVE_Y = -1.05;
+const wok = new THREE.Group(); scene.add(wok);
+const TMAX = Math.asin(RIM / R);
+{
+  const prof = [], R2 = R + 0.05;
+  for (let i = 0; i <= 28; i++) { const t = TMAX * i / 28; prof.push(new THREE.Vector2(R * Math.sin(t) + 1e-4, R - R * Math.cos(t))); }
+  for (let i = 28; i >= 0; i--) { const t = TMAX * i / 28; prof.push(new THREE.Vector2(R2 * Math.sin(t) + 1e-4, R - R2 * Math.cos(t))); }
+  const g = new THREE.LatheGeometry(prof, 72);
+  const p = g.attributes.position, cs = [];
+  const deep = col(0x1d1a1c), steel = col(0x5d5650), tmp = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const r = Math.hypot(p.getX(i), p.getZ(i)) / RIM;
+    tmp.copy(deep).lerp(steel, Math.pow(r, 1.6)); cs.push(tmp.r, tmp.g, tmp.b);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cs, 3));
+  var wokMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: .85, roughness: .36, envMapIntensity: 1.1, side: THREE.DoubleSide });
+  wok.add(new THREE.Mesh(g, wokMat));
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM + 0.02, 0.05, 8, 72), new THREE.MeshStandardMaterial({ color: col(0x6a625b), metalness: .9, roughness: .3 }));
+  rim.rotation.x = PI / 2; rim.position.y = RIMY; wok.add(rim);
+  // handle toward the cook (bottom right of the screen)
+  const dir = new THREE.Vector3(0.62, 0, 0.78).normalize();
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.9, 10), rim.material);
+  neck.position.copy(dir.clone().multiplyScalar(RIM + 0.4)).setY(RIMY - 0.05);
+  neck.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().add(new THREE.Vector3(0, .12, 0)).normalize());
+  wok.add(neck);
+  const wood = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 2.4, 14), new THREE.MeshStandardMaterial({ color: col(0x5b2f1a), roughness: .6 }));
+  wood.position.copy(dir.clone().multiplyScalar(RIM + 2.0)).setY(RIMY + 0.12);
+  wood.quaternion.copy(neck.quaternion); wok.add(wood);
+  const ear = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.04, 6, 16, PI), rim.material);
+  ear.position.copy(dir.clone().multiplyScalar(-(RIM + 0.05))).setY(RIMY);
+  ear.lookAt(0, RIMY, 0); ear.rotateX(PI / 2); wok.add(ear);
+}
+// oil puddle on the wok bottom
+const oilMat = new THREE.MeshStandardMaterial({ color: col(0xe6b52e), transparent: true, opacity: 0, roughness: .05, metalness: 0, envMapIntensity: 1.6, depthWrite: false });
+{
+  const prof = [], tm = Math.asin(1.05 / R);
+  for (let i = 0; i <= 10; i++) { const t = tm * i / 10; prof.push(new THREE.Vector2((R - .012) * Math.sin(t) + 1e-4, R - (R - .012) * Math.cos(t))); }
+  const m = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), oilMat); m.renderOrder = 1; wok.add(m);
+}
+// stove
+{
+  const steel = new THREE.MeshStandardMaterial({ color: col(0x2c2724), metalness: .7, roughness: .45 });
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), steel);
+  top.rotation.x = -PI / 2; top.position.y = STOVE_Y; scene.add(top);
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.7, 0.55, 40, 1, true), new THREE.MeshStandardMaterial({ color: col(0x151212), metalness: .5, roughness: .6, side: THREE.DoubleSide }));
+  ring.position.y = STOVE_Y + 0.27; scene.add(ring);
+  const burner = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.09, 8, 32), new THREE.MeshStandardMaterial({ color: col(0x0d0b0b), roughness: .8 }));
+  burner.rotation.x = PI / 2; burner.position.y = STOVE_Y + 0.12; scene.add(burner);
+}
+
+// ---- particle FX (flames, flare, steam, pouring sauce, specks) ----
+function softTex(inner) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(inner, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+const TEX_SOFT = softTex(.35), TEX_DOT = softTex(.75);
+class FX {
+  constructor(max, o) {
+    this.max = max; this.i = 0; this.o = o;
+    this.pos = new Float32Array(max * 3).fill(-999); this.vel = new Float32Array(max * 3);
+    this.col = new Float32Array(max * 3); this.base = new Float32Array(max * 3);
+    this.life = new Float32Array(max); this.ml = new Float32Array(max);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
+    this.geo = g;
+    this.pts = new THREE.Points(g, new THREE.PointsMaterial({
+      size: o.size, map: o.tex, vertexColors: true, transparent: true, depthWrite: false,
+      blending: o.add ? THREE.AdditiveBlending : THREE.NormalBlending, opacity: o.opacity == null ? 1 : o.opacity,
+    }));
+    this.pts.frustumCulled = false; this.pts.renderOrder = 2;
+    (o.parent || scene).add(this.pts);
+  }
+  emit(x, y, z, vx, vy, vz, life, c) {
+    const i = this.i, k = i * 3; this.i = (i + 1) % this.max;
+    this.pos[k] = x; this.pos[k + 1] = y; this.pos[k + 2] = z;
+    this.vel[k] = vx; this.vel[k + 1] = vy; this.vel[k + 2] = vz;
+    this.base[k] = c.r; this.base[k + 1] = c.g; this.base[k + 2] = c.b;
+    this.life[i] = this.ml[i] = life;
+  }
+  update(dt) {
+    const o = this.o;
+    for (let i = 0; i < this.max; i++) {
+      if (this.life[i] <= 0) continue;
+      const k = i * 3;
+      this.life[i] -= dt;
+      if (this.life[i] <= 0) { this.pos[k + 1] = -999; this.col[k] = this.col[k + 1] = this.col[k + 2] = 0; continue; }
+      this.vel[k + 1] += (o.g || 0) * dt;
+      const dr = Math.max(0, 1 - (o.drag || 0) * dt);
+      this.vel[k] *= dr; this.vel[k + 1] *= dr; this.vel[k + 2] *= dr;
+      this.pos[k] += this.vel[k] * dt; this.pos[k + 1] += this.vel[k + 1] * dt; this.pos[k + 2] += this.vel[k + 2] * dt;
+      if (o.hug) o.hug(this.pos, this.vel, k);
+      const t = this.life[i] / this.ml[i];
+      const f = o.fade ? o.fade(t, this.base, this.col, k) : null;
+      if (f == null && !o.fade) { this.col[k] = this.base[k]; this.col[k + 1] = this.base[k + 1]; this.col[k + 2] = this.base[k + 2]; }
+      if (o.floor != null && this.pos[k + 1] < o.floor) this.life[i] = 0.0001;
+    }
+    this.geo.attributes.position.needsUpdate = true;
+    this.geo.attributes.color.needsUpdate = true;
+  }
+}
+const _wp = new THREE.Vector3();
+// flames slide along the underside of the wok and lick up around the rim
+function hugWok(p, v, k) {
+  const x = p[k] - wok.position.x, y = p[k + 1] - wok.position.y, z = p[k + 2] - wok.position.z;
+  const dy = y - R, d = Math.sqrt(x * x + dy * dy + z * z), lim = R + 0.09;
+  if (d < lim && y < RIMY + 0.05) {
+    const nx = x / d, ny = dy / d, nz = z / d;
+    p[k] = wok.position.x + nx * lim; p[k + 1] = wok.position.y + R + ny * lim; p[k + 2] = wok.position.z + nz * lim;
+    const vn = v[k] * nx + v[k + 1] * ny + v[k + 2] * nz;
+    if (vn < 0) { v[k] -= nx * vn; v[k + 1] -= ny * vn; v[k + 2] -= nz * vn; }
+    const r = Math.hypot(x, z) || 1;
+    v[k] += x / r * 0.6; v[k + 2] += z / r * 0.6;
+  }
+}
+const C_BLUE = new THREE.Color(0.12, 0.22, 0.9), C_FIRE = new THREE.Color(1.0, 0.42, 0.08);
+const flames = new FX(700, {
+  size: 0.55, tex: TEX_SOFT, add: true, g: 1.5, drag: 0.6, hug: hugWok,
+  fade: (t, b, c, k) => {
+    const blue = clamp((t - 0.72) / 0.28, 0, 1), a = Math.min(1, t * 1.6) * 0.9;
+    c[k] = lerp(C_FIRE.r, C_BLUE.r, blue) * a; c[k + 1] = lerp(C_FIRE.g, C_BLUE.g, blue) * a; c[k + 2] = lerp(C_FIRE.b, C_BLUE.b, blue) * a;
+  },
+});
+const flare = new FX(500, {
+  size: 0.85, tex: TEX_SOFT, add: true, g: 3, drag: 1.2,
+  fade: (t, b, c, k) => { const a = t * t * 1.1; c[k] = b[k] * a; c[k + 1] = b[k + 1] * a; c[k + 2] = b[k + 2] * a; },
+});
+const steam = new FX(220, {
+  size: 1.3, tex: TEX_SOFT, add: true, g: 0.6, drag: 0.8,
+  fade: (t, b, c, k) => { const a = Math.sin(t * PI) * 0.16; c[k] = b[k] * a; c[k + 1] = b[k + 1] * a; c[k + 2] = b[k + 2] * a; },
+});
+const pourFx = new FX(400, { size: 0.09, tex: TEX_DOT, add: false, g: -14, parent: wok, floor: 0.05 });
+const specks = new FX(300, { size: 0.05, tex: TEX_DOT, add: false, g: -12, parent: wok, floor: 0.04 });
+
+// ---- food pieces ----
+function hash3(x, y, z) { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); }
+function lumpy(g, amt) {
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + (hash3(x, y, z) - 0.5) * 2 * amt;
+    p.setXYZ(i, x * k, y * k, z * k);
+  }
+  g.computeVertexNormals(); return g;
+}
+function bend(g, k, wave) {
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i);
+    p.setY(i, p.getY(i) - (x * x + z * z) * k + Math.sin(x * 9 + z * 5) * wave);
+  }
+  g.computeVertexNormals(); return g;
+}
+const GEO = {
+  grain: () => new THREE.SphereGeometry(0.5, 7, 5),
+  blob:  () => lumpy(new THREE.IcosahedronGeometry(0.5, 1), 0.3),
+  leaf:  () => bend(new THREE.PlaneGeometry(1, 1, 4, 4).rotateX(-PI / 2), 0.55, 0.06),
+  stick: () => new THREE.CylinderGeometry(0.5, 0.5, 1, 6).rotateX(PI / 2),
+  chunk: () => lumpy(new THREE.IcosahedronGeometry(0.5, 0), 0.25),
+  slice: () => bend(new THREE.BoxGeometry(1, 0.12, 1, 4, 1, 3), 0.3, 0.05),
+  curl:  () => new THREE.TorusGeometry(0.34, 0.16, 6, 12, PI * 1.35).rotateX(PI / 2),
+  nut:   () => new THREE.SphereGeometry(0.5, 8, 6),
+  ring:  () => new THREE.TorusGeometry(0.36, 0.17, 5, 8).rotateX(PI / 2),
+  cube:  () => new THREE.BoxGeometry(1, 1, 1),
+  disc:  () => new THREE.CylinderGeometry(0.5, 0.5, 0.14, 10),
+  pod:   () => new THREE.CylinderGeometry(0.28, 0.5, 1, 7).rotateX(PI / 2),
+};
+const geoCache = {};
+for (const k of FOOD_KEYS) {
+  const d = ING[k];
+  d.geo3 = geoCache[d.geo] || (geoCache[d.geo] = GEO[d.geo]());
+  d.mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: k === 'rice' ? .5 : .55, metalness: 0, envMapIntensity: .55, side: d.flat ? THREE.DoubleSide : THREE.FrontSide });
+  d.rawC = col(d.raw); d.doneC = col(d.done);
+  d.max = d.max || d.n * 3;
+  d.spread = d.spread || .35;
+}
+const TINT = {}; for (const s of SEAS_KEYS) if (SEAS[s].tint) TINT[s] = col(SEAS[s].tint);
+const BURN_C = col(0x1b0e07);
+const SI = Object.fromEntries(SEAS_KEYS.map((s, i) => [s, i]));
+
+const GN = 28, CELL = 2 * RIM / GN, PILE = 0.017, GRAV = -16, FRIC = 5, SPREAD = 16;
+const hgt = new Float32Array(GN * GN), hacc = new Float32Array(GN * GN);
+function cellOf(x, z) {
+  const i = Math.floor((x + RIM) / CELL), j = Math.floor((z + RIM) / CELL);
+  return (i < 0 || j < 0 || i >= GN || j >= GN) ? -1 : j * GN + i;
+}
+const dummy = new THREE.Object3D(), tmpC = new THREE.Color();
+
+class Food {
+  constructor(key) {
+    const d = ING[key]; this.key = key; this.d = d; const max = d.max; this.max = max; this.n = 0;
+    this.mesh = new THREE.InstancedMesh(d.geo3, d.mat, max);
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.mesh.setColorAt(0, new THREE.Color(1, 1, 1));
+    this.mesh.count = 0; this.mesh.frustumCulled = false;
+    const F = (k) => new Float32Array(max * k);
+    this.p = F(3); this.v = F(3); this.r = F(3); this.w = F(3); this.s = F(3);
+    this.layer = F(1); this.cook = F(1); this.burn = F(1); this.j = F(1);
+    this.st = new Uint8Array(max);   // 0 in the wok, 1 flew out and falling, 2 lying on the stove
+    this.on = new Uint8Array(max);   // touching the wok (or the pile) this frame
+    this.coat = new Uint8Array(max * NS);
+    wok.add(this.mesh);
+  }
+  reset() { this.n = 0; this.mesh.count = 0; this.coat.fill(0); }
+  spawn(cnt, cx, cz) {
+    const d = this.d;
+    for (let c = 0; c < cnt && this.n < this.max; c++) {
+      const i = this.n++, k = i * 3;
+      this.p[k] = cx + gauss() * d.spread; this.p[k + 2] = cz + gauss() * d.spread;
+      this.p[k + 1] = 1.5 + Math.random() * (d.n > 300 ? 1.4 : 0.9);
+      this.v[k] = rand(-.3, .3); this.v[k + 1] = rand(-2, -0.5); this.v[k + 2] = rand(-.3, .3);
+      this.r[k] = rand(0, PI * 2); this.r[k + 1] = rand(0, PI * 2); this.r[k + 2] = rand(0, PI * 2);
+      if (d.flat) { this.r[k] = rand(-.4, .4); this.r[k + 2] = rand(-.4, .4); }
+      this.w[k] = rand(-4, 4); this.w[k + 1] = rand(-4, 4); this.w[k + 2] = rand(-4, 4);
+      const sc = rand(.8, 1.2);
+      this.s[k] = d.size[0] * sc; this.s[k + 1] = d.size[1] * sc; this.s[k + 2] = d.size[2] * sc;
+      this.layer[i] = Math.random(); this.cook[i] = d.cook0 || 0; this.burn[i] = 0; this.j[i] = rand(.9, 1.06);
+      this.st[i] = 0; this.on[i] = 0;
+      for (let s = 0; s < NS; s++) this.coat[i * NS + s] = 0;
+    }
+    this.mesh.count = this.n;
+  }
+  step(dt, heat, dryK) {
+    const d = this.d, p = this.p, v = this.v, r = this.r, w = this.w, n = this.n, rad = d.rad;
+    const T = W.T;
+    for (let i = 0; i < n; i++) {
+      const k = i * 3, st = this.st[i];
+      if (st === 2) continue;
+      v[k + 1] += GRAV * dt;
+      p[k] += v[k] * dt; p[k + 1] += v[k + 1] * dt; p[k + 2] += v[k + 2] * dt;
+      r[k] += w[k] * dt; r[k + 1] += w[k + 1] * dt; r[k + 2] += w[k + 2] * dt;
+      if (st === 1) {
+        if (p[k + 1] < STOVE_Y + rad) { p[k + 1] = STOVE_Y + rad; v[k] = v[k + 1] = v[k + 2] = 0; w[k] = w[k + 1] = w[k + 2] = 0; this.st[i] = 2; }
+        continue;
+      }
+      const x = p[k], y = p[k + 1], z = p[k + 2], rr = Math.sqrt(x * x + z * z);
+      this.on[i] = 0;
+      if (rr > RIM + 0.02) {
+        if (y < RIMY + 0.25) { this.st[i] = 1; W.spilled++; }
+        continue;
+      }
+      const c = cellOf(x, z), ch = c >= 0 ? hgt[c] : 0;
+      const lim = R - rad - ch * PILE * this.layer[i];
+      const dy = y - R, dist = Math.sqrt(x * x + dy * dy + z * z);
+      if (dist > lim) {
+        const nx = x / dist, ny = dy / dist, nz = z / dist;
+        p[k] = nx * lim; p[k + 1] = R + ny * lim; p[k + 2] = nz * lim;
+        const vn = v[k] * nx + v[k + 1] * ny + v[k + 2] * nz;
+        if (vn > 0) { v[k] -= nx * vn * 1.2; v[k + 1] -= ny * vn * 1.2; v[k + 2] -= nz * vn * 1.2; }
+        const f = Math.max(0, 1 - FRIC * dt);
+        v[k] *= f; v[k + 1] *= f; v[k + 2] *= f;
+        if (c >= 0) {   // slide off the top of the pile so it spreads out
+          const ci = c % GN, cj = (c / GN) | 0;
+          const hl = ci > 0 ? hgt[c - 1] : ch, hr = ci < GN - 1 ? hgt[c + 1] : ch;
+          const hu = cj > 0 ? hgt[c - GN] : ch, hd = cj < GN - 1 ? hgt[c + GN] : ch;
+          const kk = PILE / (2 * CELL) * SPREAD * this.layer[i] * dt;
+          v[k] -= (hr - hl) * kk; v[k + 2] -= (hd - hu) * kk;
+        }
+        this.on[i] = 1;
+        const sd = Math.max(0, 1 - 8 * dt);
+        w[k] *= sd; w[k + 1] *= sd; w[k + 2] *= sd;
+        if (d.flat) {
+          const a = Math.min(1, 6 * dt);
+          r[k] += (Math.round(r[k] / PI) * PI - r[k]) * a; r[k + 2] += (Math.round(r[k + 2] / PI) * PI - r[k + 2]) * a;
+        }
+        if (c >= 0) hacc[c] += d.vol;
+      }
+      // cooking: the bottom of the pile touches hot steel, the top barely cooks
+      if (heat > 0) {
+        const contact = this.on[i] ? (this.layer[i] < 0.35 ? 1 : 0.25) : 0.05;
+        this.cook[i] += d.cs * heat * contact * dt * 0.12;
+        if (this.on[i] && this.layer[i] < 0.3 && T > 215) {
+          this.burn[i] += (T - 215) / 85 * d.bk * dt * 0.1 * dryK * (this.cook[i] > 0.8 ? 1 : 0.3);
+        }
+      }
+    }
+  }
+  draw(paint) {
+    const n = this.n, p = this.p, r = this.r, s = this.s, d = this.d;
+    for (let i = 0; i < n; i++) {
+      const k = i * 3;
+      dummy.position.set(p[k], p[k + 1], p[k + 2]);
+      dummy.rotation.set(r[k], r[k + 1], r[k + 2]);
+      dummy.scale.set(s[k], s[k + 1], s[k + 2]);
+      dummy.updateMatrix();
+      this.mesh.setMatrixAt(i, dummy.matrix);
+      if (paint) {
+        tmpC.copy(d.rawC).lerp(d.doneC, Math.min(1, this.cook[i]));
+        const o = i * NS;
+        for (const sk in TINT) if (this.coat[o + SI[sk]]) tmpC.lerp(TINT[sk], SEAS[sk].ts);
+        const b = Math.min(1, this.burn[i]);
+        if (b > 0) tmpC.lerp(BURN_C, b * 0.85);
+        tmpC.multiplyScalar(this.j[i]);
+        this.mesh.setColorAt(i, tmpC);
+      }
+    }
+    this.mesh.count = n;
+    this.mesh.instanceMatrix.needsUpdate = true;
+    if (paint && this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+}
+const FOODS = Object.fromEntries(FOOD_KEYS.map((k) => [k, new Food(k)]));
+
+// ======================= game state =======================
+const G = { running: false, paused: false, t: 0, money: 0, hearts: 3, served: 0, starSum: 0, missed: 0, tickets: [], nextAt: 1, sel: null, seq: 0, ended: false, tossed: false };
+const W = {};
+function resetWok() {
+  Object.assign(W, { T: W.T == null ? 25 : W.T, oil: 0, oils: {}, adds: {}, sauces: {}, wh: 0, bao: false, hasMain: false, spilled: 0, lastToss: -9, tossAnim: -1, tossPow: 1, impulse: true, dryWarned: false, burnWarned: false });
+  for (const k of FOOD_KEYS) FOODS[k].reset();
+  hgt.fill(0);
+}
+let fire = 2;
+resetWok();
+
+// ======================= audio =======================
+const AU = { ctx: null, muted: false, sizzle: null, master: null };
+function initAudio() {
+  if (AU.ctx) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination);
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), ch = buf.getChannelData(0);
+    for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 0.6;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(bp); bp.connect(hp); hp.connect(g); g.connect(master); src.start();
+    Object.assign(AU, { ctx, master, sizzle: g, noise: buf });
+  } catch (e) { AU.ctx = null; }
+}
+function tone(freq, dur, type, vol, when) {
+  if (!AU.ctx || AU.muted) return;
+  const c = AU.ctx, t = c.currentTime + (when || 0), o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(AU.master); o.start(t); o.stop(t + dur + 0.05);
+}
+function whoosh(dur, freq, vol) {
+  if (!AU.ctx || AU.muted) return;
+  const c = AU.ctx, t = c.currentTime, s = c.createBufferSource(); s.buffer = AU.noise;
+  const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.setValueAtTime(freq, t); f.frequency.exponentialRampToValueAtTime(freq * 2.2, t + dur); f.Q.value = 1.2;
+  const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(AU.master); s.start(t, Math.random()); s.stop(t + dur + 0.05);
+}
+const sfx = {
+  bell() { tone(1318, 0.5, 'sine', 0.18); tone(1760, 0.6, 'sine', 0.14, 0.12); },
+  toss() { whoosh(0.35, 500, 0.35); tone(220, 0.12, 'triangle', 0.08); },
+  drop() { whoosh(0.5, 1800, 0.5); },
+  cash() { tone(1568, 0.12, 'square', 0.06); tone(2093, 0.35, 'sine', 0.14, 0.08); },
+  bad() { tone(196, 0.35, 'sawtooth', 0.07); tone(147, 0.45, 'sawtooth', 0.06, 0.12); },
+  click() { tone(880, 0.05, 'triangle', 0.05); },
+};
+let sizzleBoost = 0;
+
+// ======================= ingredient icons =======================
+function renderThumb(key) {
+  const d = ING[key], S = new THREE.Scene();
+  S.environment = scene.environment;
+  S.add(new THREE.HemisphereLight(col(0xfff4e6), col(0x6b4a33), 0.9));
+  const dl = new THREE.DirectionalLight(col(0xffffff), 1.5); dl.position.set(-1, 3, 2); S.add(dl);
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(1, .82, .08, 40), new THREE.MeshStandardMaterial({ color: col(0xf6f3ec), roughness: .3 }));
+  S.add(plate);
+  const rimM = new THREE.Mesh(new THREE.TorusGeometry(.96, .025, 6, 48), new THREE.MeshStandardMaterial({ color: col(0x2f5d9e), roughness: .4 }));
+  rimM.rotation.x = PI / 2; rimM.position.y = .045; S.add(rimM);
+  const big = Math.max(...d.size), k = clamp(0.34 / big, 1.4, 4.2);
+  const n = key === 'rice' ? 90 : key === 'scallion' || key === 'garlic' ? 26 : 9;
+  const m = new THREE.InstancedMesh(d.geo3, d.mat, n), c = new THREE.Color();
+  for (let i = 0; i < n; i++) {
+    const rr = Math.sqrt(Math.random()) * 0.55, a = Math.random() * PI * 2;
+    dummy.position.set(Math.cos(a) * rr, 0.07 + (0.6 - rr) * 0.28 * Math.random() + d.size[1] * k * 0.3, Math.sin(a) * rr);
+    dummy.rotation.set(d.flat ? rand(-.3, .3) : rand(0, 6), rand(0, 6), d.flat ? rand(-.3, .3) : rand(0, 6));
+    const sc = k * rand(.85, 1.15); dummy.scale.set(d.size[0] * sc, d.size[1] * sc, d.size[2] * sc); dummy.updateMatrix();
+    m.setMatrixAt(i, dummy.matrix); m.setColorAt(i, c.copy(d.rawC).multiplyScalar(rand(.9, 1.05)));
+  }
+  S.add(m);
+  const cam = new THREE.PerspectiveCamera(30, 1, .1, 20); cam.position.set(0, 2.7, 2.4); cam.lookAt(0, 0.05, 0);
+  const SZ = 128, rt = new THREE.WebGLRenderTarget(SZ, SZ);
+  rt.texture.encoding = THREE.sRGBEncoding;
+  const prevClear = renderer.getClearAlpha(), prevC = new THREE.Color(); renderer.getClearColor(prevC);
+  renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(S, cam);
+  const buf = new Uint8Array(SZ * SZ * 4); renderer.readRenderTargetPixels(rt, 0, 0, SZ, SZ, buf);
+  renderer.setRenderTarget(null); renderer.setClearColor(prevC, prevClear);
+  rt.dispose(); m.dispose && m.dispose();
+  const cv = document.createElement('canvas'); cv.width = cv.height = SZ;
+  const g2 = cv.getContext('2d'), img = g2.createImageData(SZ, SZ);
+  for (let y = 0; y < SZ; y++) img.data.set(buf.subarray((SZ - 1 - y) * SZ * 4, (SZ - y) * SZ * 4), y * SZ * 4);
+  g2.putImageData(img, 0, 0);
+  return cv.toDataURL();
+}
+function rrect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function drawBottle(d) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  const gloss = (x, y, w, h) => { const gr = g.createLinearGradient(x, 0, x + w, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.25, 'rgba(255,255,255,.45)'); gr.addColorStop(.4, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x, y, w, h); };
+  const label = (x, y, w, h, fs) => {
+    g.fillStyle = d.label; rrect(g, x, y, w, h, 3); g.fill();
+    g.fillStyle = d.label === '#e8c46a' ? '#3a1a0c' : '#fff6e6';
+    g.font = `900 ${fs}px "Noto Sans TC", "PingFang TC", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(d.ch, x + w / 2, y + h / 2 + 1);
+  };
+  g.lineJoin = 'round';
+  switch (d.shape) {
+    case 'tall':
+      g.fillStyle = d.liquid; rrect(g, 44, 36, 40, 86, 10); g.fill(); g.fillRect(56, 14, 16, 26);
+      g.fillStyle = '#c8161d'; if (d.ch === '油') g.fillStyle = '#e8b21c'; rrect(g, 54, 4, 20, 13, 3); g.fill();
+      gloss(44, 36, 40, 86); label(46, 62, 36, 34, 22); break;
+    case 'small':
+      g.fillStyle = d.liquid; rrect(g, 46, 50, 36, 72, 9); g.fill(); g.fillRect(58, 28, 12, 26);
+      g.fillStyle = d.ch === '醬' ? '#c8161d' : '#e8c46a'; rrect(g, 56, 18, 16, 12, 3); g.fill();
+      gloss(46, 50, 36, 72); label(48, 72, 32, 30, 20); break;
+    case 'shaker':
+      g.fillStyle = d.liquid; rrect(g, 42, 44, 44, 78, 10); g.fill(); g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 2; g.stroke();
+      g.fillStyle = '#d9d4ca'; rrect(g, 40, 28, 48, 20, 8); g.fill();
+      g.fillStyle = '#7a756d'; for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(54 + i * 10, 36, 2, 0, PI * 2); g.fill(); }
+      gloss(42, 44, 44, 78); label(46, 70, 36, 32, 22); break;
+    case 'jar':
+      g.fillStyle = d.liquid; rrect(g, 32, 50, 64, 72, 12); g.fill(); g.strokeStyle = 'rgba(0,0,0,.16)'; g.lineWidth = 2; g.stroke();
+      g.fillStyle = d.label; rrect(g, 30, 38, 68, 16, 5); g.fill();
+      gloss(32, 50, 64, 72); label(42, 72, 44, 32, 24); break;
+    case 'can':
+      g.fillStyle = '#b9b2a8'; rrect(g, 28, 44, 72, 76, 6); g.fill();
+      g.fillStyle = '#d8d2c8'; g.beginPath(); g.ellipse(64, 44, 36, 9, 0, 0, PI * 2); g.fill();
+      g.fillStyle = d.label; g.fillRect(28, 58, 72, 50);
+      g.fillStyle = '#f2c230'; g.fillRect(28, 58, 72, 5); g.fillRect(28, 103, 72, 5);
+      g.fillStyle = '#f2c230'; g.font = '900 22px "Noto Sans TC", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(d.ch, 64, 84);
+      gloss(28, 44, 72, 76); break;
+  }
+  return c.toDataURL();
+}
+
+// ======================= UI =======================
+const gridFood = $('#grid-food'), gridSeas = $('#grid-seas');
+const btns = {};
+function makeBtn(parent, key, name, img, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'item'; b.id = 'btn-' + key;
+  b.innerHTML = `<i class="cnt"></i><i class="need" hidden></i><img alt="" src="${img}"><span>${name}</span>`;
+  b.addEventListener('click', () => { if (!G.running || G.paused) return; onClick(key); });
+  parent.appendChild(b);
+  btns[key] = { el: b, need: b.querySelector('.need'), cnt: b.querySelector('.cnt') };
+}
+function buildRack() {
+  for (const k of FOOD_KEYS) makeBtn(gridFood, k, ING[k].name, renderThumb(k), addFood);
+  for (const k of Object.keys(OILS)) makeBtn(gridSeas, k, OILS[k].name, drawBottle(OILS[k]), addOil);
+  for (const k of SEAS_KEYS) makeBtn(gridSeas, k, SEAS[k].name, drawBottle(SEAS[k]), addSeas);
+}
+document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  gridFood.hidden = b.dataset.tab !== 'food'; gridSeas.hidden = b.dataset.tab !== 'seas';
+}));
+$('#heat').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  fire = +b.dataset.f; sfx.click();
+  document.querySelectorAll('#heat button').forEach((x) => x.classList.toggle('on', x === b));
+});
+
+function pop(text, cls) {
+  const now = performance.now();
+  pop.last = pop.last || {};
+  if (pop.last[text] && now - pop.last[text] < 1400) return;
+  pop.last[text] = now;
+  const el = document.createElement('div');
+  el.className = 'pop' + (cls ? ' ' + cls : ''); el.textContent = text;
+  el.style.top = (28 + Math.random() * 22) + '%';
+  el.style.left = (38 + Math.random() * 24) + '%';
+  $('#pops').appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+const fmtMoney = (n) => '$' + Math.round(n).toLocaleString('en-US');
+function selTicket() { return G.tickets.find((t) => t.id === G.sel) || null; }
+function renderTickets() {
+  const rail = $('#rail');
+  if (!G.tickets.length) { rail.innerHTML = `<div class="rail-empty">${G.running ? '暫時沒有單，先熱鍋吧。' : '還沒有客人，先熱鍋吧。'}</div>`; refreshNeeds(); return; }
+  rail.innerHTML = '';
+  for (const t of G.tickets) {
+    const d = t.dish, b = document.createElement('button');
+    b.type = 'button'; b.className = 'ticket' + (t.id === G.sel ? ' sel' : ''); b.dataset.id = t.id;
+    const its = [d.oil, ...d.items].map((k) => `<li data-k="${k}">${(ING[k] || OILS[k]).name}</li>`).join('');
+    const ss = d.sauces.map((k) => `<li class="s" data-k="${k}">${SEAS[k].name}</li>`).join('');
+    b.innerHTML = `<div class="t-head"><span>${t.table} 桌</span><em>$${d.price}</em></div><div class="t-dish">${d.name}</div><ul class="t-list">${its}${ss}</ul><div class="t-bar"><i></i></div>`;
+    b.addEventListener('click', () => { G.sel = t.id; sfx.click(); renderTickets(); });
+    t.el = b; t.bar = b.querySelector('.t-bar i');
+    rail.appendChild(b);
+  }
+  refreshNeeds();
+  updateTicketBars();
+}
+function updateTicketBars() {
+  for (const t of G.tickets) {
+    if (!t.bar) continue;
+    const f = clamp(1 - (G.t - t.t0) / t.patience, 0, 1);
+    t.bar.style.width = (f * 100).toFixed(1) + '%';
+    t.bar.style.background = f > .5 ? 'var(--good)' : f > .25 ? 'var(--warn)' : 'var(--bad)';
+    t.el.classList.toggle('urgent', f < .18);
+  }
+}
+function refreshNeeds() {
+  const t = selTicket();
+  const need = new Set();
+  if (t) { need.add(t.dish.oil); t.dish.items.forEach((k) => need.add(k)); t.dish.sauces.forEach((k) => need.add(k)); }
+  let nf = false, ns = false;
+  for (const k in btns) {
+    const have = (W.adds[k] || 0) + (W.oils[k] || 0) + (W.sauces[k] || 0);
+    const missing = need.has(k) && !have;
+    btns[k].need.hidden = !missing;
+    btns[k].cnt.textContent = have ? '×' + have : '';
+    if (missing) { if (ING[k]) nf = true; else ns = true; }
+  }
+  $('#dot-food').hidden = !nf; $('#dot-seas').hidden = !ns;
+  if (t && t.el) t.el.querySelectorAll('li').forEach((li) => {
+    const k = li.dataset.k;
+    li.classList.toggle('ok', !!((W.adds[k] || 0) + (W.oils[k] || 0) + (W.sauces[k] || 0)));
+  });
+  $('#serve-to').textContent = t ? `給 ${t.table} 桌・${t.dish.name}` : (G.tickets.length ? '先選一張單' : '等客人點菜');
+}
+function refreshHud() {
+  const total = 5 * 60, m = Math.min(total, Math.floor(G.t / DAY_LEN * total));
+  $('#clock').textContent = `${17 + Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+  $('#money').textContent = fmtMoney(G.money);
+  $('#hearts').textContent = '♥'.repeat(Math.max(0, G.hearts)) + '♡'.repeat(Math.max(0, 3 - G.hearts));
+}
+
+// ======================= cooking actions =======================
+function addFood(k) {
+  const d = ING[k];
+  W.adds[k] = (W.adds[k] || 0) + 1;
+  FOODS[k].spawn(d.n, rand(-.35, .35), rand(-.35, .35));
+  W.T = Math.max(25, W.T - d.chill);
+  sizzleBoost = Math.min(1, sizzleBoost + .6);
+  sfx.drop();
+  if (d.aroma && W.oil > 0.2 && W.T > 160 && !W.hasMain) { if (!W.bao) pop('爆香！', 'hot'); W.bao = true; }
+  else if (d.main && W.oil <= 0.2 && !W.oils.oil && !W.oils.sesame) pop('還沒下油喔', 'bad');
+  if (d.main) W.hasMain = true;
+  for (let i = 0; i < 10; i++) steam.emit(rand(-.5, .5), 0.6, rand(-.5, .5), rand(-.2, .2), rand(.6, 1.2), rand(-.2, .2), rand(1.2, 2), new THREE.Color(1, .95, .9));
+  refreshNeeds();
+}
+function pour(colorHex, n, dry) {
+  const c = col(colorHex);
+  const fx = dry ? specks : pourFx;
+  const sx = rand(.3, .7), sz = rand(-.5, -.1);
+  for (let i = 0; i < n; i++) {
+    const delay = Math.random() * 0.35;
+    setTimeout(() => {
+      if (dry) fx.emit(sx + gauss() * .25, 2.2, sz + gauss() * .25, gauss() * .6, -1, gauss() * .6, 1.2, c);
+      else fx.emit(sx + gauss() * .04, 2.3, sz + gauss() * .04, -sx * .9 + gauss() * .2, -1.5, -sz * .9 + gauss() * .2, 1.2, c);
+    }, delay * 1000);
+  }
+}
+function addOil(k) {
+  const d = OILS[k];
+  W.oils[k] = (W.oils[k] || 0) + 1; W.oil += 1; W.oilKind = k;
+  oilMat.color.copy(col(d.c));
+  W.T = Math.max(25, W.T - 4);
+  pour(d.c, 80, false);
+  sizzleBoost = Math.min(1, sizzleBoost + .4);
+  whoosh(0.6, 2600, 0.3);
+  refreshNeeds();
+}
+function coat(si, frac) {
+  for (const k of FOOD_KEYS) {
+    const f = FOODS[k];
+    for (let i = 0; i < f.n; i++) if (f.st[i] === 0 && Math.random() < frac) f.coat[i * NS + si] = 1;
+  }
+}
+function addSeas(k) {
+  const d = SEAS[k];
+  W.sauces[k] = (W.sauces[k] || 0) + 1;
+  pour(d.c, d.kind === 'dry' ? 60 : 90, d.kind === 'dry');
+  if (d.kind !== 'dry') {
+    W.T = Math.max(25, W.T - 8); sizzleBoost = 1; whoosh(0.8, 2200, 0.45);
+    for (let i = 0; i < 24; i++) steam.emit(rand(-.8, .8), 0.5, rand(-.8, .8), rand(-.3, .3), rand(.8, 1.6), rand(-.3, .3), rand(1.4, 2.4), new THREE.Color(1, .95, .9));
+  } else sfx.click();
+  setTimeout(() => coat(SI[k], 0.2), 400);
+  if (k === 'wine' && W.T > 200) {
+    W.wh += 0.6; pop('米酒嗆鍋！', 'hot');
+    burstFlare(160, 1.4);
+  }
+  refreshNeeds();
+}
+function burstFlare(n, h) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * PI * 2, r = Math.sqrt(Math.random()) * 1.3;
+    flare.emit(wok.position.x + Math.cos(a) * r, wok.position.y + 0.3 + Math.random() * .3, wok.position.z + Math.sin(a) * r,
+      gauss() * .8, rand(1.5, 3.5) * h, gauss() * .8, rand(.35, .7), new THREE.Color(1, rand(.45, .65), .15));
+  }
+  flareLight.intensity = Math.max(flareLight.intensity, 4 * h);
+}
+function contentsCount() { let n = 0; for (const k of FOOD_KEYS) n += FOODS[k].n; return n; }
+function toss(power) {
+  if (!G.running || G.paused) return;
+  if (G.t - W.lastToss < 0.32) return;
+  W.lastToss = G.t; W.tossAnim = 0; W.tossPow = power; W.impulse = false;
+  sfx.toss();
+  if (!G.tossed) { G.tossed = true; $('#hint').hidden = true; }
+}
+function applyToss(power) {
+  const up = 4.0 + power * 2.0, spread = 1.0 + Math.max(0, power - 1.15) * 5;
+  let moved = 0;
+  for (const k of FOOD_KEYS) {
+    const f = FOODS[k], p = f.p, v = f.v, big = ING[k].size[0] > .2 ? 1.15 : 1;
+    for (let i = 0; i < f.n; i++) {
+      if (f.st[i] !== 0 || p[i * 3 + 1] > RIMY) continue;
+      const j = i * 3;
+      v[j + 1] += up * rand(.8, 1.15);
+      v[j] += -p[j] * .45 + rand(-.5, .5) * spread * big;
+      v[j + 2] += -p[j + 2] * .45 + rand(-.5, .5) * spread * big - .25;
+      f.w[j] = rand(-12, 12); f.w[j + 2] = rand(-12, 12);
+      f.layer[i] = Math.random(); f.on[i] = 0; moved++;
+    }
+  }
+  for (const s in W.sauces) coat(SI[s], 0.4);
+  if (moved && W.T > 230 && W.oil > 0.1) {
+    const gain = (W.T - 230) / 70 * power * 0.5;
+    W.wh += gain;
+    burstFlare(Math.round(30 + gain * 160), 0.8 + gain);
+    if (gain > 0.25) pop('鍋氣！', 'hot');
+  }
+}
+
+// ======================= orders & scoring =======================
+function unlocked() { return DISHES.filter((d) => d.unlock <= G.t); }
+function spawnOrder() {
+  const pool = unlocked(), tot = pool.reduce((a, d) => a + d.w, 0);
+  let r = Math.random() * tot, dish = pool[0];
+  for (const d of pool) { r -= d.w; if (r <= 0) { dish = d; break; } }
+  const used = new Set(G.tickets.map((t) => t.table));
+  let table; do { table = 1 + Math.floor(Math.random() * 12); } while (used.has(table) && used.size < 12);
+  const prog = G.t / DAY_LEN;
+  const t = { id: ++G.seq, dish, table, t0: G.t, patience: (60 + dish.items.length * 7 + dish.sauces.length * 5) * lerp(1, .78, prog) };
+  G.tickets.push(t);
+  if (!selTicket()) G.sel = t.id;
+  sfx.bell();
+  renderTickets();
+}
+function wokStats() {
+  let mainN = 0, mainCook = 0, all = 0, burnt = 0, lost = 0, total = 0;
+  const coated = new Array(NS).fill(0);
+  for (const k of FOOD_KEYS) {
+    const f = FOODS[k], d = ING[k];
+    for (let i = 0; i < f.n; i++) {
+      total++;
+      if (f.st[i] !== 0) { lost++; continue; }
+      all++;
+      if (d.main) { mainN++; mainCook += f.cook[i]; }
+      if (f.burn[i] > 0.45) burnt++;
+      for (let s = 0; s < NS; s++) coated[s] += f.coat[i * NS + s];
+    }
+  }
+  let cook = mainN ? mainCook / mainN : 0;
+  if (!mainN) { let s = 0; for (const k of FOOD_KEYS) { const f = FOODS[k]; for (let i = 0; i < f.n; i++) if (f.st[i] === 0) s += f.cook[i]; } cook = all ? s / all : 0; }
+  const poured = Object.keys(W.sauces);
+  const mix = poured.length && all ? poured.reduce((a, s) => a + coated[SI[s]] / all, 0) / poured.length : null;
+  return { cook, burn: all ? burnt / all : 0, mix, spill: total ? lost / total : 0, count: all };
+}
+function evaluate(t) {
+  const d = t.dish, st = wokStats(), bad = [], good = [];
+  let score = 100;
+  const oilTot = (W.oils.oil || 0) + (W.oils.sesame || 0);
+  if (!oilTot) { score -= 15; bad.push('沒放油，黏鍋了'); }
+  else if (d.oil === 'sesame' && !W.oils.sesame) { score -= 10; bad.push('三杯雞要用麻油啦'); }
+  else if (d.oil === 'oil' && W.oils.sesame) { score -= 4; bad.push('麻油味好重'); }
+  if (oilTot >= 3) { score -= 8; bad.push('好油喔'); }
+  for (const k of d.items) if (!W.adds[k]) { score -= 18; bad.push('少了' + ING[k].name); }
+  for (const k in W.adds) if (!d.items.includes(k)) { score -= 8; bad.push('怎麼有' + ING[k].name + '？'); }
+  for (const s of d.sauces) {
+    const c = W.sauces[s] || 0;
+    if (!c) { score -= 10; bad.push(SEAS[s].strong ? '味道太淡' : '少了' + SEAS[s].name); }
+    else if (c > 1) { score -= (SEAS[s].strong ? 6 : 3) * (c - 1); bad.push(SEAS[s].strong ? '太鹹了' : SEAS[s].name + '放太多'); }
+  }
+  for (const s in W.sauces) if (!d.sauces.includes(s)) { score -= 6; bad.push('怎麼有' + SEAS[s].name + '的味道？'); }
+  if (st.cook < .5) { score -= 30; bad.push('裡面還是生的…'); }
+  else if (st.cook < .85) { score -= 12; bad.push('有點不夠熟'); }
+  else if (st.cook > 2.2) { score -= 14; bad.push('炒太老了，好柴'); }
+  else if (st.cook > 1.6) { score -= 6; bad.push('稍微炒過頭'); }
+  if (st.burn > .25) { score -= 25; bad.push('焦掉了啦！'); }
+  else if (st.burn > .1) { score -= 10; bad.push('有點焦'); }
+  else if (st.burn > .02) { score += 3; good.push('有焦香'); }
+  if (st.mix != null && st.mix < .6) { score -= 10; bad.push('調味沒拌勻'); }
+  if (st.spill > .25) { score -= 10; bad.push('份量好少'); }
+  const wh = Math.min(12, W.wh * 1.5); score += wh;
+  if (wh >= 6) good.push('鍋氣十足！');
+  if (W.bao) { score += 4; good.push('爆香得好'); }
+  score = clamp(Math.round(score), 0, 100);
+  const stars = score >= 85 ? 3 : score >= 65 ? 2 : score >= 40 ? 1 : 0;
+  const uniq = [...new Set(bad)];
+  let words = [];
+  if (stars === 3 && !uniq.length) words.push(good[0] || '火候剛好，好吃！');
+  else words = uniq.slice(0, 2).concat(stars >= 2 && good.length ? [good[0]] : []).slice(0, 2);
+  if (!words.length) words.push(stars >= 2 ? '還不錯吃' : '普普通通');
+  return { score, stars, words };
+}
+function serve() {
+  if (!G.running || G.paused) return;
+  const t = selTicket();
+  if (!t) { pop(G.tickets.length ? '先點一張單' : '還沒有客人點這道', 'bad'); return; }
+  if (contentsCount() === 0) { pop('鍋裡還沒有東西', 'bad'); return; }
+  const r = evaluate(t);
+  const left = clamp(1 - (G.t - t.t0) / t.patience, 0, 1);
+  let pay = 0, tip = 0;
+  if (r.stars > 0) { pay = t.dish.price; if (r.stars >= 2) tip = Math.round(t.dish.price * .3 * left * (r.stars - 1) / 2 / 5) * 5; }
+  G.money += pay + tip; G.served++; G.starSum += r.stars;
+  if (r.stars === 0) { G.hearts--; sfx.bad(); } else sfx.cash();
+  showResult(t, r, pay, tip);
+  G.tickets = G.tickets.filter((x) => x !== t);
+  G.sel = G.tickets.length ? G.tickets[0].id : null;
+  clearWok();
+  renderTickets(); refreshHud();
+  if (G.hearts <= 0) endDay(true);
+}
+function showResult(t, r, pay, tip) {
+  document.querySelectorAll('.result').forEach((e) => e.remove());
+  const el = document.createElement('div'); el.className = 'result';
+  const stars = '★'.repeat(r.stars) + '☆'.repeat(3 - r.stars);
+  el.innerHTML = `<h3><span>${t.dish.name}</span><span class="stars">${stars}</span></h3>
+    <div class="pay${pay ? '' : ' no'}">${pay ? `+${fmtMoney(pay)}${tip ? `　小費 ${fmtMoney(tip)}` : ''}` : `${t.table} 桌不付錢，口碑 −1`}</div>
+    ${r.words.map((w) => `<p>「${w}」</p>`).join('')}`;
+  $('#stage').appendChild(el);
+  setTimeout(() => el.remove(), 2700);
+}
+function clearWok() { const T = W.T; resetWok(); W.T = T; }
+$('#serve').addEventListener('click', serve);
+$('#dump').addEventListener('click', () => {
+  if (!G.running || G.paused || contentsCount() === 0) return;
+  clearWok(); whoosh(.5, 400, .4); pop('整鍋倒掉了'); refreshNeeds();
+});
+
+// ======================= day flow =======================
+function startDay() {
+  initAudio(); if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
+  Object.assign(G, { running: true, paused: false, t: 0, money: 0, hearts: 3, served: 0, starSum: 0, missed: 0, tickets: [], nextAt: 1.5, sel: null, ended: false, tossed: false });
+  W.T = 25; clearWok();
+  $('#hint').hidden = false;
+  $('#scr-start').hidden = true; $('#scr-end').hidden = true;
+  renderTickets(); refreshHud();
+}
+function loadBest() { try { return JSON.parse(localStorage.getItem('kuaichao-best') || 'null'); } catch (e) { return null; } }
+function saveBest(b) { try { localStorage.setItem('kuaichao-best', JSON.stringify(b)); } catch (e) {} }
+function showBest(el) { const b = loadBest(); el.textContent = b ? `最佳紀錄：一晚 ${fmtMoney(b.money)}・出菜 ${b.served} 道` : ''; }
+function endDay(broke) {
+  G.running = false; G.ended = true;
+  const avg = G.served ? G.starSum / G.served : 0;
+  $('#end-title').textContent = broke ? '口碑掉光，今天先收攤了…' : '22:00 打烊，今天辛苦了！';
+  $('#e-money').textContent = fmtMoney(G.money);
+  $('#e-served').textContent = G.served + ' 道';
+  $('#e-avg').textContent = G.served ? '★'.repeat(Math.round(avg)) + '☆'.repeat(3 - Math.round(avg)) + ' ' + avg.toFixed(1) : '—';
+  $('#e-missed').textContent = G.missed + ' 桌';
+  $('#end-note').textContent = G.served === 0 ? '下次先選單、下油，再照單下料。'
+    : avg >= 2.5 ? '整條街都聞到你的鍋氣了。' : avg >= 1.5 ? '客人吃得滿意，明天再快一點。' : '多甩幾下鍋，熟了再出菜。';
+  const b = loadBest();
+  if (!b || G.money > b.money) saveBest({ money: G.money, served: G.served });
+  showBest($('#best-end'));
+  $('#scr-end').hidden = false;
+  G.tickets = []; renderTickets();
+}
+function setPaused(p) {
+  if (!G.running) return;
+  G.paused = p; $('#scr-pause').hidden = !p;
+  if (AU.ctx) { if (p) AU.ctx.suspend(); else AU.ctx.resume(); }
+}
+$('#btn-start').addEventListener('click', startDay);
+$('#btn-again').addEventListener('click', startDay);
+$('#btn-resume').addEventListener('click', () => setPaused(false));
+$('#pause').addEventListener('click', () => setPaused(!G.paused));
+document.addEventListener('visibilitychange', () => { if (document.hidden && G.running) setPaused(true); });
+$('#mute').addEventListener('click', () => {
+  AU.muted = !AU.muted; $('#mute').textContent = AU.muted ? '✕' : '♪';
+  $('#mute').setAttribute('aria-label', AU.muted ? '打開聲音' : '關閉聲音');
+  if (AU.master) AU.master.gain.value = AU.muted ? 0 : 0.7;
+});
+showBest($('#best-start'));
+
+// ======================= input: swipe up on the wok to toss =======================
+let drag = null;
+canvas.addEventListener('pointerdown', (e) => { drag = { y: e.clientY, t: performance.now() }; canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerup', (e) => {
+  if (!drag) return;
+  const dy = drag.y - e.clientY, dt = Math.max(60, performance.now() - drag.t);
+  drag = null;
+  if (dy > 25) toss(clamp(0.6 + dy / 220 + 120 / dt * 0.25, 0.6, 1.7));
+  else toss(1.0);
+});
+canvas.addEventListener('pointercancel', () => { drag = null; });
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); toss(e.shiftKey ? 1.5 : 1.0); }
+  else if (e.code === 'Enter') serve();
+});
+
+// ======================= main loop =======================
+function resize() {
+  const w = stageEl.clientWidth, h = stageEl.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const dist = Math.max(6.5, 2.75 / (Math.tan(camera.fov / 2 * PI / 180) * camera.aspect));
+  camera.position.copy(CAM_DIR).multiplyScalar(dist).add(LOOK);
+  camera.lookAt(LOOK);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stageEl);
+resize();
+
+let last = performance.now(), frame = 0, uiT = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  let dt = Math.min(1 / 30, (now - last) / 1000); last = now;
+  if (G.paused) { renderer.render(scene, camera); return; }
+  frame++;
+  const live = G.running;
+  if (live) {
+    G.t += dt;
+    // orders
+    if (G.t >= G.nextAt && G.t < DAY_LEN - 12) {
+      if (G.tickets.length < 5) spawnOrder();
+      G.nextAt = G.t + lerp(17, 9, G.t / DAY_LEN) * rand(.8, 1.2);
+    }
+    for (const t of [...G.tickets]) {
+      if (G.t - t.t0 > t.patience) {
+        G.tickets = G.tickets.filter((x) => x !== t); G.missed++; G.hearts--;
+        if (G.sel === t.id) G.sel = G.tickets.length ? G.tickets[0].id : null;
+        pop(`${t.table} 桌等太久，走掉了`, 'bad'); sfx.bad(); renderTickets(); refreshHud();
+      }
+    }
+    if (G.hearts <= 0) endDay(true);
+    else if (G.t >= DAY_LEN) endDay(false);
+  }
+  // wok temperature
+  const target = FIRE_T[fire];
+  W.T += (target - W.T) * dt * (target > W.T ? 0.5 : 0.12);
+  const food = contentsCount();
+  if (food) W.oil = Math.max(0, W.oil - dt * 0.012);
+  const dry = food > 0 && W.oil < 0.25;
+  if (dry && W.T > 200 && live && !W.dryWarned) { W.dryWarned = true; pop('沒油了，會黏鍋', 'bad'); }
+  // toss animation: lift, tilt, flick
+  if (W.tossAnim >= 0) {
+    W.tossAnim += dt;
+    const u = W.tossAnim / 0.34, s = Math.sin(PI * clamp(u, 0, 1)) * Math.min(1.3, W.tossPow);
+    wok.position.y = s * 0.22; wok.position.z = -s * 0.16; wok.rotation.x = -s * 0.2;
+    if (!W.impulse && u > 0.22) { W.impulse = true; applyToss(W.tossPow); }
+    if (u >= 1) { W.tossAnim = -1; wok.position.set(0, 0, 0); wok.rotation.set(0, 0, 0); }
+  }
+  // food physics
+  const heat = Math.max(0, W.T - 100) / 120;
+  for (const k of FOOD_KEYS) if (FOODS[k].n) FOODS[k].step(dt, heat, dry ? 2.5 : 1);
+  for (let j = 1; j < GN - 1; j++) for (let i = 1; i < GN - 1; i++) {   // blur the pile so it reads as one heap
+    const c = j * GN + i;
+    hgt[c] = hacc[c] * .5 + (hacc[c - 1] + hacc[c + 1] + hacc[c - GN] + hacc[c + GN]) * .125;
+  }
+  hacc.fill(0);
+  const paint = frame % 2 === 0;
+  for (const k of FOOD_KEYS) if (FOODS[k].n || FOODS[k].mesh.count) FOODS[k].draw(paint);
+  // burn warning
+  if (live && food && frame % 30 === 0) {
+    const st = wokStats();
+    if (st.burn > .08 && !W.burnWarned) { W.burnWarned = true; pop('焦味飄出來了…', 'bad'); }
+  }
+  // fire, steam, light
+  const fl = [0, 3, 6, 11][fire] * dt * 60;
+  for (let i = 0; i < fl; i++) {
+    const a = Math.random() * PI * 2, rr = rand(.45, .85), sp = rand(.4, 1.2) * fire;
+    flames.emit(Math.cos(a) * rr, STOVE_Y + .15, Math.sin(a) * rr, Math.cos(a) * sp, rand(1.8, 3) + fire * .5, Math.sin(a) * sp, rand(.45, .7) + fire * .08, C_FIRE);
+  }
+  fireLight.intensity = lerp(fireLight.intensity, [0, .8, 1.6, 2.8][fire] * rand(.85, 1.15), .3);
+  flareLight.intensity *= Math.pow(0.02, dt);
+  if (food && W.T > 140 && Math.random() < dt * (3 + sizzleBoost * 30)) {
+    steam.emit(rand(-.9, .9), .5, rand(-.9, .9), rand(-.2, .2), rand(.6, 1.2), rand(-.2, .2), rand(1.5, 2.6), new THREE.Color(1, .96, .9));
+  }
+  flames.update(dt); flare.update(dt); steam.update(dt); pourFx.update(dt); specks.update(dt);
+  oilMat.opacity = lerp(oilMat.opacity, Math.min(.6, W.oil * .35), .1);
+  const glow = clamp((W.T - 250) / 60, 0, 1) * (food ? .25 : 1);
+  wokMat.emissive.setRGB(glow * .35, glow * .06, 0);
+  // sizzle sound
+  sizzleBoost = Math.max(0, sizzleBoost - dt * .8);
+  if (AU.sizzle && !AU.muted) {
+    const lvl = (food || W.oil > .1) ? clamp((W.T - 110) / 170, 0, 1) * (.35 + .65 * Math.min(1, food / 500)) + sizzleBoost * .5 : 0;
+    AU.sizzle.gain.setTargetAtTime(lvl * .22, AU.ctx.currentTime, .08);
+  }
+  // HUD
+  uiT += dt;
+  if (uiT > .2) {
+    uiT = 0;
+    updateTicketBars(); refreshHud();
+    const T = Math.round(W.T);
+    $('#c-temp').textContent = T + '°C';
+    $('#m-temp').style.width = clamp((W.T - 25) / 290 * 100, 0, 100) + '%';
+    $('#m-temp').style.background = W.T > 270 ? 'var(--bad)' : W.T > 200 ? 'var(--lamp)' : 'var(--muted)';
+    const st = food ? wokStats() : null;
+    if (st && st.count) {
+      const c = st.cook, label = c < .5 ? '生' : c < .85 ? '半生' : c < 1.6 ? '剛好' : c < 2.2 ? '有點老' : '過老';
+      $('#c-cook').textContent = label + (st.burn > .1 ? '・焦' : '');
+      $('#m-cook').style.width = clamp(c / 2.2 * 100, 0, 100) + '%';
+      $('#m-cook').style.background = c < .85 ? 'var(--warn)' : c < 1.6 ? 'var(--good)' : 'var(--bad)';
+      $('#c-mix').textContent = st.mix == null ? '—' : Math.round(st.mix * 100) + '%';
+      $('#m-mix').style.width = (st.mix == null ? 0 : st.mix * 100) + '%';
+      $('#m-mix').style.background = st.mix != null && st.mix >= .6 ? 'var(--good)' : 'var(--warn)';
+    } else {
+      $('#c-cook').textContent = '—'; $('#m-cook').style.width = '0'; $('#c-mix').textContent = '—'; $('#m-mix').style.width = '0';
+    }
+    $('#c-wh').textContent = W.wh.toFixed(1);
+    $('#m-wh').style.width = clamp(W.wh / 8 * 100, 0, 100) + '%';
+  }
+  renderer.render(scene, camera);
+}
+
+// fonts first, so the bottle labels draw with the right face
+const fontsReady = document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]) : Promise.resolve();
+fontsReady.then(() => { buildRack(); refreshNeeds(); });
+refreshHud();
+requestAnimationFrame(loop);
+})();
+</script>
