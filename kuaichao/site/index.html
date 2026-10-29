@@ -670,13 +670,17 @@ scene.environment = makeEnv();
 // reflections only: black room with the kitchen's tube lights, used to paint crisp highlights on oil
 const GLOSS_ENV = (() => {
   const s = new THREE.Scene(); s.background = new THREE.Color(0, 0, 0);
-  const tube = (w, h, x, y, z, k) => {
+  const tube = (w, h, x, y, z, k) => {   // eslint-disable-line no-unused-vars
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k * .95, k * .86), side: THREE.DoubleSide }));
     m.position.set(x, y, z); m.lookAt(0, 0, 0); s.add(m);
   };
-  tube(6, .32, -2, 7, -3.2, 14); tube(6, .32, 2.4, 7, -2.2, 12); tube(5, .28, 0, 7.5, -4.5, 10);
-  tube(1.2, 1.2, -4.5, 5, -1, 6); tube(.9, .9, 4, 5.5, -3, 7);
-  const pm = new THREE.PMREMGenerator(renderer), t = pm.fromScene(s, .015).texture; pm.dispose(); return t;
+  // round, soft lamps rather than long tubes: oil throws back small warm glints
+  const lamp = (r, x, y, z, k) => {
+    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 24), new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k * .9, k * .75), side: THREE.DoubleSide }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); s.add(m);
+  };
+  lamp(.45, -1.5, 7, -3.5, 9); lamp(.3, 2.5, 7, -2.5, 8);
+  const pm = new THREE.PMREMGenerator(renderer), t = pm.fromScene(s, .04).texture; pm.dispose(); return t;
 })();
 scene.add(new THREE.HemisphereLight(col(0xffe8cc), col(0x2a1a10), 0.55));
 const keyLight = new THREE.DirectionalLight(col(0xfff0dc), 1.5);
@@ -987,7 +991,7 @@ class Station {
     this.shineTex = new THREE.DataTexture(this.shineData, OIL_GN, OIL_GN, THREE.RGBAFormat);
     this.shineTex.magFilter = THREE.LinearFilter; this.shineTex.minFilter = THREE.LinearFilter; this.shineTex.needsUpdate = true;
     // added on top of everything: only the bright reflections, so the oil stays clear but shines
-    this.shineMat = new THREE.MeshStandardMaterial({ color: col(0xffe6b8), metalness: 1, roughness: .07, envMap: GLOSS_ENV, envMapIntensity: .75, transparent: true,
+    this.shineMat = new THREE.MeshStandardMaterial({ color: col(0xffd99a), metalness: 1, roughness: .1, envMap: GLOSS_ENV, envMapIntensity: .4, transparent: true,
       blending: THREE.AdditiveBlending, alphaMap: this.shineTex, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.wet = new Float32Array(OIL_GN * OIL_GN); this.wetAny = false;
     this.oilMat = new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, opacity: .45, alphaMap: this.wetTex, roughness: .02, metalness: .2, envMapIntensity: 1.4,
@@ -1127,10 +1131,11 @@ class Station {
       }
     }
     const geo = this.oilMesh.geometry, pos = geo.attributes.position.array, colA = geo.attributes.color.array;
+    const tNow = performance.now() / 1000, ripple = this.W.T > 150 ? Math.min(1, (this.W.T - 150) / 120) * .0025 : 0;   // hot oil trembles
     for (let k = 0; k < GN * GN; k++) {
       const base = OIL_BASE[k], v = f[k];
       // a thin skin on the steel, a touch thicker where loose oil gathers
-      pos[k * 3 + 1] = base < 0 ? 0 : base + .006 + Math.min(.012, v * .0035);
+      pos[k * 3 + 1] = base < 0 ? 0 : base + .006 + Math.min(.012, v * .0035) + (ripple && this.wet[k] > .05 ? Math.sin(k * 1.7 + tNow * 9) * Math.sin(k * .37 - tNow * 6) * ripple : 0);
       if (paint) {
         const a = clamp(this.wet[k] * .5 + clamp((v - .3) / 1.4, 0, 1) * .7, 0, 1);
         const r = (GN - 1 - Math.floor(k / GN)) * GN + (k % GN);   // texture rows run the other way from the grid
