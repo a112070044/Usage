@@ -686,7 +686,7 @@ const WOK_GEO = (() => {
   return g;
 })();
 // cooking oil is a little 2D fluid: particles slide on the bowl, a mesh drapes over their density field
-const OIL_MAX = 140, OIL_PER = 28, OIL_H = .17, OIL_HR = .27, OIL_GN = 60, OIL_CELL = 2 * RIM / (OIL_GN - 1);
+const OIL_MAX = 100, OIL_PER = 18, OIL_H = .15, OIL_HR = .24, OIL_GN = 60, OIL_CELL = 2 * RIM / (OIL_GN - 1);
 const OIL_BASE = (() => {   // steel height under each grid vertex, or -1 outside the bowl
   const b = new Float32Array(OIL_GN * OIL_GN);
   for (let j = 0; j < OIL_GN; j++) for (let i = 0; i < OIL_GN; i++) {
@@ -964,9 +964,9 @@ class Station {
     const ear = new THREE.Mesh(EAR_GEO, this.rimMat);
     ear.position.copy(dir.clone().multiplyScalar(-(RIM + 0.05))).setY(RIMY);
     ear.lookAt(0, RIMY, 0); ear.rotateX(PI / 2); wok.add(ear);
-    this.oilMat = new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, opacity: .58, roughness: .05, metalness: .4, envMapIntensity: 1.25,
+    this.oilMat = new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, opacity: .55, roughness: .04, metalness: .35, envMapIntensity: 1.5,
       depthWrite: false, emissive: new THREE.Color(0, 0, 0), polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    this.oilColor = col(0xdc9c14);
+    this.oilColor = col(0xf58a00);
     const og = new THREE.PlaneGeometry(2 * RIM, 2 * RIM, OIL_GN - 1, OIL_GN - 1).rotateX(-PI / 2);
     og.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(OIL_GN * OIL_GN * 3), 3));
     { // keep only the triangles that lie inside the bowl, so nothing pokes out past the rim
@@ -976,6 +976,8 @@ class Station {
     }
     this.oilMesh = new THREE.Mesh(og, this.oilMat); this.oilMesh.renderOrder = 1; this.oilMesh.frustumCulled = false; this.oilMesh.visible = false;
     wok.add(this.oilMesh);
+    const glint = new THREE.PointLight(col(0xfff2dc), 1.1, 5, 2);   // a lamp overhead, so the oil throws back a bright highlight
+    glint.position.set(.4, 2.3, -.7); wok.add(glint);
     this.op = new Float32Array(OIL_MAX * 2); this.ov = new Float32Array(OIL_MAX * 2); this.oilN = 0; this.oilPending = [];
     this.oilField = new Float32Array(OIL_GN * OIL_GN);
     const ring = new THREE.Mesh(RING_GEO, RING_MAT); ring.position.y = STOVE_Y + 0.27; root.add(ring);
@@ -1071,8 +1073,8 @@ class Station {
       const base = OIL_BASE[k], v = f[k];
       // thin film rises just above the steel; where the field fades the surface dips under it and is hidden
       pos[k * 3 + 1] = base < 0 ? 0 : base + (v < .02 ? -.12 : clamp((v - .35) * .06, -.06, .03));
-      if (paint) {   // deeper oil reads a shade richer
-        const t = .75 + .4 * clamp(v / 5, 0, 1);
+      if (paint) {   // the thin edge catches the light like a meniscus, the middle stays clear
+        const t = v < 1.4 ? 1.3 - .35 * clamp((v - .35) / 1.05, 0, 1) : .95;
         colA[k * 3] = this.oilColor.r * t; colA[k * 3 + 1] = this.oilColor.g * t; colA[k * 3 + 2] = this.oilColor.b * t;
       }
     }
@@ -1692,7 +1694,7 @@ function addOil(k) {
   const st = S(), W = st.W, d = OILS[k];
   W.oils[k] = (W.oils[k] || 0) + 1; W.oil += 1;
   const total = (W.oils.oil || 0) + (W.oils.sesame || 0);
-  st.oilColor.copy(col(OILS.oil.c)).lerp(col(OILS.sesame.c), (W.oils.sesame || 0) / total);
+  st.oilColor.copy(col(0xf58a00)).lerp(col(OILS.sesame.c), (W.oils.sesame || 0) / total);
   W.T = Math.max(25, W.T - 4);
   const land = pour(st, d.c, 80, false);
   st.oilPending.push({ t: performance.now() / 1000 + .42, n: OIL_PER, x: land.x, z: land.z, vx: land.vx, vz: land.vz });
@@ -2300,7 +2302,7 @@ function updateStation(st, dt, live, frame) {
   st.oilStep(dt, performance.now() / 1000);
   if (st.oilN && st.root.visible) st.oilDraw(frame % 2 === 0);
   const shimmer = W.T > 150 ? (.12 + .06 * Math.sin(performance.now() / 140 + st.idx)) * clamp((W.T - 150) / 100, 0, 1) : 0;
-  st.oilMat.emissive.copy(st.oilColor).multiplyScalar(.1 + shimmer);
+  st.oilMat.emissive.copy(st.oilColor).multiplyScalar(.5 + shimmer);
   const glow = clamp((W.T - 250) / 60, 0, 1) * (food ? .25 : 1);
   st.wokMat.emissive.setRGB(glow * .35, glow * .06, 0);
   return (food || W.oil > .1) ? clamp((W.T - 110) / 170, 0, 1) * (.35 + .65 * Math.min(1, food / 500)) : 0;
