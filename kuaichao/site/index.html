@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="阿師快炒：3D 快炒店網頁遊戲。客人一直點菜，甩鍋、鍋鏟翻炒、油炸，賺錢升級店面。">
+<meta name="description" content="阿華熱炒：3D 快炒店網頁遊戲。客人一直點菜，甩鍋、鍋鏟翻炒、油炸，賺錢升級店面。">
 <style>
 :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); box-sizing: border-box; height: 100%; }
 body { margin: 0; font: 14px system-ui, sans-serif; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
 </style>
-<title>阿師快炒</title>
+<title>阿華熱炒</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -360,7 +360,7 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
 
 <div id="app">
   <header>
-    <div class="sign" id="sign">阿師快炒</div>
+    <div class="sign" id="sign">阿華熱炒</div>
     <div class="hud">
       <div class="k"><span id="day-lbl">第 1 天</span><b id="clock">17:00</b></div>
       <div class="k"><span>今天收入</span><b id="money">$0</b></div>
@@ -412,7 +412,7 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
   <div class="screen full" id="scr-home">
     <div class="home-in">
       <div class="front" aria-hidden="true">
-        <div class="neon" id="home-sign">阿師快炒</div>
+        <div class="neon" id="home-sign">阿華熱炒</div>
         <div class="sub">現點現炒・鍋氣十足</div>
         <div class="awning"></div>
         <div class="window">
@@ -593,7 +593,7 @@ const UPS = [
   { id: 'tables',  cat: 'store', icon: 'tables', name: '加桌子',   desc: '客人來得更快，可以同時接更多單。', price: [800, 1600] },
   { id: 'sign',    cat: 'store', icon: 'sign', name: '換招牌',   desc: '店變有名，每道菜價錢提高 15%。', price: [700, 1800] },
 ];
-const SIGNS = ['阿師快炒', '阿師熱炒', '阿師熱炒總店'];
+const SIGNS = ['阿華熱炒', '阿華海鮮熱炒', '阿華熱炒總店'];
 const SAVE_KEY = 'kuaichao-save-v2';
 function defaultSave() { return { day: 1, bank: 0, best: null, up: { wok: 0, burner2: 0, fryer: 0, stove: 0, ac: 0, tables: 0, sign: 0 }, stats: { days: 0, earned: 0, served: 0, three: 0 } }; }
 function loadSave() {
