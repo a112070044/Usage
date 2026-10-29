@@ -548,7 +548,7 @@ const ING = {
 const FOOD_KEYS = ['garlic', 'ginger', 'chili', 'egg', 'rice', 'cabbage', 'spinach', 'chicken', 'beef', 'shrimp', 'peanut', 'basil', 'scallion'];
 
 const OILS = {
-  oil:    { name: '沙拉油', shape: 'tall',  liquid: '#f3c94a', label: '#1f7a3a', ch: '油', c: 0xe6b52e },
+  oil:    { name: '沙拉油', shape: 'tall',  liquid: '#f3c94a', label: '#1f7a3a', ch: '油', c: 0xdc9c14 },
   sesame: { name: '麻油',   shape: 'small', liquid: '#8f4d12', label: '#b8202a', ch: '麻', c: 0x9a5414 },
 };
 const SEAS = {
@@ -679,8 +679,16 @@ const WOK_GEO = (() => {
 })();
 const OIL_GEO = (() => {
   const prof = [], tm = Math.asin(1.05 / R);
-  for (let i = 0; i <= 10; i++) { const t = tm * i / 10; prof.push(new THREE.Vector2((R - .012) * Math.sin(t) + 1e-4, R - (R - .012) * Math.cos(t))); }
+  for (let i = 0; i <= 10; i++) { const t = tm * i / 10; prof.push(new THREE.Vector2((R - .03) * Math.sin(t) + 1e-4, R - (R - .03) * Math.cos(t))); }
   return new THREE.LatheGeometry(prof, 40);
+})();
+// the oil pool is solid in the middle and thins out toward its edge (lathe v runs center → edge)
+const OIL_ALPHA = (() => {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 64;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 64);
+  gr.addColorStop(0, '#fff'); gr.addColorStop(.55, '#eee'); gr.addColorStop(1, '#000');
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 64);
+  const t = new THREE.CanvasTexture(c); t.flipY = false; return t;
 })();
 const RIM_GEO = new THREE.TorusGeometry(RIM + 0.02, 0.05, 8, 72);
 const NECK_GEO = new THREE.CylinderGeometry(0.07, 0.09, 0.9, 10);
@@ -951,7 +959,8 @@ class Station {
     const ear = new THREE.Mesh(EAR_GEO, this.rimMat);
     ear.position.copy(dir.clone().multiplyScalar(-(RIM + 0.05))).setY(RIMY);
     ear.lookAt(0, RIMY, 0); ear.rotateX(PI / 2); wok.add(ear);
-    this.oilMat = new THREE.MeshStandardMaterial({ color: col(0xe6b52e), transparent: true, opacity: 0, roughness: .05, metalness: 0, envMapIntensity: 1.6, depthWrite: false });
+    this.oilMat = new THREE.MeshStandardMaterial({ color: col(0xe6b52e), transparent: true, opacity: 0, roughness: .05, metalness: 0, envMapIntensity: 1.2, depthWrite: false,
+      alphaMap: OIL_ALPHA, side: THREE.DoubleSide, emissive: new THREE.Color(0, 0, 0), polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
     const oil = new THREE.Mesh(OIL_GEO, this.oilMat); oil.renderOrder = 1; wok.add(oil);
     const ring = new THREE.Mesh(RING_GEO, RING_MAT); ring.position.y = STOVE_Y + 0.27; root.add(ring);
     const burner = new THREE.Mesh(BURNER_GEO, BURNER_MAT); burner.rotation.x = PI / 2; burner.position.y = STOVE_Y + 0.12; root.add(burner);
@@ -1583,7 +1592,7 @@ function pour(st, colorHex, n, dry) {
 }
 function addOil(k) {
   const st = S(), W = st.W, d = OILS[k];
-  W.oils[k] = (W.oils[k] || 0) + 1; W.oil += 1;
+  W.oils[k] = (W.oils[k] || 0) + 1; W.oil += 1; W.oilAt = G.t;
   st.oilMat.color.copy(col(d.c));
   W.T = Math.max(25, W.T - 4);
   pour(st, d.c, 80, false);
@@ -2182,7 +2191,11 @@ function updateStation(st, dt, live, frame) {
   st.flareLight.intensity *= Math.pow(0.02, dt);
   if (food && W.T > 140 && st.root.visible && Math.random() < dt * (3 + (active ? sizzleBoost : 0) * 30)) st.puff(1, .9, 1);
   st.flames.update(dt); st.flare.update(dt); st.steam.update(dt); st.pourFx.update(dt); st.specks.update(dt);
-  st.oilMat.opacity = lerp(st.oilMat.opacity, Math.min(.6, W.oil * .35), .1);
+  // the poured oil lands after the stream reaches the bottom, then stays as a shiny pool
+  const landed = W.oil > .03 && G.t - (W.oilAt || -9) > .3;
+  st.oilMat.opacity = lerp(st.oilMat.opacity, landed ? Math.min(.92, .55 + W.oil * .18) : 0, Math.min(1, dt * 5));
+  const shimmer = W.T > 150 ? (.12 + .06 * Math.sin(performance.now() / 140 + st.idx)) * clamp((W.T - 150) / 100, 0, 1) : 0;
+  st.oilMat.emissive.copy(st.oilMat.color).multiplyScalar(.12 + shimmer);
   const glow = clamp((W.T - 250) / 60, 0, 1) * (food ? .25 : 1);
   st.wokMat.emissive.setRGB(glow * .35, glow * .06, 0);
   return (food || W.oil > .1) ? clamp((W.T - 110) / 170, 0, 1) * (.35 + .65 * Math.min(1, food / 500)) : 0;
