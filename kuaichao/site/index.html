@@ -686,7 +686,7 @@ const WOK_GEO = (() => {
   return g;
 })();
 // cooking oil is a little 2D fluid: particles slide on the bowl, a mesh drapes over their density field
-const OIL_MAX = 200, OIL_PER = 45, OIL_H = .19, OIL_HR = .3, OIL_GN = 60, OIL_CELL = 2 * RIM / (OIL_GN - 1);
+const OIL_MAX = 140, OIL_PER = 28, OIL_H = .17, OIL_HR = .27, OIL_GN = 60, OIL_CELL = 2 * RIM / (OIL_GN - 1);
 const OIL_BASE = (() => {   // steel height under each grid vertex, or -1 outside the bowl
   const b = new Float32Array(OIL_GN * OIL_GN);
   for (let j = 0; j < OIL_GN; j++) for (let i = 0; i < OIL_GN; i++) {
