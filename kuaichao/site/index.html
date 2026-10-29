@@ -834,7 +834,8 @@ const dummy = new THREE.Object3D(), tmpC = new THREE.Color();
 class Food {
   constructor(key, S) {
     const d = ING[key]; this.key = key; this.d = d; this.S = S; const max = d.max; this.max = max; this.n = 0;
-    this.mesh = new THREE.InstancedMesh(d.geo3, d.mat, max);
+    this.mat = d.mat.clone();
+    this.mesh = new THREE.InstancedMesh(d.geo3, this.mat, max);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.setColorAt(0, new THREE.Color(1, 1, 1));
     this.mesh.count = 0; this.mesh.frustumCulled = false;
@@ -967,9 +968,14 @@ class Station {
     const ear = new THREE.Mesh(EAR_GEO, this.rimMat);
     ear.position.copy(dir.clone().multiplyScalar(-(RIM + 0.05))).setY(RIMY);
     ear.lookAt(0, RIMY, 0); ear.rotateX(PI / 2); wok.add(ear);
-    this.oilMat = new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, opacity: .55, roughness: .04, metalness: .35, envMapIntensity: 1.5,
+    // the oil is a film: an alpha texture says how wet each spot of steel is, so it can coat the wok thinly
+    this.wetData = new Uint8Array(OIL_GN * OIL_GN * 4);
+    this.wetTex = new THREE.DataTexture(this.wetData, OIL_GN, OIL_GN, THREE.RGBAFormat);
+    this.wetTex.magFilter = THREE.LinearFilter; this.wetTex.minFilter = THREE.LinearFilter; this.wetTex.needsUpdate = true;
+    this.wet = new Float32Array(OIL_GN * OIL_GN); this.wetAny = false;
+    this.oilMat = new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, opacity: .55, alphaMap: this.wetTex, roughness: .02, metalness: .5, envMapIntensity: 2.6,
       depthWrite: false, emissive: new THREE.Color(0, 0, 0), polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    this.oilColor = col(0xf58a00);
+    this.oilColor = col(0xffb020);
     const og = new THREE.PlaneGeometry(2 * RIM, 2 * RIM, OIL_GN - 1, OIL_GN - 1).rotateX(-PI / 2);
     og.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(OIL_GN * OIL_GN * 3), 3));
     { // keep only the triangles that lie inside the bowl, so nothing pokes out past the rim
@@ -1002,7 +1008,7 @@ class Station {
     this.W = { T, oil: 0, oils: {}, adds: {}, sauces: {}, wh: 0, bao: false, hasMain: false, spilled: 0, lastToss: -9, tossAnim: -1, tossPow: 1, impulse: true, dryWarned: false, burnWarned: false, alert: '' };
     for (const k of FOOD_KEYS) this.foods[k].reset();
     this.hgt.fill(0);
-    this.oilN = 0; this.oilPending = []; this.oilMesh.visible = false;
+    this.oilN = 0; this.oilPending = []; this.oilMesh.visible = false; this.wet.fill(0); this.wetAny = false; this.W.gloss = 0;
   }
   count() { let n = 0; for (const k of FOOD_KEYS) n += this.foods[k].n; return n; }
   // pushes every oil particle within `rad` of (x, z) by (vx, vz)
@@ -1018,7 +1024,7 @@ class Station {
     // pour arrives a moment after the stream starts, spreading from where it lands
     for (const p of this.oilPending) {
       while (p.n > 0 && now >= p.t && this.oilN < OIL_MAX) {
-        const i = this.oilN++, a = Math.random() * PI * 2, sp = rand(.2, .8);
+        const i = this.oilN++, a = Math.random() * PI * 2, sp = rand(.1, .4);
         op[i * 2] = p.x + gauss() * .05; op[i * 2 + 1] = p.z + gauss() * .05;
         ov[i * 2] = Math.cos(a) * sp + p.vx; ov[i * 2 + 1] = Math.sin(a) * sp + p.vz;
         p.n--; p.t += .006;
@@ -1027,10 +1033,31 @@ class Station {
     this.oilPending = this.oilPending.filter((p) => p.n > 0 && this.oilN < OIL_MAX);
     // food soaks up oil: drop particles to match what is left
     const pending = this.oilPending.reduce((a, p) => a + p.n, 0);
-    const want = Math.max(0, Math.round(Math.min(W.oil, 4.4) * OIL_PER) - pending);
+    const food = this.count();
+    // once food is in, most of the oil clings to it; only a little stays loose in the bottom
+    const want = Math.max(0, Math.round(Math.min(W.oil, 4.4) * OIL_PER * (food ? .3 : 1)) - pending);
     while (this.oilN > want) { const k = Math.floor(Math.random() * this.oilN), l = --this.oilN; op[k * 2] = op[l * 2]; op[k * 2 + 1] = op[l * 2 + 1]; ov[k * 2] = ov[l * 2]; ov[k * 2 + 1] = ov[l * 2 + 1]; }
     const n = this.oilN;
-    this.oilMesh.visible = n > 0;
+    // the film dries off slowly, faster on a very hot wok
+    const wet = this.wet, dry = Math.max(0, 1 - dt * (.05 + Math.max(0, W.T - 200) / 1200));
+    let any = false;
+    for (let k = 0; k < wet.length; k++) { if (wet[k] > .003) { wet[k] *= dry; any = true; } else wet[k] = 0; }
+    if (any) {   // the film evens itself out a little, so streaks soften into a sheen
+      const G2 = OIL_GN;
+      for (let j = 1; j < G2 - 1; j++) for (let i = 1; i < G2 - 1; i++) {
+        const k = j * G2 + i;
+        wet[k] = wet[k] * .8 + (wet[k - 1] + wet[k + 1] + wet[k - G2] + wet[k + G2]) * .05;
+      }
+    }
+    for (let i = 0; i < n; i++) this.wetAt(op[i * 2], op[i * 2 + 1], .22, dt * 4);
+    if (W.oil > .05 && food) {   // food sliding and landing smears oil wherever it goes
+      for (const k of FOOD_KEYS) {
+        const f = this.foods[k], p = f.p, step = f.n > 200 ? 9 : 2;
+        for (let i = 0; i < f.n; i += step) if (f.on[i] && f.st[i] === 0) this.wetAt(p[i * 3], p[i * 3 + 2], .16, dt * 2.5);
+      }
+    }
+    this.wetAny = any || n > 0;
+    this.oilMesh.visible = this.wetAny;
     if (!n) return;
     const h = OIL_H, h2 = h * h, h4 = h2 * 4, jit = W.T > 140 ? (W.T - 140) / 160 * .15 : 0;
     // gravity pulls toward the bottom of the bowl, neighbours push apart (spread) and pull a little (surface tension)
@@ -1058,6 +1085,16 @@ class Station {
       op[i * 2] = x; op[i * 2 + 1] = z;
     }
   }
+  wetAt(x, z, rad, amt) {
+    const GN = OIL_GN, span = Math.ceil(rad / OIL_CELL), ci = Math.round((x + RIM) / OIL_CELL), cj = Math.round((z + RIM) / OIL_CELL), r2 = rad * rad, wet = this.wet;
+    for (let j = Math.max(0, cj - span); j <= Math.min(GN - 1, cj + span); j++) {
+      const dz = -RIM + j * OIL_CELL - z;
+      for (let i = Math.max(0, ci - span); i <= Math.min(GN - 1, ci + span); i++) {
+        const dx = -RIM + i * OIL_CELL - x, q = 1 - (dx * dx + dz * dz) / r2;
+        if (q > 0) { const k = j * GN + i; wet[k] = Math.min(1, wet[k] + amt * q); }
+      }
+    }
+  }
   oilDraw(paint) {
     const f = this.oilField, op = this.op, n = this.oilN, GN = OIL_GN, hr2 = OIL_HR * OIL_HR, span = Math.ceil(OIL_HR / OIL_CELL);
     f.fill(0);
@@ -1074,15 +1111,18 @@ class Station {
     const geo = this.oilMesh.geometry, pos = geo.attributes.position.array, colA = geo.attributes.color.array;
     for (let k = 0; k < GN * GN; k++) {
       const base = OIL_BASE[k], v = f[k];
-      // thin film rises just above the steel; where the field fades the surface dips under it and is hidden
-      pos[k * 3 + 1] = base < 0 ? 0 : base + (v < .02 ? -.12 : clamp((v - .35) * .06, -.06, .03));
-      if (paint) {   // the thin edge catches the light like a meniscus, the middle stays clear
-        const t = v < 1.4 ? 1.3 - .35 * clamp((v - .35) / 1.05, 0, 1) : .95;
+      // a thin skin on the steel, a touch thicker where loose oil gathers
+      pos[k * 3 + 1] = base < 0 ? 0 : base + .006 + Math.min(.02, v * .007);
+      if (paint) {
+        const a = clamp(this.wet[k] * .5 + clamp((v - .3) / 1.4, 0, 1) * .7, 0, 1);
+        const r = (GN - 1 - Math.floor(k / GN)) * GN + (k % GN);   // texture rows run the other way from the grid
+        this.wetData[r * 4] = this.wetData[r * 4 + 1] = this.wetData[r * 4 + 2] = Math.round(a * 255); this.wetData[r * 4 + 3] = 255;
+        const t = .85 + .35 * clamp(v / 3, 0, 1);
         colA[k * 3] = this.oilColor.r * t; colA[k * 3 + 1] = this.oilColor.g * t; colA[k * 3 + 2] = this.oilColor.b * t;
       }
     }
     geo.attributes.position.needsUpdate = true;
-    if (paint) geo.attributes.color.needsUpdate = true;
+    if (paint) { geo.attributes.color.needsUpdate = true; this.wetTex.needsUpdate = true; }
     geo.computeVertexNormals();
   }
   // flames slide along the underside of the wok and lick up around the rim
@@ -1697,7 +1737,7 @@ function addOil(k) {
   const st = S(), W = st.W, d = OILS[k];
   W.oils[k] = (W.oils[k] || 0) + 1; W.oil += 1;
   const total = (W.oils.oil || 0) + (W.oils.sesame || 0);
-  st.oilColor.copy(col(0xf58a00)).lerp(col(OILS.sesame.c), (W.oils.sesame || 0) / total);
+  st.oilColor.copy(col(0xffb020)).lerp(col(OILS.sesame.c), (W.oils.sesame || 0) / total);
   W.T = Math.max(25, W.T - 4);
   const land = pour(st, d.c, 80, false);
   st.oilPending.push({ t: performance.now() / 1000 + .42, n: OIL_PER, x: land.x, z: land.z, vx: land.vx, vz: land.vz });
@@ -1746,9 +1786,10 @@ function applyToss(st, power) {
     }
   }
   for (const s in W.sauces) coat(st, SI[s], 0.4);
-  for (let i = 0; i < st.oilN; i++) {   // the flick throws the oil up the back wall, then it runs back down
-    st.ov[i * 2] += -st.op[i * 2] * 1.1 + rand(-.5, .5) * power;
-    st.ov[i * 2 + 1] += -st.op[i * 2 + 1] * 1.1 - rand(1.6, 2.6) * power;
+  const hasFood = moved > 0;
+  for (let i = 0; i < st.oilN; i++) {   // with food the oil rides along with it; an empty wok swirls its oil up the wall, coating it
+    st.ov[i * 2] += hasFood ? -st.op[i * 2] * .5 + rand(-.3, .3) : -st.op[i * 2] * .6 + rand(-.6, .6) * power;
+    st.ov[i * 2 + 1] += hasFood ? -st.op[i * 2 + 1] * .5 - .3 : -st.op[i * 2 + 1] * .6 - rand(.9, 1.6) * power;
   }
   if (moved && W.T > 230 && W.oil > 0.1) {
     const gain = (W.T - 230) / 70 * power * 0.5 * P.wh;
@@ -1812,6 +1853,7 @@ function updateSpatula(dt) {
 function stirPush(st, speed, dt) {
   const W = st.W, R2 = .42 * .42, px = SP.pos.x, pz = SP.pos.z;
   st.oilPush(px, pz, .45, SP.vel.x * dt * 9, SP.vel.z * dt * 9);
+  if (W.oil > .05) st.wetAt(px, pz, .32, dt * 5);
   const sauces = Object.keys(W.sauces), coatP = Math.min(1, dt * 5);
   let touched = 0;
   for (const k of FOOD_KEYS) {
@@ -2319,7 +2361,11 @@ function updateStation(st, dt, live, frame) {
   st.flames.update(dt); st.flare.update(dt); st.steam.update(dt); st.pourFx.update(dt); st.specks.update(dt);
   // the poured oil lands after the stream reaches the bottom, then stays as a shiny pool
   st.oilStep(dt, performance.now() / 1000);
-  if (st.oilN && st.root.visible) st.oilDraw(frame % 2 === 0);
+  if (st.wetAny && st.root.visible) st.oilDraw(frame % 2 === 0);
+  // oiled food glistens
+  const taps = (W.oils.oil || 0) + (W.oils.sesame || 0);
+  W.gloss = lerp(W.gloss || 0, taps && food ? Math.min(1, .6 + .2 * taps) * (W.oil > .1 ? 1 : .55) : 0, Math.min(1, dt * 1.5));
+  if (frame % 10 === st.idx) for (const k of FOOD_KEYS) { const m = st.foods[k].mat; m.roughness = lerp(k === 'rice' ? .5 : .55, .16, W.gloss); m.envMapIntensity = lerp(.55, 1.35, W.gloss); }
   const shimmer = W.T > 150 ? (.12 + .06 * Math.sin(performance.now() / 140 + st.idx)) * clamp((W.T - 150) / 100, 0, 1) : 0;
   st.oilMat.emissive.copy(st.oilColor).multiplyScalar(.5 + shimmer);
   const glow = clamp((W.T - 250) / 60, 0, 1) * (food ? .25 : 1);
