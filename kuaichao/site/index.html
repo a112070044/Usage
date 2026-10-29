@@ -277,6 +277,11 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
 }
 .cta.alt { height: 48px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); font-size: 17px; letter-spacing: .12em; box-shadow: none; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .cta.alt small { font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--muted); }
+#scr-share { align-items: flex-start; overflow-y: auto; padding-block: 12px; touch-action: pan-y; z-index: 30; }
+#scr-share .board { margin: auto 0; }
+#share-img { display: block; width: 100%; max-width: 100%; aspect-ratio: 4 / 5; border-radius: 8px; background: var(--bg); box-shadow: 0 4px 14px rgba(0, 0, 0, .3); -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
+.share-hint { font-size: 13px !important; text-align: center; }
+.board .big.share { background: var(--lamp); color: var(--ink); box-shadow: 0 4px 0 #a8741a; }
 #scr-end { align-items: flex-start; overflow-y: auto; padding-block: 12px; touch-action: pan-y; }
 #scr-end .board { margin: auto 0; }
 .end-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -525,6 +530,7 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
       </div>
       <p id="end-note"></p>
       <div class="bankline"><span>存款</span><b id="end-bank">$0</b></div>
+      <button type="button" class="big share" id="btn-share">分享今日評鑑</button>
       <button type="button" class="big" id="btn-again">明天再開店</button>
       <div class="row2">
         <button type="button" class="big alt" id="btn-home2">回主畫面</button>
@@ -551,6 +557,19 @@ header { display: flex; align-items: center; gap: 10px; min-height: 34px; }
         <button type="button" class="cta" id="btn-shop-open">開店營業</button>
         <button type="button" class="linkish" id="btn-reset">清除存檔，從第 1 天重來</button>
       </div>
+    </div>
+  </div>
+
+  <div class="screen" id="scr-share" hidden>
+    <div class="board">
+      <h2>分享今日評鑑</h2>
+      <img id="share-img" alt="今日廚師評鑑圖">
+      <div class="row2">
+        <button type="button" class="big" id="btn-share-go">分享</button>
+        <button type="button" class="big alt" id="btn-share-dl">下載圖片</button>
+      </div>
+      <p class="share-hint" id="share-hint">分享到 IG、FB、LINE 都可以。按不了的話，長按上面的圖片也能儲存。</p>
+      <button type="button" class="linkish" id="btn-share-close">關閉</button>
     </div>
   </div>
 
@@ -2054,7 +2073,7 @@ $('#dump').addEventListener('click', () => {
 });
 
 // ======================= screens: home, shop, help, records =======================
-const SCREENS = ['scr-home', 'scr-end', 'scr-shop', 'scr-help', 'scr-stats', 'scr-pause', 'scr-practice'];
+const SCREENS = ['scr-home', 'scr-end', 'scr-shop', 'scr-help', 'scr-stats', 'scr-pause', 'scr-practice', 'scr-share'];
 let backTo = 'scr-home';
 function showScreen(id) { for (const s of SCREENS) $('#' + s).hidden = s !== id; }
 function nextPrice(id) {
@@ -2200,9 +2219,103 @@ function showChefReview(broke) {
   $('#chef-card').dataset.tier = g;
   $('#chef-grade').textContent = g;
   $('#chef-title').textContent = r.title;
-  $('#chef-quote').textContent = !G.served ? '整晚一道菜都沒出，客人以為你在拍整人節目。' : r.lines[Math.floor(Math.random() * r.lines.length)];
+  const quote = !G.served ? '整晚一道菜都沒出，客人以為你在拍整人節目。' : r.lines[Math.floor(Math.random() * r.lines.length)];
+  $('#chef-quote').textContent = quote;
   $('#chef-art').innerHTML = chefSVG(r.mood);
+  G.review = { grade: g, title: r.title, quote, mood: r.mood, day: G.day, money: G.money, served: G.served, missed: G.missed, avg: G.served ? G.starSum / G.served : 0, shop: SIGNS[save.up.sign] };
 }
+
+// ---- share card: a 1080×1350 picture of today's review, for IG / FB / LINE ----
+const SHARE_URL = 'https://a112070044.github.io/kuaichao/';
+const TIER_COL = { S: '#c99a1a', A: '#d07a1a', B: '#5fae4a', C: '#7d8a5a', D: '#8a7666', E: '#e0533e', F: '#e0533e' };
+function wrapText(g, text, maxW) {
+  const lines = []; let line = '';
+  for (const ch of text) {
+    if (g.measureText(line + ch).width > maxW && line) { lines.push(line); line = ch; } else line += ch;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+async function makeShareImage(rv) {
+  const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), tier = TIER_COL[rv.grade];
+  const bg = g.createRadialGradient(W / 2, 120, 50, W / 2, 400, 1100); bg.addColorStop(0, '#3a2216'); bg.addColorStop(1, '#120e0c');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  // neon sign
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '900 92px "Noto Serif TC", serif';
+  const sw = g.measureText(rv.shop).width + 90;
+  g.save(); g.shadowColor = '#ff3a1d'; g.shadowBlur = 40;
+  g.fillStyle = 'rgba(70,12,6,.75)'; rrect(g, (W - sw) / 2, 64, sw, 140, 18); g.fill();
+  g.strokeStyle = '#ff6b4e'; g.lineWidth = 6; g.stroke();
+  g.fillStyle = '#ffeede'; g.fillText(rv.shop, W / 2, 136); g.restore();
+  g.font = '700 40px "Noto Sans TC", sans-serif'; g.fillStyle = '#f1b23c';
+  g.fillText(`第 ${rv.day} 天・今日廚師評鑑`, W / 2, 262);
+  // paper card
+  g.fillStyle = '#f5eddc'; rrect(g, 60, 320, W - 120, 830, 28); g.fill();
+  g.lineWidth = 10; g.strokeStyle = tier; g.stroke();
+  // chef
+  const img = new Image();
+  await new Promise((res) => { img.onload = res; img.onerror = res; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(chefSVG(rv.mood)); });
+  try { g.drawImage(img, 90, 370, 380, 475); } catch (e) {}
+  // grade + title
+  g.fillStyle = tier; g.beginPath(); g.arc(570, 440, 70, 0, PI * 2); g.fill();
+  g.fillStyle = '#f5eddc'; g.font = '900 100px "Noto Sans TC", sans-serif'; g.fillText(rv.grade, 570, 446);
+  g.textAlign = 'left'; g.fillStyle = '#2b1d13';
+  let fs = 76; do { g.font = `900 ${fs}px "Noto Serif TC", serif`; fs -= 4; } while (g.measureText(rv.title).width > 470 && fs > 40);
+  g.fillText(rv.title, 500, 580);
+  g.font = '400 40px "LXGW WenKai TC", "Noto Sans TC", serif'; g.fillStyle = '#3a2a1e';
+  wrapText(g, `「${rv.quote}」`, 480).slice(0, 6).forEach((ln, i) => g.fillText(ln, 500, 670 + i * 58));
+  // stats
+  const stars = '★'.repeat(Math.round(rv.avg)) + '☆'.repeat(3 - Math.round(rv.avg));
+  const cells = [['今天收入', fmtMoney(rv.money)], ['出菜', rv.served + ' 道'], ['平均評價', rv.served ? stars : '—'], ['跑掉的客人', rv.missed + ' 桌']];
+  cells.forEach(([k, v], i) => {
+    const x = 100 + i * 225, y = 935;
+    g.setLineDash([8, 6]); g.strokeStyle = '#cdbb9b'; g.lineWidth = 3; rrect(g, x, y, 205, 170, 12); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#6a5443'; g.font = '500 30px "Noto Sans TC", sans-serif'; g.fillText(k, x + 20, y + 48);
+    g.fillStyle = '#2b1d13'; g.font = `700 ${v.length > 6 ? 40 : 50}px "Noto Sans TC", sans-serif`; g.fillText(v, x + 20, y + 118);
+  });
+  // footer
+  g.textAlign = 'center'; g.fillStyle = '#f4e7d3'; g.font = '700 42px "Noto Sans TC", sans-serif';
+  g.fillText('你也來炒炒看！', W / 2, 1222);
+  g.fillStyle = '#a69079'; g.font = '500 32px "Noto Sans TC", sans-serif';
+  g.fillText(SHARE_URL.replace('https://', '').replace(/\/$/, ''), W / 2, 1282);
+  const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
+  return { blob, url: c.toDataURL('image/png') };
+}
+let shareShot = null;
+async function openShare() {
+  if (!G.review) return;
+  $('#share-img').removeAttribute('src');
+  showScreen('scr-share');
+  $('#share-hint').textContent = '圖片產生中…';
+  shareShot = await makeShareImage(G.review);
+  $('#share-img').src = shareShot.url;
+  $('#share-hint').textContent = '分享到 IG、FB、LINE 都可以。按不了的話，長按上面的圖片也能儲存。';
+}
+function shareText() { const r = G.review; return `我在${r.shop}第 ${r.day} 天拿到「${r.title}」（${r.grade} 級）！你也來炒炒看 👉 ${SHARE_URL}`; }
+function fileName() { const r = G.review; return `阿華熱炒-第${r.day}天-${r.grade}級.png`; }
+$('#btn-share').addEventListener('click', openShare);
+$('#btn-share-close').addEventListener('click', () => showScreen('scr-end'));
+$('#btn-share-dl').addEventListener('click', () => {
+  if (!shareShot) return;
+  try {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(shareShot.blob); a.download = fileName();
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    $('#share-hint').textContent = '已下載。沒看到檔案的話，長按上面的圖片儲存。';
+  } catch (e) { $('#share-hint').textContent = '這裡不能直接下載，長按上面的圖片就能儲存。'; }
+});
+$('#btn-share-go').addEventListener('click', async () => {
+  if (!shareShot) return;
+  const file = new File([shareShot.blob], fileName(), { type: 'image/png' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: shareText(), title: '今日廚師評鑑' }); return; }
+    if (navigator.share) { await navigator.share({ text: shareText(), url: SHARE_URL, title: '今日廚師評鑑' }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(shareText()); $('#share-hint').textContent = '已複製分享文字。先下載或長按儲存圖片，再貼到社群上。'; }
+  catch (e) { $('#share-hint').textContent = '這個瀏覽器不能直接分享，請下載或長按儲存圖片後再上傳。'; }
+});
 function endDay(broke) {
   showChefReview(broke);
   const avg = G.served ? G.starSum / G.served : 0;
@@ -2411,7 +2524,7 @@ $('#mute').addEventListener('click', () => {
 
 // ======================= keep the screen still while cooking =======================
 // no pinch zoom, no double-tap zoom, no page bounce; only the order rail and the shop list may scroll
-const SCROLLERS = '.rail, .shop-list, .screen.full, .board.shop, #scr-practice, #scr-end';
+const SCROLLERS = '.rail, .shop-list, .screen.full, .board.shop, #scr-practice, #scr-end, #scr-share';
 document.addEventListener('touchmove', (e) => {
   if (e.touches.length > 1 || !e.target.closest(SCROLLERS)) e.preventDefault();
 }, { passive: false });
