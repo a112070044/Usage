@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="阿華熱炒：3D 快炒店網頁遊戲。客人一直點菜，甩鍋、鍋鏟翻炒、油炸，賺錢升級店面。">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#120e0c">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="阿華熱炒">
 <style>
 :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); box-sizing: border-box; height: 100%; }
 body { margin: 0; font: 14px system-ui, sans-serif; }
@@ -2275,5 +2283,6 @@ applyLooks(); goHome(); refreshHud();
 requestAnimationFrame(loop);
 })();
 </script>
+<script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
 </body>
 </html>
