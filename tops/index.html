@@ -203,9 +203,9 @@ const TOPS = [
   { id: 'falcon', name: '赤焰隼', type: '攻擊型', dir: 1, color: 0xe03a2a, accent: 0xffb02e, emblem: '隼', blades: 3, sharp: .95, tip: 'flat',
     mass: 1.0, R: .4, k: .5, tipR: .085, mu: .9, rise: .1, drag: 17, crit: 150, atk: 1.4, def: .15, burst: 1.0, shoot: 'slide' },
   { id: 'tortoise', name: '玄武盾', type: '防禦型', dir: 1, color: 0x2f8a55, accent: 0x20252a, emblem: '武', blades: 6, sharp: .22, tip: 'ball',
-    mass: 1.35, R: .39, k: .5, tipR: .03, mu: .35, rise: 1.1, drag: 10.2, crit: 119, atk: .14, def: .78, burst: 1.35, shoot: 'straight' },
+    mass: 1.35, R: .39, k: .5, tipR: .03, mu: .35, rise: 1.1, drag: 10.2, crit: 119, atk: .08, def: .78, burst: 1.35, shoot: 'straight' },
   { id: 'moon', name: '月影', type: '持久型', dir: 1, color: 0xc2c4d6, accent: 0x7652c2, emblem: '月', blades: 10, sharp: .1, tip: 'sharp',
-    mass: .95, R: .38, k: .7, tipR: .004, mu: .28, rise: .45, drag: 7.6, crit: 112, atk: .1, def: .82, burst: 2.2, shoot: 'straight' },
+    mass: 1.02, R: .38, k: .7, tipR: .004, mu: .28, rise: .45, drag: 7.6, crit: 112, atk: .1, def: .82, burst: 2.2, shoot: 'straight' },
   { id: 'wolf', name: '雷霆狼', type: '平衡型', dir: -1, color: 0x2a62d8, accent: 0xf2c230, emblem: '狼', blades: 4, sharp: .55, tip: 'semi',
     mass: 1.12, R: .39, k: .55, tipR: .035, mu: .55, rise: .35, drag: 12, crit: 114, atk: .85, def: .45, burst: 1.05, shoot: 'slide' },
 ];
@@ -516,6 +516,7 @@ const AIR = .011;       // air drag on spin (per second, proportional)
 const FLOOR_MU = .1;   // share of the tip friction that resists sliding (the rest goes into rolling and wobble)
 function stepTop(t, dt) {
   const p = t.p;
+  t.recT = Math.max(0, (t.recT || 0) - dt);
   if (t.state === 'out') {
     t.vy -= G * .14 * dt; t.x += t.vx * dt; t.z += t.vz * dt; t.y += t.vy * dt; t.w *= Math.max(0, 1 - 1.5 * dt); t.tilt = Math.min(1.4, t.tilt + dt * 2);
     if (t.y < bowlH(RA) - .36) { t.y = bowlH(RA) - .36; t.vx *= .8; t.vz *= .8; t.vy = 0; }
@@ -587,7 +588,7 @@ function stepTop(t, dt) {
 // two tops touching. Rims are treated as rough discs: an impulse along the line between centres (the bounce plus the bite
 // of the blades), and a friction impulse along the rims. Spinning the same way the rims scrub against each other hard
 // (big recoil, both lose spin); spinning opposite ways they mesh like gears and their spins even out.
-const BURST_TH = 2.4, RIM_MU = .32, SMASH = .008, SMASH_V = .55, HIT_LOSS = 22, BUMP_LOSS = 2, KICK = 9;
+const RECOIL = 4.5, BURST_TH = 2.4, RIM_MU = .32, SMASH = .008, SMASH_V = .55, HIT_LOSS = 22, BUMP_LOSS = 2, KICK = 9;
 function collide(a, b) {
   if (!a.alive || !b.alive || !a.landed || !b.landed) return;
   const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), min = a.p.R + b.p.R;
@@ -605,13 +606,20 @@ function collide(a, b) {
   let jn = vn < 0 ? -(1 + e) * vn * mu : 0;
   const fresh = vn < -.3 && !(a.cool > 0 || b.cool > 0);   // a real strike needs the tops to close in; steady grinding is friction only
   // the blades bite: rim speed against rim speed is turned into a shove (stronger for sharp blades, softened by round ones)
-  let biteA = 0, biteB = 0;   // shove received by a / by b
+  let biteA = 0, biteB = 0, recoil = false;   // shove received by a / by b
   if (fresh) {
     // blades bite harder the faster they meet, and harder still when the rims run head-on (same spin)
-    const k = SMASH * Math.min(aSlip, 420) * clamp(-vn / 1.6, .15, 1.6) + SMASH_V * -vn;
+    // no two hits are alike: where the blades catch each other varies, and now and then one lands square
+    const k = (SMASH * Math.min(aSlip, 420) * clamp(-vn / 1.6, .15, 1.6) + SMASH_V * -vn) * (.5 + Math.random() ** 2 * 1.5);
     biteB = k * a.p.atk * (1 - b.p.def * .6) * (.6 + .4 * Math.min(1, Math.abs(a.w) / 700));
     biteA = k * b.p.atk * (1 - a.p.def * .6) * (.6 + .4 * Math.min(1, Math.abs(b.w) / 700));
     a.cool = b.cool = .08;
+  } else if (!(a.recT > 0 || b.recT > 0)) {
+    // rims in steady contact don't just sit there: the blade edges keep catching and knock the tops apart,
+    // hardest when they spin the same way (rims running head-on), softly when opposite spins mesh like gears
+    const same = a.w * b.w > 0, blades = .5 + (a.p.sharp + b.p.sharp) * .4;
+    jn += mu * RECOIL * clamp(aSlip / 400, .2, 1.3) * blades * (same ? 1 : .22) * (.4 + Math.random() ** 2 * 2.2);
+    a.recT = b.recT = rand(.12, .38); recoil = true;
   }
   const press = 10 * mu * (1 / 240);   // the slope and their own lean keep touching tops pressed together
   // friction along the rims, limited by how hard they press
@@ -641,6 +649,10 @@ function collide(a, b) {
     const ra = biteA / a.p.burst * rand(.9, 1.1), rb = biteB / b.p.burst * rand(.9, 1.1);
     const [t, got] = ra > rb ? [a, biteA] : [b, biteB], th = BURST_TH * t.p.burst;
     if (got > th && Math.random() < (got / th - 1) * .3) burstTop(t, nx * (t === a ? -1 : 1), nz * (t === a ? -1 : 1));
+  } else if (recoil) {
+    sparks.burst(a.x + nx * a.p.R, (a.y + b.y) / 2 + .22, a.z + nz * a.p.R, Math.round(3 + jn * 10), .45);
+    sfx.clash(Math.min(.6, jn / 3));
+    if (fresh === false) { a.nut = Math.min(.25, a.nut + jn * .04); b.nut = Math.min(.25, b.nut + jn * .04); }
   } else if (Math.abs(P) > .002 && frameN % 3 === 0) {
     // grinding: a thin stream of sparks where the rims rub
     sparks.burst(a.x + nx * a.p.R, (a.y + b.y) / 2 + .22, a.z + nz * a.p.R, 1, .3);
