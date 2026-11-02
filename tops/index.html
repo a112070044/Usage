@@ -189,20 +189,29 @@ const col = (h) => new THREE.Color(h).convertSRGBToLinear();
 const RPM = (w) => Math.abs(w) * 60 / TAU;
 
 // ======================= tops =======================
-// dir: +1 right spin (clockwise seen from above), -1 left spin.
-// R: blade reach. grip: how hard the tip bites the floor (drives movement). decay: spin lost per second (fraction).
-// crit: spin (rad/s) below which it starts to wobble. atk: smash power. def: knock-back resistance. burst: burst resistance.
-const TOP_SCALE = 1.25;
+// dir: +1 right spin (clockwise seen from above), -1 left spin.  w is spin in rad/s, clockwise positive.
+// Sizes follow a real match: the battle zone is about 36 cm across and a top about 4.5 cm, so a top is ~1/9 of the bowl.
+// Tip physics (the part that touches the floor decides how a top moves):
+//   tipR: contact radius that rolls when the top leans (drives it around; ~0 for a sharp point)
+//   mu: tip-to-floor friction, rise: how fast a rounded tip stands the top back up, drag: spin lost to the tip each second
+// Body: mass, k (moment of inertia = k·m·R²), crit (spin below which it can no longer stay upright),
+//   atk (blade bite), def (round, smooth outline: deflects hits), burst (how firmly the parts lock together)
+const TOP_SCALE = .85;
 const TOPS = [
-  { id: 'falcon', name: '赤焰隼', type: '攻擊型', dir: 1, color: 0xe03a2a, accent: 0xffb02e, emblem: '隼', blades: 3, sharp: .95, mass: 1.0, R: .4, atk: 1.0, def: .2, grip: 1.0, aggro: 14, decay: .042, tip: 'flat', crit: 122, burst: 1.0 },
-  { id: 'tortoise', name: '玄武盾', type: '防禦型', dir: 1, color: 0x2f8a55, accent: 0x20252a, emblem: '武', blades: 6, sharp: .22, mass: 1.35, R: .39, atk: .18, def: .8, grip: .35, decay: .031, tip: 'ball', crit: 118, burst: 1.6 },
-  { id: 'moon', name: '月影', type: '持久型', dir: 1, color: 0xc2c4d6, accent: 0x7652c2, emblem: '月', blades: 10, sharp: .1, mass: .95, R: .38, atk: .15, def: .66, grip: .1, decay: .027, tip: 'sharp', crit: 100, burst: 1.2 },
-  { id: 'wolf', name: '雷霆狼', type: '平衡型', dir: -1, color: 0x2a62d8, accent: 0xf2c230, emblem: '狼', blades: 4, sharp: .55, mass: 1.12, R: .39, atk: .62, def: .58, grip: .5, aggro: 1.5, decay: .03, tip: 'semi', crit: 120, burst: 1.4 },
+  { id: 'falcon', name: '赤焰隼', type: '攻擊型', dir: 1, color: 0xe03a2a, accent: 0xffb02e, emblem: '隼', blades: 3, sharp: .95, tip: 'flat',
+    mass: 1.0, R: .4, k: .5, tipR: .085, mu: .9, rise: .1, drag: 17, crit: 150, atk: 1.4, def: .15, burst: 1.0, shoot: 'slide' },
+  { id: 'tortoise', name: '玄武盾', type: '防禦型', dir: 1, color: 0x2f8a55, accent: 0x20252a, emblem: '武', blades: 6, sharp: .22, tip: 'ball',
+    mass: 1.35, R: .39, k: .5, tipR: .03, mu: .35, rise: 1.1, drag: 10.2, crit: 119, atk: .14, def: .78, burst: 1.35, shoot: 'straight' },
+  { id: 'moon', name: '月影', type: '持久型', dir: 1, color: 0xc2c4d6, accent: 0x7652c2, emblem: '月', blades: 10, sharp: .1, tip: 'sharp',
+    mass: .95, R: .38, k: .7, tipR: .004, mu: .28, rise: .45, drag: 7.6, crit: 112, atk: .1, def: .82, burst: 2.2, shoot: 'straight' },
+  { id: 'wolf', name: '雷霆狼', type: '平衡型', dir: -1, color: 0x2a62d8, accent: 0xf2c230, emblem: '狼', blades: 4, sharp: .55, tip: 'semi',
+    mass: 1.12, R: .39, k: .55, tipR: .035, mu: .55, rise: .35, drag: 12, crit: 114, atk: .85, def: .45, burst: 1.05, shoot: 'slide' },
 ];
 for (const t of TOPS) t.R *= TOP_SCALE;
 const STAT_LIST = [
-  ['攻擊', (t) => t.atk], ['防禦', (t) => t.def], ['持久', (t) => 1 - (t.decay - .02) / .04], ['機動', (t) => t.grip], ['重量', (t) => (t.mass - .8) / .6],
+  ['攻擊', (t) => t.atk], ['防禦', (t) => t.def * .7 + (t.mass - .9) * .8], ['持久', (t) => 1 - (t.drag - 5) / 17], ['機動', (t) => t.tipR * t.mu / .05], ['重量', (t) => (t.mass - .8) / .6],
 ];
+const W_MAX = 1050;   // ~10,000 RPM: a very strong launch
 
 // ======================= scene =======================
 const canvas = $('#gl');
@@ -213,69 +222,76 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.setClearColor(col(0x12122a));
+renderer.setClearColor(col(0x2b2d33));
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(col(0x12122a), 14, 30);
+scene.fog = new THREE.Fog(col(0x2b2d33), 16, 34);
 const camera = new THREE.PerspectiveCamera(40, 1, .1, 80);
 let camAng = 0, camDist = 9, shake = 0;
 
+// a plain room: ceiling lights over a table, so the white plastic reads as white
 (function env() {
   const s = new THREE.Scene();
-  const g = new THREE.SphereGeometry(10, 32, 16), cs = [], top = col(0x5a5a8a), bot = col(0x0a0a18), t = new THREE.Color();
+  const g = new THREE.SphereGeometry(10, 32, 16), cs = [], top = col(0x8a8c92), bot = col(0x2a2620), t = new THREE.Color();
   for (let i = 0; i < g.attributes.position.count; i++) { const k = (g.attributes.position.getY(i) / 10 + 1) / 2; t.copy(bot).lerp(top, k * k); cs.push(t.r, t.g, t.b); }
   g.setAttribute('color', new THREE.Float32BufferAttribute(cs, 3));
   s.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
   const panel = (w, h, c, x, y, z) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); s.add(m); };
-  panel(6, 1.4, new THREE.Color(8, 8, 9), 0, 8, 0); panel(3, 1, new THREE.Color(5, 4, 2), -6, 5, 3); panel(3, 1, new THREE.Color(1.5, 3, 5), 6, 5, -3);
+  panel(5, 1.2, new THREE.Color(9, 9, 9), 0, 8, 0); panel(3, 1.2, new THREE.Color(5, 5, 4.6), -6, 6, 2); panel(3, 1.2, new THREE.Color(4.6, 5, 5.2), 5, 6, -4);
   const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(s, .03).texture; pm.dispose();
 })();
-scene.add(new THREE.HemisphereLight(col(0xdcdcff), col(0x1a1a30), .55));
-const spot = new THREE.SpotLight(col(0xfff6e8), 2.4, 30, .62, .5, 1.2);
-spot.position.set(1.5, 11, 3); spot.castShadow = true; spot.shadow.mapSize.set(1024, 1024); spot.shadow.bias = -.0005;
+scene.add(new THREE.HemisphereLight(col(0xf4f2ee), col(0x3a342c), .75));
+const spot = new THREE.SpotLight(col(0xfffaf0), 2.2, 30, .7, .55, 1.2);
+spot.position.set(1.2, 11, 2.5); spot.castShadow = true; spot.shadow.mapSize.set(1024, 1024); spot.shadow.bias = -.0005;
 scene.add(spot); scene.add(spot.target);
-const rimL = new THREE.PointLight(col(0x48d6ff), .8, 14); rimL.position.set(-5, 3, -4); scene.add(rimL);
-const rimR = new THREE.PointLight(col(0xff7a3a), .7, 14); rimR.position.set(5, 3, -3); scene.add(rimR);
 
-// ---- stadium: a shallow bowl with a wall, three pockets for over finishes ----
-const RA = 3, BOWL_K = .055, WALL_H = .42, GRAV = 32;
+// ---- stadium: a shallow white plastic bowl, a clear wall with a green toothed rail, one pocket for over finishes ----
+// 1 unit ≈ 6 cm: the battle zone is 6 units (36 cm) across
+const RA = 3, BOWL_K = .055, WALL_H = .5;
 const bowlH = (r) => BOWL_K * r * r;
-const POCKETS = [90, 210, 330].map((d) => d * PI / 180), POCKET_W = 13 * PI / 180;
+const POCKETS = [47 * PI / 180], POCKET_W = 16 * PI / 180;   // on the right as you stand at your launch side
 function pocketAt(ang) { for (const p of POCKETS) if (Math.abs(Math.atan2(Math.sin(ang - p), Math.cos(ang - p))) < POCKET_W) return true; return false; }
 {
-  // floor texture: rings and spokes printed on the plastic
-  const c = document.createElement('canvas'); c.width = 64; c.height = 512; const g = c.getContext('2d');
-  const gr = g.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, '#3a3f8f'); gr.addColorStop(.35, '#2b2f6e'); gr.addColorStop(1, '#1d2052');
-  g.fillStyle = gr; g.fillRect(0, 0, 64, 512);
-  g.fillStyle = 'rgba(255,201,60,.9)'; g.fillRect(0, 0, 64, 40);
-  g.fillStyle = 'rgba(255,255,255,.18)'; for (const y of [110, 220, 330, 430]) g.fillRect(0, y, 64, 4);
-  g.fillStyle = 'rgba(72,214,255,.55)'; g.fillRect(0, 488, 64, 8);
+  // floor: white plastic with faint moulded rings
+  const c = document.createElement('canvas'); c.width = 32; c.height = 512; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, '#f4f4f2'); gr.addColorStop(1, '#e2e3e3');
+  g.fillStyle = gr; g.fillRect(0, 0, 32, 512);
+  g.fillStyle = 'rgba(120,128,140,.18)'; for (const y of [60, 170, 280, 390]) g.fillRect(0, y, 32, 3);
+  g.fillStyle = 'rgba(120,128,140,.3)'; g.fillRect(0, 500, 32, 12);
   const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding;
   const prof = []; for (let i = 0; i <= 40; i++) { const r = RA * i / 40; prof.push(new THREE.Vector2(r + 1e-4, bowlH(r))); }
-  const bowl = new THREE.Mesh(new THREE.LatheGeometry(prof, 96), new THREE.MeshStandardMaterial({ map: tex, roughness: .32, metalness: .05, envMapIntensity: .8, side: THREE.DoubleSide }));
+  const bowl = new THREE.Mesh(new THREE.LatheGeometry(prof, 120), new THREE.MeshStandardMaterial({ map: tex, roughness: .22, metalness: 0, envMapIntensity: .9, side: THREE.DoubleSide }));
   bowl.receiveShadow = true; scene.add(bowl);
-  // wall segments between the pockets
-  const wallMat = new THREE.MeshStandardMaterial({ color: col(0xe8e6f4), roughness: .25, metalness: .1, transparent: true, opacity: .55, side: THREE.DoubleSide });
-  const rimMat = new THREE.MeshStandardMaterial({ color: col(0xffc93c), roughness: .35, metalness: .3 });
   const base = bowlH(RA);
-  const sorted = [...POCKETS].sort((a, b) => a - b);
-  for (let i = 0; i < sorted.length; i++) {
-    const a0 = sorted[i] + POCKET_W, a1 = sorted[(i + 1) % sorted.length] - POCKET_W + (i === sorted.length - 1 ? TAU : 0);
-    // three.js measures theta from +z toward +x; convert from our atan2(z, x) angles
-    const t0 = PI / 2 - a1, len = a1 - a0;
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(RA + .05, RA + .05, WALL_H, 64, 1, true, t0, len), wallMat);
-    w.position.y = base + WALL_H / 2; scene.add(w);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(RA + .05, .045, 8, 64, len), rimMat);
-    rim.rotation.x = -PI / 2; rim.rotation.z = -a1; rim.position.y = base + WALL_H; scene.add(rim);
+  // the green rail: a ring with teeth facing in, all the way round except the pocket
+  const green = new THREE.MeshStandardMaterial({ color: col(0x52f03a), emissive: col(0x1c7a10), emissiveIntensity: .35, roughness: .35 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: col(0xeef4f8), roughness: .08, metalness: 0, transparent: true, opacity: .28, side: THREE.DoubleSide, depthWrite: false });
+  const p0 = POCKETS[0], a0 = p0 + POCKET_W, len = TAU - 2 * POCKET_W, t0 = PI / 2 - (a0 + len);
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(RA + .06, RA + .06, WALL_H, 96, 1, true, t0, len), wallMat);
+  wall.position.y = base + WALL_H / 2 - .05; scene.add(wall);
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(RA + .06, .03, 6, 96, len), new THREE.MeshStandardMaterial({ color: col(0xf6f8fa), roughness: .2 }));
+  lip.rotation.x = -PI / 2; lip.rotation.z = -(a0 + len); lip.position.y = base + WALL_H - .05; scene.add(lip);
+  const rail = new THREE.Mesh(new THREE.TorusGeometry(RA - .02, .06, 8, 120, len), green);
+  rail.rotation.x = -PI / 2; rail.rotation.z = -(a0 + len); rail.position.y = base + .04; scene.add(rail);
+  const n = 110, teeth = new THREE.InstancedMesh(new THREE.BoxGeometry(.07, .07, .06), green, n), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+  for (let i = 0; i < n; i++) {
+    const a = a0 + len * (i + .5) / n, r = RA - .1;
+    q.setFromAxisAngle(up, -a); mm.compose(new THREE.Vector3(Math.cos(a) * r, bowlH(r) + .04, Math.sin(a) * r), q, new THREE.Vector3(1, 1, 1)); teeth.setMatrixAt(i, mm);
   }
-  // pocket trays
-  for (const p of POCKETS) {
-    const tray = new THREE.Mesh(new THREE.BoxGeometry(1.0, .12, .8), new THREE.MeshStandardMaterial({ color: col(0x0c0c1c), roughness: .8 }));
-    tray.position.set(Math.cos(p) * (RA + .5), base - .35, Math.sin(p) * (RA + .5)); tray.rotation.y = -p; scene.add(tray);
-  }
-  const plinth = new THREE.Mesh(new THREE.CylinderGeometry(RA + .5, RA + .9, 1.2, 8), new THREE.MeshStandardMaterial({ color: col(0x23234a), roughness: .5, metalness: .4 }));
-  plinth.position.y = base - .65; plinth.receiveShadow = true; scene.add(plinth);
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshStandardMaterial({ color: col(0x0f0f22), roughness: .9 }));
-  floor.rotation.x = -PI / 2; floor.position.y = base - 1.25; floor.receiveShadow = true; scene.add(floor);
+  scene.add(teeth);
+  // the pocket: a clear chute out over the edge
+  const chute = new THREE.Mesh(new THREE.BoxGeometry(1.1, .08, .95), new THREE.MeshStandardMaterial({ color: col(0xdfe6ea), roughness: .15, transparent: true, opacity: .6 }));
+  chute.position.set(Math.cos(p0) * (RA + .55), base - .4, Math.sin(p0) * (RA + .55)); chute.rotation.y = -p0; scene.add(chute);
+  // the stadium shell and the table it sits on
+  const shell = new THREE.Mesh(new THREE.CylinderGeometry(RA + .35, RA + .55, 1.1, 64, 1, true), new THREE.MeshStandardMaterial({ color: col(0xe9ecee), roughness: .3, side: THREE.DoubleSide }));
+  shell.position.y = base - .55; shell.receiveShadow = true; scene.add(shell);
+  const top = new THREE.Mesh(new THREE.RingGeometry(RA + .06, RA + .35, 96), new THREE.MeshStandardMaterial({ color: col(0xf2f4f5), roughness: .25 }));
+  top.rotation.x = -PI / 2; top.position.y = base - .02; scene.add(top);
+  const wood = document.createElement('canvas'); wood.width = 256; wood.height = 256; const wg = wood.getContext('2d');
+  wg.fillStyle = '#b89a76'; wg.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 70; i++) { wg.fillStyle = `rgba(${90 + Math.random() * 40},${60 + Math.random() * 30},${35 + Math.random() * 20},${.08 + Math.random() * .1})`; wg.fillRect(0, Math.random() * 256, 256, 1 + Math.random() * 3); }
+  const wt = new THREE.CanvasTexture(wood); wt.encoding = THREE.sRGBEncoding; wt.wrapS = wt.wrapT = THREE.RepeatWrapping; wt.repeat.set(6, 6);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshStandardMaterial({ map: wt, roughness: .6 }));
+  floor.rotation.x = -PI / 2; floor.position.y = base - 1.1; floor.receiveShadow = true; scene.add(floor);
 }
 
 // ---- spinning-top meshes ----
@@ -477,119 +493,154 @@ function shout(text, hype) {
 }
 function unlockVoice() { if (VOICE.ok && !VOICE.unlocked) { VOICE.unlocked = true; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} } }
 
-function launchTop(t, power, aimDeg) {
-  const p = t.p, r = Math.hypot(t.x, t.z) || 1;
-  // default throw: across the bowl at an angle, so it starts circling
-  const toC = Math.atan2(-t.z, -t.x), dirA = toC + (55 + aimDeg) * PI / 180 * (t.side === 0 ? -1 : -1);
-  const sp = 1.2 + power * 3.3;
-  t.vx = Math.cos(dirA) * sp; t.vz = Math.sin(dirA) * sp; t.vy = -1.2;
-  t.w = p.dir * (260 + power * 560);
-  t.tilt = .12 * (1 - power) + .03; t.state = 'spin'; void r;
-  t.wear = rand(.86, 1.14);   // no two launches seat the tip exactly the same way
+// power 0..1.08 sets the spin; o.vx/o.vz is how fast the launcher was moving when the cord left it (a sliding shoot),
+// o.tilt how far the top leans as it drops
+function launchTop(t, power, o) {
+  o = o || {};
+  const p = t.p;
+  t.vx = o.vx || 0; t.vz = o.vz || 0; t.vy = -.6;
+  t.w = p.dir * (330 + power * 690) * rand(.97, 1.03);
+  const sp = Math.hypot(t.vx, t.vz);
+  t.tilt = o.tilt != null ? o.tilt : .05 + Math.min(.3, sp * .1) + (1 - Math.min(1, power)) * .05;
+  t.phi = sp > .05 ? Math.atan2(t.vz, t.vx) - p.dir * PI / 2 : rand(0, TAU);   // leaning across the throw, so it curls
+  t.nut = .04; t.nph = 0; t.state = 'spin';
+  t.wear = rand(.93, 1.07); t.steady = rand(.92, 1.08);   // no two launches seat the tip exactly the same way
 }
 
+const G = 163;          // gravity in arena units (1 unit ≈ 6 cm)
+const DRIVE = .55;      // how much of the leaning tip's rolling speed turns into travel
+const PREC = 620;       // precession: a top leaning at spin w turns its lean at PREC/w rad/s
+const AIR = .011;       // air drag on spin (per second, proportional)
+const FLOOR_MU = .1;   // share of the tip friction that resists sliding (the rest goes into rolling and wobble)
 function stepTop(t, dt) {
   const p = t.p;
   if (t.state === 'out') {
-    t.vy -= 22 * dt; t.x += t.vx * dt; t.z += t.vz * dt; t.y += t.vy * dt; t.w *= Math.max(0, 1 - 1.5 * dt); t.tilt = Math.min(1.4, t.tilt + dt * 2);
-    if (t.y < bowlH(RA) - 1.15) { t.y = bowlH(RA) - 1.15; t.vx *= .9; t.vz *= .9; t.vy = 0; }
+    t.vy -= G * .14 * dt; t.x += t.vx * dt; t.z += t.vz * dt; t.y += t.vy * dt; t.w *= Math.max(0, 1 - 1.5 * dt); t.tilt = Math.min(1.4, t.tilt + dt * 2);
+    if (t.y < bowlH(RA) - .36) { t.y = bowlH(RA) - .36; t.vx *= .9; t.vz *= .9; t.vy = 0; }
     return;
   }
   if (t.state === 'burst') return;
   const r = Math.hypot(t.x, t.z), floor = bowlH(r);
-  // falling into the bowl after launch
+  // dropping out of the launcher
   if (!t.landed) {
-    t.vy -= 22 * dt; t.y += t.vy * dt; t.x += t.vx * dt; t.z += t.vz * dt;
-    if (t.y <= floor) { t.y = floor; t.landed = true; sparks.burst(t.x, t.y, t.z, 10, .6, [.8, .8, 1]); sfx.land(); }
+    t.vy -= G * .1 * dt; t.y += t.vy * dt; t.x += t.vx * dt; t.z += t.vz * dt;
+    if (t.y <= floor) { t.y = floor; t.landed = true; t.vy = 0; t.nut += .08; sparks.burst(t.x, t.y, t.z, 8, .5, [.8, .8, 1]); sfx.land(); }
     return;
   }
   t.y = floor;
-  if (t.state === 'fallen') {   // lying on its side, sliding to a stop
-    t.vx *= Math.max(0, 1 - 3 * dt); t.vz *= Math.max(0, 1 - 3 * dt); t.w *= Math.max(0, 1 - 2.5 * dt);
-    if (r > 1e-4) { const a = -GRAV * 2 * BOWL_K * r * .4; t.vx += a * t.x / r * dt; t.vz += a * t.z / r * dt; }
-    t.x += t.vx * dt; t.z += t.vz * dt; t.tilt = lerp(t.tilt, 1.38, Math.min(1, dt * 5));
+  if (t.state === 'fallen') {   // lying on its side, scraping to a stop
+    const k = Math.max(0, 1 - 4 * dt); t.vx *= k; t.vz *= k; t.w *= Math.max(0, 1 - 3 * dt);
+    if (r > 1e-4) { const a = -G * .25 * 2 * BOWL_K * r; t.vx += a * t.x / r * dt; t.vz += a * t.z / r * dt; }
+    t.x += t.vx * dt; t.z += t.vz * dt; t.tilt = lerp(t.tilt, 1.32, Math.min(1, dt * 6));
     return;
   }
-  const s = clamp(Math.abs(t.w) / 600, 0, 1.3), sg = Math.sign(t.w);
-  // the slope pulls everything toward the middle
-  if (r > 1e-4) { const a = -GRAV * 2 * BOWL_K * r; t.vx += a * t.x / r * dt; t.vz += a * t.z / r * dt; }
-  // the tip grips the floor: spin turns into curving, forward motion (the flower pattern)
-  let sp = Math.hypot(t.vx, t.vz);
-  if (sp > .05) {
-    const ux = t.vx / sp, uz = t.vz / sp, lat = p.grip * 1.3 * s, fwd = p.grip * 2 * s;
-    t.vx += (-uz * sg * lat + ux * fwd) * dt; t.vz += (ux * sg * lat + uz * fwd) * dt;
+  const sg = Math.sign(t.w) || p.dir, aw = Math.abs(t.w);
+  // 1) the bowl: gravity along the slope pulls toward the middle
+  if (r > 1e-4) { const a = -G * 2 * BOWL_K * r / Math.sqrt(1 + 4 * BOWL_K * BOWL_K * r * r); t.vx += a * t.x / r * dt; t.vz += a * t.z / r * dt; }
+  // 2) the tip: a leaning top rolls on the edge of its tip, sideways to the lean; friction drags the body toward that rolling speed
+  //    The lean that matters is relative to the floor under the tip: on the bowl's slope even an upright top leans
+  //    outward against the floor, so it rolls around the bowl (and, with its own lean turning, draws loops)
+  const sl = Math.sin(Math.min(t.tilt, .9)), lx = sl * Math.cos(t.phi) + 2 * BOWL_K * t.x, lz = sl * Math.sin(t.phi) + 2 * BOWL_K * t.z;
+  const roll = aw * p.tipR * DRIVE;
+  const ux = -lz * sg * roll, uz = lx * sg * roll;
+  const rx = t.vx - ux, rz = t.vz - uz, rs = Math.hypot(rx, rz);
+  let slide = 0;
+  if (rs > 1e-6) {
+    const dv = Math.min(rs, p.mu * G * FLOOR_MU * dt);   // floor friction
+    t.vx -= rx / rs * dv; t.vz -= rz / rs * dv; slide = rs;
   }
-  // aggressive tips steer toward the rival, and grippy tips skip and wander instead of settling into a perfect circle
-  const foe = tops.find((o) => o !== t && o.alive && o.landed);
-  if (foe && p.aggro) {
-    const dx = foe.x - t.x, dz = foe.z - t.z, dd = Math.hypot(dx, dz) || 1, k = p.aggro * s * (1 + .5 * Math.sin(t.phase += dt * 2.3));
-    t.vx += dx / dd * k * dt; t.vz += dz / dd * k * dt;
-  }
-  if (p.grip > .3) { t.vx += (Math.random() - .5) * p.grip * 14 * s * dt; t.vz += (Math.random() - .5) * p.grip * 14 * s * dt; }
-  const damp = .3 + (1 - p.grip) * .45; t.vx *= 1 - damp * dt; t.vz *= 1 - damp * dt;
-  sp = Math.hypot(t.vx, t.vz); const cap = 2.2 + p.grip * 2.5;
-  if (sp > cap) { const k = 1 - Math.min(1, (sp - cap) / sp * dt * 4); t.vx *= k; t.vz *= k; }
+  t.vx *= 1 - .08 * dt; t.vz *= 1 - .08 * dt;   // air
   t.x += t.vx * dt; t.z += t.vz * dt;
-  // spin drains away through the tip, the air, and the work of driving around
-  t.w -= sg * (p.decay * (t.wear || 1) * Math.abs(t.w) + p.grip * sp * 1.1 + 2.5) * dt;
-  // wobble: fast spin keeps it upright; as it slows the lean grows until it topples
-  const st = Math.abs(t.w) / p.crit;
-  if (st < 1.45) t.tilt += (1.45 - st) * 1.05 * dt * (1 + t.tilt * 1.5);
-  else t.tilt = Math.max(0, t.tilt - (.25 + t.tilt * 1.2) * dt);
-  t.phi += sg * (3 + 16 / Math.max(st, .3)) * dt;
-  if (t.tilt > 1.0 || Math.abs(t.w) < 30 || sg !== p.dir) { t.state = 'fallen'; t.fallT = 0; sfx.fall(); }
-  // the wall: bounce, unless it hits a pocket or comes in hard enough to clear the wall
-  const r2 = Math.hypot(t.x, t.z), lim = RA - p.R * .92;
+  // 3) spin drains through the tip, the air, and every bit of sliding
+  t.w -= sg * (p.drag * (t.wear || 1) + AIR * aw + p.mu * Math.min(slide, 6) * 2.2 + (t.tilt > .55 ? (t.tilt - .55) * 260 : 0)) * dt;
+  // 4) lean: precession turns the lean (faster as spin drops); rounded tips stand themselves up;
+  //    below the critical spin the top can no longer hold itself up and the lean grows
+  t.phi += sg * PREC / Math.max(aw, 40) * dt;
+  const st = aw / (p.crit * (t.steady || 1));
+  if (st > 1.25) t.tilt = Math.max(0, t.tilt - p.rise * p.mu * (t.tilt + .02) * dt * Math.min(2, st - 1.2));
+  if (st < 1.5) t.tilt += (1.5 - st) * 1.1 * (1 + 2.2 * t.tilt) * dt;
+  t.nut *= Math.exp(-2.4 * dt); t.nph += (8 + aw * .02) * dt;
+  if (t.tilt > 1.02 || aw < 22 || sg !== p.dir) { t.state = 'fallen'; t.fallT = 0; sfx.fall(); return; }
+  // 5) the wall: the spinning rim scrubs along it (and runs along the rail); a pocket swallows a top coming in hard enough
+  const r2 = Math.hypot(t.x, t.z), lim = RA - p.R * .95;
   if (r2 > lim) {
     const nx = t.x / r2, nz = t.z / r2, vr = t.vx * nx + t.vz * nz, ang = Math.atan2(t.z, t.x);
-    if (vr > 0 && ((pocketAt(ang) && vr > 2.4) || vr > 8.5)) { t.state = 'out'; t.vy = 1.6 + vr * .25; t.vx += nx * .6; t.vz += nz * .6; sfx.wall(1); return; }
+    if (vr > 0 && ((pocketAt(ang) && vr > .9) || vr > 9)) { t.state = 'out'; t.vy = 2.2 + vr * .3; t.vx += nx * .8; t.vz += nz * .8; sfx.wall(1); return; }
     if (vr > 0) {
-      t.vx -= 1.45 * vr * nx; t.vz -= 1.45 * vr * nz;
-      t.w -= sg * Math.min(Math.abs(t.w) * .2, vr * 7);
-      t.tilt += vr * .025 / Math.max(st, .6);
-      if (vr > 1.6) { sparks.burst(nx * RA, t.y + .25, nz * RA, Math.round(vr * 4), .6); sfx.wall(Math.min(1, vr / 6)); }
+      const e = .32, jn = (1 + e) * vr;
+      t.vx -= jn * nx; t.vz -= jn * nz;
+      // rim friction against the wall: with tangent t = (-nz, nx) the rim at the wall moves at w·R along t
+      const tx = -nz, tz = nx, vt = t.vx * tx + t.vz * tz;
+      const dv = clamp(-(vt + t.w * p.R) / (1 + 1 / p.k), -.3 * jn, .3 * jn);
+      t.vx += dv * tx; t.vz += dv * tz; t.w += dv / (p.k * p.R);
+      t.w -= sg * Math.min(aw * .08, jn * 6);
+      t.tilt += vr * .02 / Math.max(st, .7); t.nut += vr * .02;
+      if (vr > 1.2) { sparks.burst(nx * RA, t.y + .15, nz * RA, Math.round(vr * 4), .5); sfx.wall(Math.min(1, vr / 5)); }
     }
     t.x = nx * lim; t.z = nz * lim;
   }
 }
 
+// two tops touching. Rims are treated as rough discs: an impulse along the line between centres (the bounce plus the bite
+// of the blades), and a friction impulse along the rims. Spinning the same way the rims scrub against each other hard
+// (big recoil, both lose spin); spinning opposite ways they mesh like gears and their spins even out.
+const BURST_TH = 2.4, RIM_MU = .32, SMASH = .008, SMASH_V = .55, HIT_LOSS = 22, BUMP_LOSS = 2, KICK = 9;
 function collide(a, b) {
   if (!a.alive || !b.alive || !a.landed || !b.landed) return;
   const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), min = a.p.R + b.p.R;
   if (d >= min || d < 1e-5) return;
   const nx = dx / d, nz = dz / d, tx = -nz, tz = nx, ma = a.p.mass, mb = b.p.mass, sm = ma + mb;
+  const Ia = a.p.k * ma * a.p.R * a.p.R, Ib = b.p.k * mb * b.p.R * b.p.R;
   const pen = min - d; a.x -= nx * pen * mb / sm; a.z -= nz * pen * mb / sm; b.x += nx * pen * ma / sm; b.z += nz * pen * ma / sm;
-  const rv = (b.vx - a.vx) * nx + (b.vz - a.vz) * nz;
-  if (rv > .4 && (a.cool > 0 || b.cool > 0)) return;
-  const sa = clamp(Math.abs(a.w) / 600, 0, 1.3), sb = clamp(Math.abs(b.w) / 600, 0, 1.3), same = Math.sign(a.w) === Math.sign(b.w);
-  // the plain bounce, plus each top's blades smashing the other one away
-  const base = Math.max(0, -1.5 * rv) / (1 / ma + 1 / mb), sh = same ? 1 : .8;
-  const toA = base + b.p.atk * sb * 3.4 * sh, toB = base + a.p.atk * sa * 3.4 * sh, jn = Math.max(toA, toB);
-  a.vx -= toA / ma * nx * (1 - a.p.def * .5); a.vz -= toA / ma * nz * (1 - a.p.def * .5);
-  b.vx += toB / mb * nx * (1 - b.p.def * .5); b.vz += toB / mb * nz * (1 - b.p.def * .5);
-  // the touching rims rub: spinning the same way they grind against each other, opposite ways they roll together
-  const slip = a.w * a.p.R + b.w * b.p.R, jt = Math.sign(slip) * Math.min(Math.abs(slip) * .004, jn * .35);
-  a.vx -= jt / ma * tx; a.vz -= jt / ma * tz; b.vx += jt / mb * tx; b.vz += jt / mb * tz;
-  // a blow from an attacker drains far more spin than the attacker loses landing it; slow grinding contacts drain little
-  const impact = clamp(-rv / 2.2, .12, 1);
-  const lossA = (toA * 6 * (1 - a.p.def * .4) + Math.abs(jt) * 12 + b.p.atk * sb * 48 * impact * (1 - a.p.def * .4)) / ma * (same ? 1 : .55);
-  const lossB = (toB * 6 * (1 - b.p.def * .4) + Math.abs(jt) * 12 + a.p.atk * sa * 48 * impact * (1 - b.p.def * .4)) / mb * (same ? 1 : .55);
-  a.w -= Math.sign(a.w) * Math.min(Math.abs(a.w) * .45, lossA); b.w -= Math.sign(b.w) * Math.min(Math.abs(b.w) * .45, lossB);
-  if (!same) {   // opposite spins: the faster one feeds the slower one
-    const diff = Math.abs(a.w) - Math.abs(b.w), tr = diff * .04;
-    a.w -= Math.sign(a.w) * tr; b.w += Math.sign(b.w) * tr;
+  const vn = (b.vx - a.vx) * nx + (b.vz - a.vz) * nz;   // < 0: closing in
+  const mu = ma * mb / sm;
+  // rim slip along the contact (positive: a's rim moves along +t relative to b's)
+  const slip = (a.vx - b.vx) * tx + (a.vz - b.vz) * tz + a.w * a.p.R + b.w * b.p.R;
+  const aSlip = Math.abs(slip);
+  // normal impulse: bounce when closing, plus a light steady press while grinding
+  const e = .38 + .2 * (1 - (a.p.def + b.p.def) / 2);
+  let jn = vn < 0 ? -(1 + e) * vn * mu : 0;
+  const fresh = vn < -.3 && !(a.cool > 0 || b.cool > 0);   // a real strike needs the tops to close in; steady grinding is friction only
+  // the blades bite: rim speed against rim speed is turned into a shove (stronger for sharp blades, softened by round ones)
+  let biteA = 0, biteB = 0;   // shove received by a / by b
+  if (fresh) {
+    // blades bite harder the faster they meet, and harder still when the rims run head-on (same spin)
+    const k = SMASH * Math.min(aSlip, 420) * clamp(-vn / 1.6, .15, 1.6) + SMASH_V * -vn;
+    biteB = k * a.p.atk * (1 - b.p.def * .6) * (.6 + .4 * Math.min(1, Math.abs(a.w) / 700));
+    biteA = k * b.p.atk * (1 - a.p.def * .6) * (.6 + .4 * Math.min(1, Math.abs(b.w) / 700));
+    a.cool = b.cool = .08;
   }
-  a.tilt += toA * .045 / ma / Math.max(Math.abs(a.w) / a.p.crit, .6);
-  b.tilt += toB * .045 / mb / Math.max(Math.abs(b.w) / b.p.crit, .6);
-  a.cool = b.cool = .06;
-  const cx = a.x + nx * a.p.R, cz = a.z + nz * a.p.R, cy = (a.y + b.y) / 2 + .32;
-  sparks.burst(cx, cy, cz, Math.round(8 + jn * 7), Math.min(1.6, .5 + jn * .18));
-  sfx.clash(Math.min(1, jn / 6));
-  if (jn > 4.2) { slowmo(.8); shake = Math.min(.35, jn * .04); }
-  // a hard hit by an attacker can knock the parts apart
-  for (const [t, o, so, got] of [[a, b, sb, toA], [b, a, sa, toB]]) {
-    const hit = got * (.4 + o.p.atk * so), th = 5.6 * t.p.burst;
-    if (hit > th && Math.random() < (hit / th - 1) * .3) burstTop(t, nx * (t === a ? -1 : 1), nz * (t === a ? -1 : 1));
+  const press = 10 * mu * (1 / 240);   // the slope and their own lean keep touching tops pressed together
+  // friction along the rims, limited by how hard they press
+  const ds = 1 / ma + 1 / mb + a.p.R * a.p.R / Ia + b.p.R * b.p.R / Ib;
+  const lim = (slip * (a.w * b.w < 0 ? 1 : 0) !== 0 ? RIM_MU * 1.8 : RIM_MU) * (jn + biteA + biteB + press);   // opposite spins mesh like gears
+  const P = clamp(-slip / ds, -lim, lim);
+  // apply
+  const JA = jn + biteA, JB = jn + biteB;
+  a.vx -= JA / ma * nx; a.vz -= JA / ma * nz; b.vx += JB / mb * nx; b.vz += JB / mb * nz;
+  a.vx += P / ma * tx; a.vz += P / ma * tz; b.vx -= P / mb * tx; b.vz -= P / mb * tz;
+  a.w += a.p.R * P / Ia; b.w += b.p.R * P / Ib;
+  // spin lost to the knock itself (the hit shakes the top)
+  const sa = Math.sign(a.w), sb = Math.sign(b.w);
+  if (fresh) a.w -= sa * Math.min(Math.abs(a.w) * .3, (jn * BUMP_LOSS + biteA * HIT_LOSS * (1 - a.p.def * .35)) / ma);
+  if (fresh) b.w -= sb * Math.min(Math.abs(b.w) * .3, (jn * BUMP_LOSS + biteB * HIT_LOSS * (1 - b.p.def * .35)) / mb);
+  // a knock tips the top over a little; fast spin resists it
+  const kick = (j, t) => { t.tilt += Math.min(.16, j * KICK * (1 - t.p.def * .55) / (t.p.mass * Math.max(Math.abs(t.w), 90))); t.nut = Math.min(.25, t.nut + j * .05); };
+  if (fresh) { kick(JA, a); kick(JB, b); }
+  const jt = Math.max(JA, JB);
+  if (fresh && jt > .12) {
+    const cx = a.x + nx * a.p.R, cz = a.z + nz * a.p.R, cy = (a.y + b.y) / 2 + .22;
+    sparks.burst(cx, cy, cz, Math.round(4 + jt * 26), Math.min(1.5, .35 + jt * .6));
+    sfx.clash(Math.min(1, jt / 1.8));
+    if (jt > 1.25) { slowmo(.7); shake = Math.min(.3, jt * .12); }
+    // a hard bite can knock the parts apart
+    // (only the top that took the harder bite can come apart)
+    const ra = biteA / a.p.burst * rand(.9, 1.1), rb = biteB / b.p.burst * rand(.9, 1.1);
+    const [t, got] = ra > rb ? [a, biteA] : [b, biteB], th = BURST_TH * t.p.burst;
+    if (got > th && Math.random() < (got / th - 1) * .3) burstTop(t, nx * (t === a ? -1 : 1), nz * (t === a ? -1 : 1));
+  } else if (Math.abs(P) > .002 && frameN % 3 === 0) {
+    // grinding: a thin stream of sparks where the rims rub
+    sparks.burst(a.x + nx * a.p.R, (a.y + b.y) / 2 + .22, a.z + nz * a.p.R, 1, .3);
   }
 }
 
@@ -622,11 +673,11 @@ function drawTop(t, dt) {
   m.root.position.set(t.x, t.y, t.z);
   // lean in the direction of precession (the wobble you see before it falls)
   _ax.set(Math.cos(t.phi + PI / 2), 0, Math.sin(t.phi + PI / 2));
-  m.tilt.quaternion.setFromAxisAngle(_ax, Math.min(t.tilt, 1.45));
+  m.tilt.quaternion.setFromAxisAngle(_ax, Math.min(Math.max(0, t.tilt + (t.state === 'spin' ? (t.nut || 0) * Math.sin(t.nph || 0) : 0)), 1.45));
   // stroboscopic spin: show a slower visible rotation plus a blur disc at speed
   const vr = Math.sign(t.w) * Math.min(Math.abs(t.w), 34);
   t.vis -= vr * dt; m.spin.rotation.y = t.vis;
-  m.blur.material.opacity = clamp((Math.abs(t.w) - 120) / 500, 0, 1) * .55 * (t.state === 'spin' ? 1 : .3);
+  m.blur.material.opacity = clamp((Math.abs(t.w) - 150) / 550, 0, 1) * .55 * (t.state === 'spin' ? 1 : .3);
   if (t.state === 'spin' && t.landed && frameN % 2 === 0) t.trail.push(t.x, t.y, t.z);
 }
 
@@ -669,7 +720,7 @@ const sfx = {
 function updateHum() {
   if (!AU.ctx) return;
   tops.forEach((t, i) => {
-    const h = AU.hum[i]; if (!h) return; const k = t.alive && t.landed ? clamp(Math.abs(t.w) / 800, 0, 1) : 0, now = AU.ctx.currentTime;
+    const h = AU.hum[i]; if (!h) return; const k = t.alive && t.landed ? clamp(Math.abs(t.w) / W_MAX, 0, 1) : 0, now = AU.ctx.currentTime;
     h.o.frequency.setTargetAtTime(60 + Math.abs(t.w) * .55, now, .05); h.f.frequency.setTargetAtTime(500 + Math.abs(t.w) * 2.5, now, .05);
     h.g.gain.setTargetAtTime(AU.muted ? 0 : k * .05, now, .08);
   });
@@ -720,7 +771,7 @@ function startMatch() {
 }
 function startRound() {
   unlockVoice();
-  M.round++; M.phase = 'ready'; M.t = 0; M.goAt = 3.4; M.grip = null; M.rip = null; M.released = false; M.power = 0; M.aim = 0; M.relT = null; M.endT = 0;
+  M.round++; M.phase = 'ready'; M.t = 0; M.goAt = 3.4; M.grip = null; M.rip = null; M.hand = []; M.handV = null; M.released = false; M.power = 0; M.aim = 0; M.relT = null; M.endT = 0;
   M.cd = false; M.waitT = 0; M.heldAtRip = true;
   M.oppLaunch = { power: rand(.72, 1), t: M.goAt + (Math.random() < .6 ? rand(-.12, .12) : rand(-.4, .5)), aim: rand(-25, 25) };
   placeForLaunch(); tops.forEach((t) => { disposeLauncher(t.lc); t.lc = buildLauncher(t); });
@@ -741,10 +792,31 @@ function finishRip(partial) {
   const el = R.t0 == null ? 1 : performance.now() / 1000 - R.t0;
   let pw = ripPower(el);
   if (partial) pw *= R.k * .75;
-  M.rip = null; M.released = true; M.relT = M.t; M.power = pw; M.heldAtRip = !!M.grip || !TOUCH; M.partial = partial;
+  M.handV = handVelocity(); M.rip = null; M.released = true; M.relT = M.t; M.power = pw; M.heldAtRip = !!M.grip || !TOUCH; M.partial = partial;
   tops[0].lc.k = 1; $('#meter').style.width = Math.round(pw * 100) + '%';
 }
-function doLaunch(t, power, aim) { launchTop(t, power, aim); if (t.side === 0) sfx.launch(); }
+function doLaunch(t, power, o) { launchTop(t, power, o); if (t.side === 0) sfx.launch(); }
+// how the computer shoots: attack tips sweep the launcher sideways (a sliding shoot that starts a flower pattern),
+// stamina and defense tips are dropped straight down so they settle in the middle
+function aiShoot(t) {
+  const r = Math.hypot(t.x, t.z) || 1, cx = -t.x / r, cz = -t.z / r;
+  if (t.p.shoot === 'slide') {
+    const s = rand(2.2, 3.4), side = Math.random() < .5 ? 1 : -1;
+    return { vx: (-cz * side * .85 + cx * .5) * s, vz: (cx * side * .85 + cz * .5) * s };
+  }
+  const s = rand(0, .5); return { vx: cx * s, vz: cz * s, tilt: rand(.03, .09) };
+}
+// how fast the player's hand was moving the launcher just before the cord came out
+function handVelocity() {
+  const h = M.hand || []; if (h.length < 2) return { vx: 0, vz: 0 };
+  const now = performance.now() / 1000, last = h[h.length - 1];
+  if (now - last.t > .15) return { vx: 0, vz: 0 };   // hand had stopped
+  let first = h[0]; for (const q of h) if (last.t - q.t <= .12) { first = q; break; }
+  const dt = Math.max(.016, last.t - first.t);
+  let vx = (last.x - first.x) / dt, vz = (last.z - first.z) / dt; const sp = Math.hypot(vx, vz);
+  if (sp > 4.5) { vx *= 4.5 / sp; vz *= 4.5 / sp; }
+  return { vx, vz };
+}
 function endRound(winner, how) {
   M.phase = 'roundEnd'; M.endT = 0;
   const pts = how === 'spin' ? 1 : 2, names = { spin: '旋轉終結', out: '場外終結', burst: '爆裂終結', draw: '平手' };
@@ -781,7 +853,7 @@ function goHome() {
 function startDemo() {
   const a = Math.floor(Math.random() * TOPS.length); let b = Math.floor(Math.random() * TOPS.length); if (b === a) b = (b + 1) % TOPS.length;
   setTops(a, b); placeForLaunch();
-  tops.forEach((t) => launchTop(t, rand(.75, 1), rand(-20, 20)));
+  tops.forEach((t) => launchTop(t, rand(.75, 1), aiShoot(t)));
   M.endT = 0;
 }
 
@@ -877,6 +949,7 @@ window.addEventListener('pointermove', (e) => {
         if (dd > lim) { x = START[0][0] + dx / dd * lim; z = START[0][1] + dz / dd * lim; }
         const r = Math.hypot(x, z), rl = RA - me.p.R - .25; if (r > rl) { x *= rl / r; z *= rl / r; }
         me.x = x; me.z = z;
+        (M.hand = M.hand || []).push({ t: performance.now() / 1000, x, z }); if (M.hand.length > 12) M.hand.shift();
       }
     }
     if (M.rip && e.pointerId === M.rip.id && !M.released) {
@@ -944,17 +1017,17 @@ function loop(now) {
         else if (off <= .25) { mul = 1.08; msg = M.power > .85 ? '完美發射！' : '時機剛好'; cls = 'good'; }
         else { mul = Math.max(.55, 1 - (off - .25) * .6); msg = '慢了一點'; cls = 'bad'; }
         if (M.partial) { msg = '線沒拉完'; cls = 'bad'; }
-        if (!M.heldAtRip) { mul *= .8; M.aim = rand(-35, 35); msg = '發射器沒拿穩'; cls = 'bad'; }
+        if (!M.heldAtRip) { mul *= .8; msg = '發射器沒拿穩'; cls = 'bad'; }
         else if (cls !== 'bad' && M.power < .5) { msg = '拉太慢，轉速不夠'; cls = 'bad'; }
         fire = clamp(Math.max(M.power, .15) * mul, .15, 1.08);
       } else if (M.cd && M.t > M.goAt + 2) { fire = .25; msg = '太慢了！'; cls = 'bad'; me.lc.k = 1; }
-      if (fire != null) { doLaunch(me, fire, M.aim); toast(`${msg}　${Math.round(RPM(me.w)).toLocaleString('en-US')} RPM`, cls); $('#launch').hidden = true; }
+      if (fire != null) { doLaunch(me, fire, M.heldAtRip ? M.handV : { vx: rand(-1, 1), vz: rand(-1, 1), tilt: rand(.2, .35) }); toast(`${msg}　${Math.round(RPM(me.w)).toLocaleString('en-US')} RPM`, cls); $('#launch').hidden = true; }
     }
     const op = tops[1];
     if (op.state === 'ready' && M.cd) {
       const tt = Math.max(M.goAt - .05, M.oppLaunch.t);
       op.lc.k = clamp(1 - (tt - M.t) / .16, 0, 1);
-      if (M.t >= tt) doLaunch(op, M.oppLaunch.power, M.oppLaunch.aim);
+      if (M.t >= tt) doLaunch(op, M.oppLaunch.power, aiShoot(op));
     }
     // spin the held top a little as the cord runs
     if (me.state === 'ready' && M.rip) me.vis -= M.rip.k * raw * 40;
@@ -1012,7 +1085,7 @@ function loop(now) {
   // HUD
   if (frameN % 4 === 0 && !$('#hud').hidden) tops.forEach((t, i) => {
     $('#rpm' + i).textContent = t.alive ? Math.round(RPM(t.w)).toLocaleString('en-US') : (t.state === 'ready' ? '0' : '—');
-    $('#bar' + i).style.width = clamp(Math.abs(t.alive ? t.w : 0) / 860 * 100, 0, 100) + '%';
+    $('#bar' + i).style.width = clamp(Math.abs(t.alive ? t.w : 0) / W_MAX * 100, 0, 100) + '%';
   });
   updateHum();
 
@@ -1025,8 +1098,8 @@ function loop(now) {
     _camT.set(me.x + ux * 3, 4.3, me.z + uz * 3); _lookT.set(me.x * .1, .1, me.z * .1); fov = 56; ease = 5;
   } else if (inMatch) {
     const r = Math.hypot(START[0][0], START[0][1]), base = Math.atan2(START[0][0] / r, START[0][1] / r), a = base + camAng;
-    const hf = 2 * Math.atan(Math.tan(25 * PI / 180) * camera.aspect), d = Math.max(7, (RA * 1.15) / Math.tan(hf / 2) + 1), el = 52 * PI / 180;
-    _camT.set(Math.sin(a) * d * Math.cos(el), d * Math.sin(el), Math.cos(a) * d * Math.cos(el)); _lookT.set(0, -.2, 0); fov = 50; ease = M.phase === 'battle' && M.battleT < 1.2 ? 2.2 : 4;
+    const hf = 2 * Math.atan(Math.tan(22 * PI / 180) * camera.aspect), d = Math.max(7.5, (RA * 1.12) / Math.tan(hf / 2) + .6), el = 74 * PI / 180;   // nearly straight down, like filming from above
+    _camT.set(Math.sin(a) * d * Math.cos(el), d * Math.sin(el), Math.cos(a) * d * Math.cos(el)); _lookT.set(0, -.1, 0); fov = 44; ease = M.phase === 'battle' && M.battleT < 1.2 ? 2.2 : 4;
   } else {
     _camT.set(Math.sin(camAng) * camDist * .5, camDist * .87, Math.cos(camAng) * camDist * .5); _lookT.set(0, -.15, 0); ease = 6;
   }
