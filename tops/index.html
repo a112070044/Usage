@@ -75,20 +75,16 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .meter-l { font-family: var(--f-num); font-size: 12px; color: var(--muted); letter-spacing: .2em; }
 /* first-person launch: left thumb holds the launcher, right thumb rips the cord */
 .hand {
-  position: absolute; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: 104px; height: 104px; border-radius: 50%;
-  display: grid; place-content: center; text-align: center; gap: 2px; pointer-events: none;
-  background: rgba(16, 16, 40, .55); border: 2px dashed rgba(255, 255, 255, .45); color: var(--fg);
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); pointer-events: none; white-space: nowrap;
+  padding: 5px 11px; border-radius: 999px; font-size: 13px; font-weight: 900; line-height: 1.2; text-align: center;
+  background: rgba(16, 16, 40, .78); border: 2px dashed rgba(255, 255, 255, .6); color: var(--fg);
 }
-.hand b { font-size: 19px; font-weight: 900; }
-.hand small { font-size: 10.5px; color: var(--muted); line-height: 1.3; }
-.hand.grip { left: max(14px, env(safe-area-inset-left, 0px)); animation: pulse 1.1s ease-in-out infinite; }
-.hand.grip.on { border: 2px solid var(--good); background: rgba(99, 212, 113, .18); animation: none; }
-.hand.grip.on b { color: var(--good); }
-.hand.rip { right: max(14px, env(safe-area-inset-right, 0px)); border-radius: 18px; width: 116px; }
-.hand.rip b { color: var(--gold); }
-.hand.rip.ready { border: 2px solid var(--gold); animation: pulse .5s ease-in-out infinite; }
-.hand.rip.hide, .hand.grip.hide { display: none; }
-@keyframes pulse { 50% { transform: scale(1.07); } }
+.hand.grip { animation: pulse 1.1s ease-in-out infinite; }
+.hand.grip.on { border: 2px solid var(--good); color: var(--good); animation: none; }
+.hand.rip { color: var(--gold); border-color: var(--gold); }
+.hand.rip.ready { border-style: solid; animation: pulse .5s ease-in-out infinite; }
+.hand.hide { display: none; }
+@keyframes pulse { 50% { transform: translate(-50%, -50%) scale(1.1); } }
 
 /* screens */
 .screen {
@@ -148,10 +144,10 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   <button class="icon-btn" id="btn-mute" type="button" aria-label="關閉聲音" hidden>♪</button>
   <button class="icon-btn" id="btn-menu" type="button" aria-label="回主畫面" hidden>☰</button>
   <div id="fx-layer"></div>
+  <div class="hand grip hide" id="hand-grip">按住拿起發射器</div>
+  <div class="hand rip hide" id="hand-rip">抓住拉條 ⟶ 抽出來</div>
 
   <div class="launch" id="launch" hidden>
-    <div class="hand grip" id="hand-grip"><b>握住</b><small>左手按住<br>發射器</small></div>
-    <div class="hand rip" id="hand-rip"><b>拉線 ⟶</b><small>右手往外<br>用力一拉</small></div>
     <div class="meter-l">SPIN</div>
     <div class="meter"><i id="meter"></i></div>
     <div class="tip" id="launch-tip">左手按住發射器</div>
@@ -164,7 +160,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <div class="sec"><h2>對手</h2><div class="opp" id="opp"></div></div>
     <button type="button" class="cta" id="btn-start">開始對戰</button>
     <div class="howto">
-      <b>發射</b>：第一人稱拿著發射器。左手按住畫面左半邊握住發射器（左右滑動可以瞄準），喊完「3、2、1，GO SHOOT！」時，右手在右半邊用力往外一拉。拉得越快，陀螺轉得越快；搶拍或拉太慢都會變弱。<br>
+      <b>發射</b>：發射器浮在場地上空。一根手指按住發射器把它拿起來（拖著可以移動發射位置），喊完「3、2、1，GO SHOOT！」時，另一根手指抓住發射器側邊的拉條，往外一口氣抽出來。抽得越快，陀螺轉得越快；搶拍、拉太慢或沒拿穩都會變弱。<br>
       <b>得分</b>：對手先停轉＝旋轉終結 1 分；撞出場外＝場外終結 2 分；撞到散開＝爆裂終結 2 分。先拿 3 分獲勝。<br>
       <b>對戰中</b>：左右拖曳可以轉動視角。
     </div>
@@ -728,18 +724,15 @@ function startRound() {
   placeForLaunch(); tops.forEach((t) => { disposeLauncher(t.lc); t.lc = buildLauncher(t); });
   renderHud(); $('#btn-next').hidden = true;
   $('#launch').hidden = false; $('#meter').style.width = '0%';
-  $('#hand-grip').className = 'hand grip' + (TOUCH ? '' : ' hide'); $('#hand-grip').querySelector('b').textContent = '握住'; $('#hand-rip').className = 'hand rip hide';
-  $('#launch-tip').textContent = TOUCH ? '左手按住左半邊，握住發射器' : '準備……';
+  $('#launch-tip').textContent = TOUCH ? '按住發射器把它拿起來' : '準備……';
   M.count = -1; camAng = 0;
   if (!TOUCH) setTimeout(() => { if (M.phase === 'ready' && !M.cd) startCountdown(); }, 700);
 }
 function startCountdown() {
   M.cd = true; M.t = 0; M.count = -1;
-  $('#hand-rip').className = 'hand rip';
-  $('#launch-tip').textContent = TOUCH ? '喊完 GO SHOOT！右手往外用力拉線' : '喊完 GO SHOOT！在畫面上按住、快速往外拉';
+  $('#launch-tip').textContent = TOUCH ? '喊完 GO SHOOT！另一隻手抓住拉條，往外抽' : '喊完 GO SHOOT！抓住拉條，快速往外抽';
 }
 // pull length in px for a full rip, and how fast counts as a perfect rip
-const ripLen = () => clamp(Math.max(innerWidth, innerHeight) * .3, 150, 300);
 const ripPower = (sec) => clamp(Math.pow(.14 / Math.max(sec, .02), .75), .15, 1);
 function finishRip(partial) {
   const R = M.rip; if (!R || M.released) return;
@@ -747,7 +740,7 @@ function finishRip(partial) {
   let pw = ripPower(el);
   if (partial) pw *= R.k * .75;
   M.rip = null; M.released = true; M.relT = M.t; M.power = pw; M.heldAtRip = !!M.grip || !TOUCH; M.partial = partial;
-  tops[0].lc.k = 1; $('#hand-rip').className = 'hand rip hide'; $('#meter').style.width = Math.round(pw * 100) + '%';
+  tops[0].lc.k = 1; $('#meter').style.width = Math.round(pw * 100) + '%';
 }
 function doLaunch(t, power, aim) { launchTop(t, power, aim); if (t.side === 0) sfx.launch(); }
 function endRound(winner, how) {
@@ -830,16 +823,38 @@ $('#btn-mute').addEventListener('click', () => { AU.muted = !AU.muted; $('#btn-m
 const TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
 let drag = null;
 const isUI = (e) => e.target && e.target.closest && e.target.closest('button, .screen');
+// screen <-> world helpers for touching the launcher itself
+const _v = new THREE.Vector3(), _ray = new THREE.Raycaster(), _plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), _ndc = new THREE.Vector2(), _hit = new THREE.Vector3();
+function toScreen(v) { const r = canvas.getBoundingClientRect(); _v.copy(v).project(camera); return { x: r.left + (_v.x + 1) / 2 * r.width, y: r.top + (1 - _v.y) / 2 * r.height }; }
+function screenToPlane(x, y, h) {
+  const r = canvas.getBoundingClientRect(); _ndc.set((x - r.left) / r.width * 2 - 1, -((y - r.top) / r.height * 2 - 1));
+  _ray.setFromCamera(_ndc, camera); _plane.constant = -h; return _ray.ray.intersectPlane(_plane, _hit);
+}
+// where the launcher body and the cord handle are on screen, and which way the cord pulls out
+function launcherScreen(t) {
+  const L = t.lc; L.g.updateMatrixWorld(true);
+  const c = toScreen(L.g.localToWorld(new THREE.Vector3(0, .15, 0))), e = toScreen(L.g.localToWorld(new THREE.Vector3(t.p.R, .15, 0)));
+  const h = toScreen(L.cord.localToWorld(new THREE.Vector3(.06, 0, 0))), h2 = toScreen(L.cord.localToWorld(new THREE.Vector3(.06 + CORD_RUN, 0, 0)));
+  return { c, rad: Math.max(56, Math.hypot(e.x - c.x, e.y - c.y) * 1.25), h, ax: h2.x - h.x, ay: h2.y - h.y };
+}
 window.addEventListener('pointerdown', (e) => {
   if (isUI(e)) return;
   if (M.phase === 'ready') {
     initAudio();
-    if (M.released || !tops[0] || tops[0].state !== 'ready') return;
-    const leftHalf = TOUCH && e.clientX < innerWidth / 2;
-    if (leftHalf) {
-      if (!M.grip) { M.grip = { id: e.pointerId, x0: e.clientX, aim0: M.aim }; $('#hand-grip').className = 'hand grip on'; $('#hand-grip').querySelector('b').textContent = '握住了'; if (!M.cd) startCountdown(); }
-    } else if (!M.rip && M.cd) {
-      M.rip = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: null, k: 0 };
+    const me = tops[0];
+    if (M.released || !me || me.state !== 'ready' || !me.lc) return;
+    const S = launcherScreen(me), held = !!M.grip || !TOUCH;
+    // the cord handle first: grab it (only once the launcher is in hand and the countdown is on)
+    if (!M.rip && held && M.cd && Math.hypot(e.clientX - S.h.x, e.clientY - S.h.y) < 58) {
+      const len = Math.max(90, Math.hypot(S.ax, S.ay));
+      M.rip = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ax: S.ax / len, ay: S.ay / len, len, t0: null, k: 0 };
+      return;
+    }
+    // the launcher body: pick it up
+    if (Math.hypot(e.clientX - S.c.x, e.clientY - S.c.y) < S.rad && !(M.grip && M.grip.id !== e.pointerId)) {
+      const h = .76 + me.m.height * TOP_SCALE, hit = screenToPlane(e.clientX, e.clientY, h);
+      M.grip = { id: e.pointerId, h, ox: hit ? me.x - hit.x : 0, oz: hit ? me.z - hit.z : 0, mouse: !TOUCH };
+      if (TOUCH && !M.cd) startCountdown();
     }
     return;
   }
@@ -847,11 +862,22 @@ window.addEventListener('pointerdown', (e) => {
 });
 window.addEventListener('pointermove', (e) => {
   if (M.phase === 'ready') {
-    if (M.grip && e.pointerId === M.grip.id) M.aim = clamp(M.grip.aim0 + (e.clientX - M.grip.x0) / (innerWidth * .22) * 40, -40, 40);
+    const me = tops[0];
+    if (M.grip && e.pointerId === M.grip.id && me && me.state === 'ready') {
+      // carry the launcher around your side of the bowl
+      const hit = screenToPlane(e.clientX, e.clientY, M.grip.h);
+      if (hit) {
+        let x = hit.x + M.grip.ox, z = hit.z + M.grip.oz;
+        const dx = x - START[0][0], dz = z - START[0][1], dd = Math.hypot(dx, dz), lim = 1.1;
+        if (dd > lim) { x = START[0][0] + dx / dd * lim; z = START[0][1] + dz / dd * lim; }
+        const r = Math.hypot(x, z), rl = RA - me.p.R - .25; if (r > rl) { x *= rl / r; z *= rl / r; }
+        me.x = x; me.z = z;
+      }
+    }
     if (M.rip && e.pointerId === M.rip.id && !M.released) {
-      const R = M.rip, d = Math.hypot(e.clientX - R.x0, e.clientY - R.y0), now = performance.now() / 1000;
-      if (R.t0 == null && d > 10) R.t0 = now;
-      R.k = Math.max(R.k, clamp(d / ripLen(), 0, 1)); tops[0].lc.k = R.k;
+      const R = M.rip, d = (e.clientX - R.x0) * R.ax + (e.clientY - R.y0) * R.ay, now = performance.now() / 1000;
+      if (R.t0 == null && d > 8) R.t0 = now;
+      R.k = Math.max(R.k, clamp(d / R.len, 0, 1)); me.lc.k = R.k;
       if (R.t0 != null && R.k > .05) $('#meter').style.width = Math.round(ripPower((now - R.t0) / R.k) * 100) + '%';
       if (R.k >= 1) finishRip(false);
     }
@@ -861,7 +887,7 @@ window.addEventListener('pointermove', (e) => {
   if (M.phase === 'battle' || M.phase === 'roundEnd' || M.phase === 'home') camAng = drag.ang - (e.clientX - drag.x) / innerWidth * 3;
 });
 function release(e) {
-  if (M.grip && e.pointerId === M.grip.id) { M.grip = null; $('#hand-grip').className = 'hand grip'; $('#hand-grip').querySelector('b').textContent = '握住'; }
+  if (M.grip && e.pointerId === M.grip.id) M.grip = null;
   if (M.rip && e.pointerId === M.rip.id) {
     if (M.rip.k > .3) finishRip(true);
     else { M.rip = null; if (tops[0] && tops[0].lc) tops[0].lc.k = 0; $('#meter').style.width = '0%'; }   // barely moved: let them try again
@@ -900,7 +926,7 @@ function loop(now) {
       const k = Math.floor(M.t - .2);
       if (k !== M.count && M.t >= .2 && k < 3) { M.count = k; banner(String(3 - k), '', 700); sfx.beep(false); shout(['Three!', 'Two!', 'One!'][k]); }
       if (M.t >= M.goAt - .12 && M.count < 3) { M.count = 3; shout('Go, shoot!', true); }
-      if (M.t >= M.goAt && M.count < 4) { M.count = 4; banner('GO SHOOT!', 'go', 900); sfx.beep(true); if (!M.released) $('#hand-rip').className = 'hand rip ready'; }
+      if (M.t >= M.goAt && M.count < 4) { M.count = 4; banner('GO SHOOT!', 'go', 900); sfx.beep(true); }
     }
     // player
     const me = tops[0];
@@ -929,7 +955,7 @@ function loop(now) {
     if (me.state === 'ready' && M.rip) me.vis -= M.rip.k * raw * 40;
     if (me.state !== 'ready' && op.state !== 'ready') { M.phase = 'battle'; M.battleT = 0; }
     // aim arrow while holding
-    aimG.visible = me.state === 'ready' && (!!M.grip || !TOUCH);
+    aimG.visible = me.state === 'ready' && (!!M.grip || !TOUCH); M.aim = 0;
     if (aimG.visible) {
       const toC = Math.atan2(-me.z, -me.x), a = toC + (55 + M.aim) * PI / 180 * -1;
       aimG.position.set(me.x, bowlH(Math.hypot(me.x, me.z)) + .05, me.z); aimG.rotation.y = -a + PI / 2;
@@ -950,7 +976,19 @@ function loop(now) {
     else drawTop(t, dt);
   }
   sparks.update(dt);
-  tops.forEach((t, i) => updateLauncher(t, raw, i === 0 ? (!!M.grip || !TOUCH || t.lc && t.lc.k > 0) : true, i === 0 ? M.aim : 0));
+  tops.forEach((t, i) => updateLauncher(t, raw, i === 0 ? (!!M.grip || !TOUCH || t.lc && t.lc.k > 0) : true, 0));
+  // labels pinned to the launcher and its cord handle
+  {
+    const me = tops[0], show = !M.demo && M.phase === 'ready' && me && me.state === 'ready' && me.lc, hg = $('#hand-grip'), hr = $('#hand-rip');
+    if (show) {
+      const S = launcherScreen(me), held = !!M.grip || !TOUCH;
+      hg.className = 'hand grip' + (M.grip ? ' on' : '') + (TOUCH && !M.rip ? '' : ' hide');
+      hg.textContent = M.grip ? '拿穩了' : '按住拿起發射器';
+      hg.style.left = S.c.x + 'px'; hg.style.top = (S.c.y - S.rad * .9) + 'px';
+      hr.className = 'hand rip' + (M.t >= M.goAt && M.cd ? ' ready' : '') + (held && M.cd && !M.rip && !M.released ? '' : ' hide');
+      hr.style.left = (S.h.x + 10) + 'px'; hr.style.top = (S.h.y + 34) + 'px';
+    } else { hg.className = 'hand grip hide'; hr.className = 'hand rip hide'; }
+  }
 
   // decide the round
   if (M.phase === 'battle') {
