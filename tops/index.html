@@ -201,9 +201,9 @@ const RPM = (w) => Math.abs(w) * 60 / TAU;
 const TOP_SCALE = .85;
 const TOPS = [
   { id: 'falcon', name: '赤焰隼', type: '攻擊型', dir: 1, color: 0xe03a2a, accent: 0xffb02e, emblem: '隼', blades: 3, sharp: .95, tip: 'flat',
-    mass: 1.0, R: .4, k: .5, tipR: .085, mu: .9, rise: .1, drag: 17, crit: 150, atk: 1.4, def: .15, burst: 1.0, shoot: 'slide' },
+    mass: 1.0, R: .4, k: .5, tipR: .085, mu: .9, rise: .1, drag: 17, crit: 150, atk: 1.4, def: .15, burst: 1.25, shoot: 'slide' },
   { id: 'tortoise', name: '玄武盾', type: '防禦型', dir: 1, color: 0x2f8a55, accent: 0x20252a, emblem: '武', blades: 6, sharp: .22, tip: 'ball',
-    mass: 1.35, R: .39, k: .5, tipR: .03, mu: .35, rise: 1.1, drag: 10.2, crit: 119, atk: .08, def: .78, burst: 1.35, shoot: 'straight' },
+    mass: 1.35, R: .39, k: .5, tipR: .03, mu: .35, rise: 1.1, drag: 10.2, crit: 119, atk: .08, def: .82, burst: 1.8, shoot: 'straight' },
   { id: 'moon', name: '月影', type: '持久型', dir: 1, color: 0xc2c4d6, accent: 0x7652c2, emblem: '月', blades: 10, sharp: .1, tip: 'sharp',
     mass: 1.02, R: .38, k: .7, tipR: .004, mu: .28, rise: .45, drag: 7.6, crit: 112, atk: .1, def: .82, burst: 2.2, shoot: 'straight' },
   { id: 'wolf', name: '雷霆狼', type: '平衡型', dir: -1, color: 0x2a62d8, accent: 0xf2c230, emblem: '狼', blades: 4, sharp: .55, tip: 'semi',
@@ -513,7 +513,9 @@ const G = 163;          // gravity in arena units (1 unit ≈ 6 cm)
 const DRIVE = .55;      // how much of the leaning tip's rolling speed turns into travel
 const PREC = 620;       // precession: a top leaning at spin w turns its lean at PREC/w rad/s
 const AIR = .011;       // air drag on spin (per second, proportional)
-const FLOOR_MU = .1;   // share of the tip friction that resists sliding (the rest goes into rolling and wobble)
+const FLOOR_MU = .1;
+const SKIP = 13;        // how jumpy grippy tips are
+const SLOPE_LEAN = .72;  // a top's axis partly settles to the floor under it, so the slope only half counts as lean   // share of the tip friction that resists sliding (the rest goes into rolling and wobble)
 function stepTop(t, dt) {
   const p = t.p;
   t.recT = Math.max(0, (t.recT || 0) - dt);
@@ -544,7 +546,7 @@ function stepTop(t, dt) {
   // 2) the tip: a leaning top rolls on the edge of its tip, sideways to the lean; friction drags the body toward that rolling speed
   //    The lean that matters is relative to the floor under the tip: on the bowl's slope even an upright top leans
   //    outward against the floor, so it rolls around the bowl (and, with its own lean turning, draws loops)
-  const sl = Math.sin(Math.min(t.tilt, .9)), lx = sl * Math.cos(t.phi) + 2 * BOWL_K * t.x, lz = sl * Math.sin(t.phi) + 2 * BOWL_K * t.z;
+  const sl = Math.sin(Math.min(t.tilt, .9)), lx = sl * Math.cos(t.phi) + 2 * BOWL_K * SLOPE_LEAN * t.x, lz = sl * Math.sin(t.phi) + 2 * BOWL_K * SLOPE_LEAN * t.z;
   const roll = aw * p.tipR * DRIVE;
   const ux = -lz * sg * roll, uz = lx * sg * roll;
   const rx = t.vx - ux, rz = t.vz - uz, rs = Math.hypot(rx, rz);
@@ -552,6 +554,14 @@ function stepTop(t, dt) {
   if (rs > 1e-6) {
     const dv = Math.min(rs, p.mu * G * FLOOR_MU * dt);   // floor friction
     t.vx -= rx / rs * dv; t.vz -= rz / rs * dv; slide = rs;
+  }
+  // a grippy flat tip never runs clean: it skips and hops on the floor, so its lean and path keep getting jolted
+  //  (this is what breaks up a perfect lap around the bowl after a short while)
+  const skip = p.tipR * p.mu * Math.min(1.2, aw / 700) * SKIP;
+  if (skip > .02) {
+    const sq = Math.sqrt(dt);
+    t.phi += (Math.random() - .5) * 3.4 * skip * sq * 3;
+    t.vx += (Math.random() - .5) * 3.4 * skip * sq * 4; t.vz += (Math.random() - .5) * 3.4 * skip * sq * 4;
   }
   t.vx *= 1 - .08 * dt; t.vz *= 1 - .08 * dt;   // air
   t.x += t.vx * dt; t.z += t.vz * dt;
@@ -567,6 +577,17 @@ function stepTop(t, dt) {
   if (t.tilt > 1.02 || aw < 22 || sg !== p.dir) { t.state = 'fallen'; t.fallT = 0; sfx.fall(); return; }
   // 5) the wall: the spinning rim scrubs along it (and runs along the rail); a pocket swallows a top coming in hard enough
   const r2 = Math.hypot(t.x, t.z), lim = RA - p.R * .95;
+  if (r2 > lim - .12 && t.wallT <= 0) {
+    // running along the toothed rail: every so often a tooth catches the rim and throws the top back inward
+    const sp = Math.hypot(t.vx, t.vz);
+    if (sp > .8 && Math.random() < dt * 9) {
+      const nx = t.x / r2, nz = t.z / r2, k = rand(.25, .8) * Math.min(sp, 5);
+      t.vx -= nx * k; t.vz -= nz * k; t.vx *= .9; t.vz *= .9; t.phi += rand(-.8, .8); t.nut = Math.min(.25, t.nut + .05);
+      t.wallT = .12;
+      if (k > 1) { sparks.burst(nx * RA, t.y + .12, nz * RA, 4, .4); sfx.wall(k / 6); }
+    }
+  }
+  t.wallT = (t.wallT || 0) - dt;
   if (r2 > lim) {
     const nx = t.x / r2, nz = t.z / r2, vr = t.vx * nx + t.vz * nz, ang = Math.atan2(t.z, t.x);
     if (vr > 0 && ((pocketAt(ang) && vr > .9) || vr > 9)) { t.state = 'out'; t.vy = 2.2 + vr * .3; t.vx += nx * .8; t.vz += nz * .8; sfx.wall(1); return; }
@@ -610,7 +631,7 @@ function collide(a, b) {
   if (fresh) {
     // blades bite harder the faster they meet, and harder still when the rims run head-on (same spin)
     // no two hits are alike: where the blades catch each other varies, and now and then one lands square
-    const k = (SMASH * Math.min(aSlip, 420) * clamp(-vn / 1.6, .15, 1.6) + SMASH_V * -vn) * (.5 + Math.random() ** 2 * 1.5);
+    const k = (SMASH * Math.min(aSlip, 420) * clamp(-vn / 1.6, .15, 1.6) + SMASH_V * -vn) * (.6 + Math.random() ** 2 * 1.0);
     biteB = k * a.p.atk * (1 - b.p.def * .6) * (.6 + .4 * Math.min(1, Math.abs(a.w) / 700));
     biteA = k * b.p.atk * (1 - a.p.def * .6) * (.6 + .4 * Math.min(1, Math.abs(b.w) / 700));
     a.cool = b.cool = .08;
@@ -648,7 +669,7 @@ function collide(a, b) {
     // (only the top that took the harder bite can come apart)
     const ra = biteA / a.p.burst * rand(.9, 1.1), rb = biteB / b.p.burst * rand(.9, 1.1);
     const [t, got] = ra > rb ? [a, biteA] : [b, biteB], th = BURST_TH * t.p.burst;
-    if (got > th && Math.random() < (got / th - 1) * .3) burstTop(t, nx * (t === a ? -1 : 1), nz * (t === a ? -1 : 1));
+    if (got > th && Math.random() < Math.min(.6, (got / th - 1) * .22)) burstTop(t, nx * (t === a ? -1 : 1), nz * (t === a ? -1 : 1));
   } else if (recoil) {
     sparks.burst(a.x + nx * a.p.R, (a.y + b.y) / 2 + .22, a.z + nz * a.p.R, Math.round(3 + jn * 10), .45);
     sfx.clash(Math.min(.6, jn / 3));
