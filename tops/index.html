@@ -842,7 +842,10 @@ function showResult() {
   $('#res-big').textContent = win ? '勝利！' : '敗北…';
   $('#res-big').style.color = win ? 'var(--gold)' : 'var(--red)';
   $('#res-score').textContent = `${M.pts[0]} : ${M.pts[1]}`;
-  $('#res-text').textContent = win ? `${tops[0].p.name}稱霸鬥場！再挑戰一場，或換一顆陀螺試試別的打法。` : `${tops[1].p.name}比較強……換個發射角度，或抓準「發射」的時機再來一次。`;
+  const COUNTER = { 攻擊型: '持久型', 持久型: '防禦型', 防禦型: '攻擊型' }, mine = tops[0].p.type, theirs = tops[1].p.type;
+  const tip = COUNTER[theirs] === mine ? `${theirs}本來就剋${mine}，` : '';
+  $('#res-text').textContent = win ? `${tops[0].p.name}稱霸鬥場！再挑戰一場，或換一顆陀螺試試別的打法。`
+    : `${tops[1].p.name}比較強……${tip}試試換個發射手法（直立或滑動），抓準 GO SHOOT 的時機用力一拉。`;
   $('#scr-result').hidden = false; $('#hud').hidden = true; $('#launch').hidden = true;
   M.phase = 'result';
 }
@@ -1036,7 +1039,7 @@ function loop(now) {
     if (me.state === 'ready' && M.rip) me.vis -= M.rip.k * raw * 40;
     if (me.state !== 'ready' && op.state !== 'ready') { M.phase = 'battle'; M.battleT = 0; }
     // aim arrow while holding
-    aimG.visible = me.state === 'ready' && (!!M.grip || !TOUCH); M.aim = 0;
+    aimG.visible = false; M.aim = 0;   // the throw now comes from how you move the launcher, not an arrow
     if (aimG.visible) {
       const toC = Math.atan2(-me.z, -me.x), a = toC + (55 + M.aim) * PI / 180 * -1;
       aimG.position.set(me.x, bowlH(Math.hypot(me.x, me.z)) + .05, me.z); aimG.rotation.y = -a + PI / 2;
