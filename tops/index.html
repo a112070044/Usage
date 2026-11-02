@@ -423,7 +423,7 @@ function buildLauncher(t) {
   const lip = new THREE.Mesh(new THREE.TorusGeometry(R * .9, .035, 8, 40), trim); lip.rotation.x = PI / 2; lip.position.y = .04; g.add(lip);
   const gear = new THREE.Mesh(new THREE.CylinderGeometry(R * .42, R * .42, .14, 24), dark); gear.position.y = .2; g.add(gear);
   // the cord rail sticks out toward the holder's front-right, so on a phone held upright you pull down and to the right
-  const arm = new THREE.Group(); arm.rotation.y = -.85; g.add(arm);
+  const arm = new THREE.Group(); arm.rotation.y = -1.3; g.add(arm);
   const rail = new THREE.Mesh(new THREE.BoxGeometry(.7, .14, .26), shell); rail.position.set(R * .7 + .25, .13, 0); arm.add(rail);
   const slot = new THREE.Mesh(new THREE.BoxGeometry(.06, .05, .16), dark); slot.position.set(R * .7 + .62, .13, 0); arm.add(slot);
   const handle = new THREE.Mesh(new THREE.CylinderGeometry(.075, .085, .62, 16), trim); handle.position.set(-.05, .4, .36); handle.rotation.x = .95; g.add(handle);
@@ -848,8 +848,11 @@ window.addEventListener('pointerdown', (e) => {
     const S = launcherScreen(me), held = !!M.grip || !TOUCH;
     // the cord handle first: grab it (only once the launcher is in hand and the countdown is on)
     if (!M.rip && held && M.cd && Math.hypot(e.clientX - S.h.x, e.clientY - S.h.y) < 58) {
-      const len = Math.max(90, Math.hypot(S.ax, S.ay));
-      M.rip = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ax: S.ax / len, ay: S.ay / len, len, t0: null, k: 0 };
+      // a full pull is the cord's length on screen, but never more than the room left before the screen edge
+      const full = Math.hypot(S.ax, S.ay) || 1, ux = S.ax / full, uy = S.ay / full;
+      const room = Math.min(ux > .05 ? (innerWidth - e.clientX) / ux : 1e4, ux < -.05 ? e.clientX / -ux : 1e4, uy > .05 ? (innerHeight - e.clientY) / uy : 1e4, uy < -.05 ? e.clientY / -uy : 1e4);
+      const len = clamp(Math.min(full, room * .85), 80, 260);
+      M.rip = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ax: ux, ay: uy, len, t0: null, k: 0 };
       return;
     }
     // the launcher body: pick it up
@@ -1019,7 +1022,7 @@ function loop(now) {
   let fov = 40, ease = 3;
   if (inMatch && M.phase === 'ready' && me.state === 'ready') {
     const r = Math.hypot(me.x, me.z) || 1, ux = me.x / r, uz = me.z / r;
-    _camT.set(me.x + ux * 2.2, 3.3, me.z + uz * 2.2); _lookT.set(me.x * -.15, 0, me.z * -.15); fov = 58; ease = 5;
+    _camT.set(me.x + ux * 3, 4.3, me.z + uz * 3); _lookT.set(me.x * .1, .1, me.z * .1); fov = 56; ease = 5;
   } else if (inMatch) {
     const r = Math.hypot(START[0][0], START[0][1]), base = Math.atan2(START[0][0] / r, START[0][1] / r), a = base + camAng;
     const hf = 2 * Math.atan(Math.tan(25 * PI / 180) * camera.aspect), d = Math.max(7, (RA * 1.15) / Math.tan(hf / 2) + 1), el = 52 * PI / 180;
