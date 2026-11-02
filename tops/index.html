@@ -413,7 +413,7 @@ let tops = [];
 
 // ---- launcher: holds the top above the bowl until the ripcord is pulled ----
 // local +x points to the holder's right (where the cord comes out), +z toward the holder.
-const CORD_RUN = 1.6;
+const CORD_RUN = 1.1;
 function buildLauncher(t) {
   const g = new THREE.Group(), mats = [];
   const mk = (c, o) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: col(c), roughness: .38, metalness: .12, transparent: true }, o)); mats.push(m); return m; };
@@ -422,16 +422,18 @@ function buildLauncher(t) {
   const holder = new THREE.Mesh(new THREE.CylinderGeometry(R * .9, R * .95, .12, 40), shell); holder.position.y = .1; g.add(holder);
   const lip = new THREE.Mesh(new THREE.TorusGeometry(R * .9, .035, 8, 40), trim); lip.rotation.x = PI / 2; lip.position.y = .04; g.add(lip);
   const gear = new THREE.Mesh(new THREE.CylinderGeometry(R * .42, R * .42, .14, 24), dark); gear.position.y = .2; g.add(gear);
-  const rail = new THREE.Mesh(new THREE.BoxGeometry(1.0, .14, .26), shell); rail.position.set(R * .7 + .4, .13, 0); g.add(rail);
-  const slot = new THREE.Mesh(new THREE.BoxGeometry(.06, .05, .16), dark); slot.position.set(R * .7 + .92, .13, 0); g.add(slot);
+  // the cord rail sticks out toward the holder's front-right, so on a phone held upright you pull down and to the right
+  const arm = new THREE.Group(); arm.rotation.y = -.85; g.add(arm);
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(.7, .14, .26), shell); rail.position.set(R * .7 + .25, .13, 0); arm.add(rail);
+  const slot = new THREE.Mesh(new THREE.BoxGeometry(.06, .05, .16), dark); slot.position.set(R * .7 + .62, .13, 0); arm.add(slot);
   const handle = new THREE.Mesh(new THREE.CylinderGeometry(.075, .085, .62, 16), trim); handle.position.set(-.05, .4, .36); handle.rotation.x = .95; g.add(handle);
   const knob = new THREE.Mesh(new THREE.SphereGeometry(.1, 16, 10), dark); knob.position.set(-.05, .58, .62); g.add(knob);
   // ripcord: a toothed strip with a T-handle on the end
   const cord = new THREE.Group();
   const strip = new THREE.Mesh(new THREE.BoxGeometry(CORD_RUN + .2, .025, .1), dark); strip.position.x = -(CORD_RUN + .2) / 2; cord.add(strip);
-  for (let i = 0; i < 12; i++) { const tooth = new THREE.Mesh(new THREE.BoxGeometry(.04, .03, .05), trim); tooth.position.set(-.08 - i * .13, .02, -.02); cord.add(tooth); }
+  for (let i = 0; i < 9; i++) { const tooth = new THREE.Mesh(new THREE.BoxGeometry(.04, .03, .05), trim); tooth.position.set(-.08 - i * .13, .02, -.02); cord.add(tooth); }
   const tbar = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .5, 12), trim); tbar.rotation.x = PI / 2; tbar.position.x = .06; cord.add(tbar);
-  const cordX0 = R * .7 + .98; cord.position.set(cordX0, .13, 0); g.add(cord);
+  const cordX0 = R * .7 + .68; cord.position.set(cordX0, .13, 0); arm.add(cord);
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   scene.add(g);
   const u = Math.hypot(t.x, t.z) ? [t.x, t.z] : [0, 1];
