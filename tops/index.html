@@ -203,11 +203,11 @@ const TOPS = [
   { id: 'falcon', name: '赤焰隼', type: '攻擊型', dir: 1, color: 0xe03a2a, accent: 0xffb02e, emblem: '隼', blades: 3, sharp: .95, tip: 'flat',
     mass: 1.0, R: .4, k: .5, tipR: .085, mu: .9, rise: .1, drag: 17, crit: 150, atk: 1.4, def: .15, burst: 1.25, shoot: 'slide' },
   { id: 'tortoise', name: '玄武盾', type: '防禦型', dir: 1, color: 0x2f8a55, accent: 0x20252a, emblem: '武', blades: 6, sharp: .22, tip: 'ball',
-    mass: 1.35, R: .39, k: .5, tipR: .03, mu: .35, rise: 1.1, drag: 9.5, crit: 113, atk: .08, def: .88, burst: 1.8, shoot: 'straight' },
+    mass: 1.35, R: .39, k: .5, tipR: .03, mu: .35, rise: 1.1, drag: 9.5, crit: 113, atk: .08, def: .88, burst: 2.4, shoot: 'straight' },
   { id: 'moon', name: '月影', type: '持久型', dir: 1, color: 0xc2c4d6, accent: 0x7652c2, emblem: '月', blades: 10, sharp: .1, tip: 'sharp',
     mass: 1.08, R: .38, k: .78, tipR: .004, mu: .28, rise: .9, drag: 7.6, crit: 112, atk: .1, def: .86, burst: 2.2, shoot: 'straight' },
   { id: 'wolf', name: '雷霆狼', type: '平衡型', dir: -1, color: 0x2a62d8, accent: 0xf2c230, emblem: '狼', blades: 4, sharp: .55, tip: 'semi',
-    mass: 1.12, R: .39, k: .55, tipR: .035, mu: .55, rise: .35, drag: 12, crit: 114, atk: .85, def: .45, burst: 1.05, shoot: 'slide' },
+    mass: 1.12, R: .39, k: .55, tipR: .035, mu: .55, rise: .35, drag: 10, crit: 114, atk: .85, def: .45, burst: 1.45, shoot: 'slide' },
 ];
 for (const t of TOPS) t.R *= TOP_SCALE;
 const STAT_LIST = [
@@ -273,11 +273,11 @@ function pocketAt(ang) { for (const p of POCKETS) if (Math.abs(Math.atan2(Math.s
   wall.position.y = base + WALL_H / 2 - .05; scene.add(wall);
   const lip = new THREE.Mesh(new THREE.TorusGeometry(RA + .06, .03, 6, 96, len), new THREE.MeshStandardMaterial({ color: col(0xf6f8fa), roughness: .2 }));
   lip.rotation.x = -PI / 2; lip.rotation.z = -(a0 + len); lip.position.y = base + WALL_H - .05; scene.add(lip);
-  const rail = new THREE.Mesh(new THREE.TorusGeometry(RA - .02, .06, 8, 120, len), green);
-  rail.rotation.x = -PI / 2; rail.rotation.z = -(a0 + len); rail.position.y = base + .04; scene.add(rail);
+  const rail = new THREE.Mesh(new THREE.TorusGeometry(RA - .2, .06, 8, 120, len), green);
+  rail.rotation.x = -PI / 2; rail.rotation.z = -(a0 + len); rail.position.y = bowlH(RA - .2) + .035; scene.add(rail);
   const n = 110, teeth = new THREE.InstancedMesh(new THREE.BoxGeometry(.07, .07, .06), green, n), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
   for (let i = 0; i < n; i++) {
-    const a = a0 + len * (i + .5) / n, r = RA - .1;
+    const a = a0 + len * (i + .5) / n, r = RA - .29;
     q.setFromAxisAngle(up, -a); mm.compose(new THREE.Vector3(Math.cos(a) * r, bowlH(r) + .04, Math.sin(a) * r), q, new THREE.Vector3(1, 1, 1)); teeth.setMatrixAt(i, mm);
   }
   scene.add(teeth);
@@ -415,7 +415,7 @@ class Top {
     this.debris = []; this.reset(0, 0);
   }
   reset(x, z) {
-    Object.assign(this, { phase: Math.random() * 6, x, z, y: .7, vx: 0, vz: 0, vy: 0, w: 0, tilt: 0, phi: 0, vis: 0, state: 'ready', dmg: 0, landed: false, fallT: 0, lean: 0 });
+    Object.assign(this, { phase: Math.random() * 6, x, z, y: .7, vx: 0, vz: 0, vy: 0, w: 0, tilt: 0, phi: 0, vis: 0, state: 'ready', dmg: 0, landed: false, fallT: 0, lean: 0, rail: 0 });
     for (const d of this.debris) scene.remove(d.mesh); this.debris = [];
     const m = this.m; m.root.visible = true;
     for (const k of ['tip', 'disk', 'ring', 'core']) { const o = m.parts[k]; if (o.parent !== m.spin) { scene.remove(o); m.spin.add(o); } }
@@ -513,6 +513,7 @@ function launchTop(t, power, o) {
 const G = 163;          // gravity in arena units (1 unit ≈ 6 cm)
 const DRIVE = .55;      // how much of the leaning tip's rolling speed turns into travel
 const PREC = 620;       // precession: a top leaning at spin w turns its lean at PREC/w rad/s
+const RAIL_V = 7.5, RAIL_A = 26, RAIL_SLIP = .6, RAIL_CATCH = 5;   // rail dash: top speed, pick-up, chance per second to slip off / to catch
 const AIR = .011;       // air drag on spin (per second, proportional)
 const FLOOR_MU = .1;   // share of the tip friction that resists sliding (the rest goes into rolling and wobble)
 function stepTop(t, dt) {
@@ -541,7 +542,7 @@ function stepTop(t, dt) {
   }
   const sg = Math.sign(t.w) || p.dir, aw = Math.abs(t.w);
   // 1) the bowl: gravity along the slope pulls toward the middle
-  if (r > 1e-4) { const a = -G * 2 * BOWL_K * r / Math.sqrt(1 + 4 * BOWL_K * BOWL_K * r * r); t.vx += a * t.x / r * dt; t.vz += a * t.z / r * dt; }
+  if (r > 1e-4 && !t.rail) { const a = -G * 2 * BOWL_K * r / Math.sqrt(1 + 4 * BOWL_K * BOWL_K * r * r); t.vx += a * t.x / r * dt; t.vz += a * t.z / r * dt; }
   // 2) the tip: a leaning top rolls on the edge of its tip, sideways to the lean; friction drags the body toward that rolling speed
   //    The lean that matters is relative to the floor under the tip: on the bowl's slope even an upright top leans
   //    outward against the floor, so it rolls around the bowl (and, with its own lean turning, draws loops)
@@ -550,14 +551,15 @@ function stepTop(t, dt) {
   const ux = -lz * sg * roll, uz = lx * sg * roll;
   const rx = t.vx - ux, rz = t.vz - uz, rs = Math.hypot(rx, rz);
   let slide = 0;
-  if (rs > 1e-6) {
-    const dv = Math.min(rs, p.mu * G * FLOOR_MU * dt);   // floor friction
+  if (rs > 1e-6 && !t.rail) {   // (on the rail the teeth, not the floor, set the pace)
+    // a rubbery flat tip grips hard when it's barely sliding (it holds on the steep edge), but a fast dash isn't braked by it
+    const dv = Math.min(rs, p.mu * (1 + 36 * Math.max(0, p.mu - .6) ** 2 / (1 + rs * rs)) * G * FLOOR_MU * dt);   // floor friction: a grippy (rubbery, flat) tip holds even on the steep edge
     t.vx -= rx / rs * dv; t.vz -= rz / rs * dv; slide = rs;
   }
   t.vx *= 1 - .08 * dt; t.vz *= 1 - .08 * dt;   // air
   t.x += t.vx * dt; t.z += t.vz * dt;
   // 3) spin drains through the tip, the air, and every bit of sliding
-  t.w -= sg * (p.drag * (t.wear || 1) + AIR * aw + p.mu * Math.min(slide, 6) * 2.2 + (t.tilt > .55 ? (t.tilt - .55) * 260 : 0)) * dt;
+  t.w -= sg * (p.drag * (t.wear || 1) + AIR * aw + (t.rail ? 0 : p.mu * Math.min(slide, 6) * 2.2) + (t.tilt > .55 ? (t.tilt - .55) * 260 : 0)) * dt;
   // 4) lean: precession turns the lean (faster as spin drops); rounded tips stand themselves up;
   //    below the critical spin the top can no longer hold itself up and the lean grows
   t.phi += sg * PREC / Math.max(aw, 40) * dt;
@@ -566,11 +568,37 @@ function stepTop(t, dt) {
   if (st < 1.5) t.tilt += (1.5 - st) * 1.1 * (1 + 2.2 * t.tilt) * dt;
   t.nut *= Math.exp(-2.4 * dt); t.nph += (8 + aw * .02) * dt;
   if (t.tilt > 1.02 || aw < 22 || sg !== p.dir) { t.state = 'fallen'; t.fallT = 0; sfx.fall(); return; }
-  // 5) the wall: the spinning rim scrubs along it (and runs along the rail); a pocket swallows a top coming in hard enough
+  // 5) the green toothed rail round the edge of the floor: a grippy tip that runs onto it catches the teeth like a
+  //    gear on a rack and is driven along the edge (a dash). It rides until it reaches the gap at the pocket, slips
+  //    off, or runs out of spin, and then flies off straight across the bowl.
+  {
+    const r1 = Math.hypot(t.x, t.z), lim1 = RA - p.R * .95, a1 = Math.atan2(t.z, t.x), nx = t.x / r1, nz = t.z / r1, tx = -nz, tz = nx;
+    if (t.rail) {
+      const atGap = pocketAt(a1);
+      if (atGap || r1 < lim1 - .3 || aw < p.crit * 1.7 || Math.random() < dt * RAIL_SLIP) {
+        // leaving the rail: the end of the rail at the gap (or the slip) throws it inward, so it cuts across the bowl
+        const vt = t.vx * tx + t.vz * tz, sp = Math.abs(vt), dir = Math.sign(vt) || t.rail, th = atGap ? rand(1.15, 1.5) : rand(.5, 1.1);
+        t.vx = sp * (dir * tx * Math.cos(th) - nx * Math.sin(th)); t.vz = sp * (dir * tz * Math.cos(th) - nz * Math.sin(th));
+        t.rail = 0; t.railOff = .6;
+        if (atGap) { sparks.burst(t.x, t.y + .1, t.z, 8, .6, [.6, 1, .4]); sfx.wall(.5); }
+      }
+      else {
+        const vt = t.vx * tx + t.vz * tz, target = t.rail * Math.min(RAIL_V, aw * p.tipR * .095);
+        const nvt = vt + clamp(target - vt, -RAIL_A * dt, RAIL_A * dt);
+        t.vx = tx * nvt; t.vz = tz * nvt;   // the rail's curve holds it at the edge
+        const rr = Math.min(r1, lim1 - .01); t.x = nx * rr; t.z = nz * rr;
+        t.w -= sg * (Math.abs(nvt - vt) * 1.2 + 7 * dt);
+        if (frameN % 4 === 0 && Math.random() < .5) sparks.burst(t.x + nx * .1, t.y + .02, t.z + nz * .1, 1, .25, [.6, 1, .4]);
+      }
+    } else if ((t.railOff = (t.railOff || 0) - dt) < 0 && p.tipR * p.mu > .03 && r1 > lim1 - .12 && !pocketAt(a1) && aw > p.crit * 2 && Math.random() < dt * RAIL_CATCH) {
+      t.rail = -sg;   // a gear rolling on a rack moves opposite to its rim: right spin runs counter-clockwise
+    }
+  }
+  // 6) the wall: the spinning rim scrubs along it; a pocket swallows a top coming in hard enough
   const r2 = Math.hypot(t.x, t.z), lim = RA - p.R * .95;
   if (r2 > lim) {
     const nx = t.x / r2, nz = t.z / r2, vr = t.vx * nx + t.vz * nz, ang = Math.atan2(t.z, t.x);
-    if (vr > 0 && ((pocketAt(ang) && vr > .9) || vr > 9)) { t.state = 'out'; t.vy = 2.2 + vr * .3; t.vx += nx * .8; t.vz += nz * .8; sfx.wall(1); return; }
+    if (vr > 0 && ((pocketAt(ang) && vr > .9 && vr > Math.abs(t.vx * -nz + t.vz * nx) * .6) || vr > 9))   // skimming along the edge past the pocket doesn't drop in { t.state = 'out'; t.vy = 2.2 + vr * .3; t.vx += nx * .8; t.vz += nz * .8; sfx.wall(1); return; }
     if (vr > 0) {
       const e = .32, jn = (1 + e) * vr;
       t.vx -= jn * nx; t.vz -= jn * nz;
@@ -589,7 +617,7 @@ function stepTop(t, dt) {
 // two tops touching. Rims are treated as rough discs: an impulse along the line between centres (the bounce plus the bite
 // of the blades), and a friction impulse along the rims. Spinning the same way the rims scrub against each other hard
 // (big recoil, both lose spin); spinning opposite ways they mesh like gears and their spins even out.
-const RECOIL = 4.5, BURST_TH = 2.4, RIM_MU = .32, SMASH = .008, SMASH_V = .55, HIT_LOSS = 22, BUMP_LOSS = 2, KICK = 9;
+const RECOIL = 4.5, BURST_TH = 2.4, RIM_MU = .32, SMASH = .008, SMASH_V = .42, HIT_LOSS = 22, BUMP_LOSS = 2, KICK = 6;
 function collide(a, b) {
   if (!a.alive || !b.alive || !a.landed || !b.landed) return;
   const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), min = a.p.R + b.p.R;
@@ -611,10 +639,10 @@ function collide(a, b) {
   if (fresh) {
     // blades bite harder the faster they meet, and harder still when the rims run head-on (same spin)
     // no two hits are alike: where the blades catch each other varies, and now and then one lands square
-    const k = (SMASH * Math.min(aSlip, 420) * clamp(-vn / 1.6, .15, 1.6) + SMASH_V * -vn) * (.6 + Math.random() ** 2 * 1.0);
+    const k = (SMASH * Math.min(Math.max(aSlip, 240), 420) * clamp(-vn / 1.6, .15, 1.4) + SMASH_V * Math.min(-vn, 6.5)) * (.6 + Math.random() ** 2 * 1.0);
     biteB = k * a.p.atk * (1 - b.p.def * .6) * (.6 + .4 * Math.min(1, Math.abs(a.w) / 700));
     biteA = k * b.p.atk * (1 - a.p.def * .6) * (.6 + .4 * Math.min(1, Math.abs(b.w) / 700));
-    a.cool = b.cool = .08;
+    a.cool = b.cool = .08; a.rail = b.rail = 0;   // a real hit knocks a top off the rail
   } else if (!(a.recT > 0 || b.recT > 0)) {
     // rims in steady contact don't just sit there: the blade edges keep catching and knock the tops apart,
     // hardest when they spin the same way (rims running head-on), softly when opposite spins mesh like gears
@@ -790,7 +818,7 @@ function startRound() {
   M.round++; M.phase = 'ready'; M.t = 0; M.goAt = 3.4; M.grip = null; M.rip = null; M.hand = []; M.handV = null; M.released = false; M.power = 0; M.aim = 0; M.relT = null; M.endT = 0;
   M.cd = false; M.waitT = 0; M.heldAtRip = true;
   M.oppLaunch = { power: rand(.72, 1), t: M.goAt + (Math.random() < .6 ? rand(-.12, .12) : rand(-.4, .5)), aim: rand(-25, 25) };
-  placeForLaunch(); tops.forEach((t) => { disposeLauncher(t.lc); t.lc = buildLauncher(t); });
+  placeForLaunch(); aiPlace(tops[1]); tops.forEach((t) => { disposeLauncher(t.lc); t.lc = buildLauncher(t); });
   renderHud(); $('#btn-next').hidden = true;
   $('#launch').hidden = false; $('#meter').style.width = '0%';
   $('#launch-tip').textContent = TOUCH ? '按住發射器把它拿起來' : '準備……';
@@ -814,11 +842,18 @@ function finishRip(partial) {
 function doLaunch(t, power, o) { launchTop(t, power, o); if (t.side === 0) sfx.launch(); }
 // how the computer shoots: attack tips sweep the launcher sideways (a sliding shoot that starts a flower pattern),
 // stamina and defense tips are dropped straight down so they settle in the middle
+// where the computer holds its launcher: attack players launch right over the rail at the edge, like in the real matches
+function aiPlace(t) {
+  if (t.p.shoot !== 'slide' || t.p.tipR * t.p.mu < .03) return;
+  const a = Math.atan2(t.z, t.x) + rand(-.4, .4), r = RA - t.p.R - .27;
+  t.x = Math.cos(a) * r; t.z = Math.sin(a) * r;
+}
 function aiShoot(t) {
   const r = Math.hypot(t.x, t.z) || 1, cx = -t.x / r, cz = -t.z / r;
   if (t.p.shoot === 'slide') {
-    const s = rand(2.2, 3.4), side = Math.random() < .5 ? 1 : -1;
-    return { vx: (-cz * side * .85 + cx * .5) * s, vz: (cx * side * .85 + cz * .5) * s };
+    const s = rand(2.2, 3.4), side = Math.random() < .5 ? 1 : -1, edge = r > RA - t.p.R - .4;
+    // from the edge: along the rail and slightly out onto it; from further in: across the bowl so it curls back
+    return edge ? { vx: (-cz * side * .9 - cx * .35) * s, vz: (cx * side * .9 - cz * .35) * s } : { vx: (-cz * side * .85 + cx * .5) * s, vz: (cx * side * .85 + cz * .5) * s };
   }
   const s = rand(0, .5); return { vx: cx * s, vz: cz * s, tilt: rand(.03, .09) };
 }
@@ -871,7 +906,7 @@ function goHome() {
 }
 function startDemo() {
   const a = Math.floor(Math.random() * TOPS.length); let b = Math.floor(Math.random() * TOPS.length); if (b === a) b = (b + 1) % TOPS.length;
-  setTops(a, b); placeForLaunch();
+  setTops(a, b); placeForLaunch(); tops.forEach(aiPlace);
   tops.forEach((t) => launchTop(t, rand(.75, 1), aiShoot(t)));
   M.endT = 0;
 }
