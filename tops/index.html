@@ -1132,77 +1132,217 @@ function collide(a, b) {
 }
 
 // unleash a top's special move (the gauge must be full)
-// ---- the guardian spirit: a glowing dragon that bursts out of the top, coils up around it, then dives ----
+// ---- the guardian spirit: a scaled serpent dragon (horns, mane, four clawed legs, a jaw that opens to roar) that
+// rises out of the top, circles the arena, then dives onto its target. The body is a tube rebuilt every frame
+// along the path the head has flown, so it moves like a real long-bodied dragon instead of a string of beads.
 const SPIRITS = [];
-function summonSpirit(t, target, color, life) {
-  const n = 72, mx = Math.max(color[0], color[1], color[2]), c = new THREE.Color(Math.pow(color[0] / mx, 2.2), Math.pow(color[1] / mx, 2.2), Math.pow(color[2] / mx, 2.2));   // pure, saturated hue, so the glow stays coloured
-  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: true });
-  const body = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), mat, n); body.frustumCulled = false;
-  // a soft glow round the body (additive, faint, so overlaps don't burn to white)
-  const aura = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(.5), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }), Math.ceil(n / 3)); aura.frustumCulled = false;
-  const finMat = mat.clone(); finMat.color = c.clone().multiplyScalar(.45);
-  const fins = new THREE.InstancedMesh(new THREE.ConeGeometry(.5, 1.6, 4), finMat, Math.floor(n / 4)); fins.frustumCulled = false;
-  // the head: snout, jaw, swept-back horns and blazing eyes
-  const head = new THREE.Group();
-  const hm = mat.clone(); hm.color = c.clone().multiplyScalar(.9);
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(.16, 14, 10), hm); skull.scale.set(1, .8, 1.3); head.add(skull);
-  const snout = new THREE.Mesh(new THREE.ConeGeometry(.1, .32, 10), hm); snout.rotation.x = PI / 2; snout.position.z = .26; head.add(snout);
-  const jaw = new THREE.Mesh(new THREE.ConeGeometry(.07, .26, 8), hm); jaw.rotation.x = PI / 2 + .35; jaw.position.set(0, -.07, .2); head.add(jaw);
-  const hornMat = mat.clone(); hornMat.color = new THREE.Color(1, .92, .7);
+const DRG = { N: 110, M: 16, L: 4.2, R: .15, HEAD: 1.3 };   // rings, verts per ring, length, chest radius, head scale
+const DRG_VS = `varying vec2 vUv; varying vec3 vN; varying vec3 vV; uniform float uPush;
+  void main(){ vUv = uv; vec3 p = position + normal * uPush; vec4 w = modelMatrix * vec4(p, 1.);
+    vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix * viewMatrix * w; }`;
+const DRG_FS = `uniform vec3 uHue; uniform vec3 uBelly; uniform float uOp; uniform float uTime; uniform vec2 uScale;
+  varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+  void main(){
+    vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
+    // overlapping scales, rows staggered, each one bright in the middle and dark at its rim
+    vec2 g = vUv * uScale; float row = floor(g.x); g.y += mod(row, 2.) * .5;
+    vec2 f = fract(g) - vec2(.35, .5); float sc = smoothstep(.75, .1, length(f * vec2(1.1, 1.)));
+    // the pale plated belly underneath (v = .5 is the bottom of the body)
+    float bel = smoothstep(.2, .1, abs(vUv.y - .5)), plate = smoothstep(.0, .25, fract(vUv.x * uScale.x * .45));
+    vec3 L = normalize(vec3(.3, 1., .45)); float dif = max(dot(n, L), 0.) * .75 + .25;
+    float spec = pow(max(dot(reflect(-L, n), vV), 0.), 28.);
+    vec3 col = mix(uHue * .16, uHue * .62, sc) * dif;
+    col = mix(col, uBelly * (.35 + .45 * plate) * dif, bel);
+    float rim = pow(1. - abs(dot(n, vV)), 2.6);
+    col += rim * uHue * 1.5 + spec * vec3(1., .95, .85) * (.5 + .5 * sc);
+    col += uHue * .9 * exp(-pow(fract(vUv.x * 1.5 - uTime * .9) - .5, 2.) * 90.) * sc;   // a pulse of power running down the body
+    gl_FragColor = vec4(col, uOp);
+  }`;
+const DRG_GLOW_FS = `uniform vec3 uHue; uniform float uOp; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+  void main(){ float r = pow(1. - abs(dot(normalize(vN), vV)), 1.6); gl_FragColor = vec4(uHue * r * uOp, 1.); }`;
+function dragonMat(hue, belly, scale) {
+  return new THREE.ShaderMaterial({ uniforms: { uHue: { value: hue }, uBelly: { value: belly }, uOp: { value: 0 }, uTime: { value: 0 }, uPush: { value: 0 }, uScale: { value: scale || new THREE.Vector2(10, 6) } },
+    vertexShader: DRG_VS, fragmentShader: DRG_FS, transparent: true, side: THREE.DoubleSide });
+}
+const glowMat = (c) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+// a tapered limb between two points
+const _up = new THREE.Vector3(0, 1, 0);
+function dSeg(a, b, r0, r1, mat, seg) {
+  const d = new THREE.Vector3().subVectors(b, a), m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, d.length(), seg || 8), mat);
+  m.position.copy(a).addScaledVector(d, .5); m.quaternion.setFromUnitVectors(_up, d.normalize()); return m;
+}
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+function dEll(sx, sy, sz, x, y, z, mat) { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); return m; }
+function dCone(r, h, mat, x, y, z, dir) { const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), mat); m.position.set(x, y, z); m.quaternion.setFromUnitVectors(_up, dir.clone().normalize()); m.translateY(h / 2); return m; }
+function dragonRadius(s) {   // s: 0 at the neck … 1 at the tail tip
+  const neck = s < .1 ? .62 + .38 * Math.sin(s / .1 * PI / 2) : 1;
+  return DRG.R * neck * Math.pow(1 - s, .7) * (1 + .22 * Math.exp(-Math.pow((s - .2) / .12, 2))) + .006;
+}
+// faceted (flat-shaded) parts give the head hard reptilian planes instead of soft balloons
+function facet(g) { g = g.toNonIndexed(); g.computeVertexNormals(); return g; }
+function dWedge(r0, r1, len, sides, sx, sy, mat, x, y, z, rx) {   // a tapered prism pointing forward (+z)
+  const g = new THREE.CylinderGeometry(r1, r0, len, sides); g.rotateX(PI / 2); g.scale(sx, sy, 1); const m = new THREE.Mesh(facet(g), mat);
+  m.position.set(x, y, z); if (rx) m.rotation.x = rx; return m;
+}
+function buildHead(skin, horn, glowC, eyeC) {
+  const H = new THREE.Group(), mouthMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.45, .02, .02), transparent: true });
+  const toothMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.1, 1.05, .95), transparent: true });
+  const skull = new THREE.Mesh(facet(new THREE.DodecahedronGeometry(1, 1)), skin); skull.scale.set(.13, .1, .15); skull.position.set(0, .03, -.02); H.add(skull);
+  H.add(dWedge(.12, .07, .36, 6, 1, .55, skin, 0, .01, .2, -.06));       // long, flat-topped snout narrowing to the nose
+  H.add(dWedge(.075, .05, .08, 6, 1.15, .7, skin, 0, .02, .4));          // squared nose pad
+  H.add(dWedge(.06, .01, .2, 5, 1, .7, skin, 0, .065, .16, -.25));       // a ridge down the bridge of the nose
   for (const sx of [-1, 1]) {
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(.035, .36, 6), hornMat); horn.position.set(sx * .09, .1, -.12); horn.rotation.set(-1.1, 0, sx * .35); head.add(horn);
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(.028, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3, 2.4) })); eye.position.set(sx * .075, .045, .1); head.add(eye);
-    const whisk = new THREE.Mesh(new THREE.ConeGeometry(.012, .5, 4), hornMat); whisk.position.set(sx * .08, -.02, .2); whisk.rotation.set(1.9, 0, sx * .6); head.add(whisk);
+    // sharp brows that sweep back into spikes above the eyes
+    const brow = dWedge(.03, .045, .2, 4, 1, .8, skin, sx * .075, .085, .07, .25); brow.rotation.y = sx * .25; H.add(brow);
+    H.add(dCone(.025, .14, horn, sx * .08, .1, -.02, V3(sx * .35, .45, -1)));
+    // slanted, burning eyes
+    const eye = dEll(.038, .014, .028, sx * .087, .063, .12, new THREE.MeshBasicMaterial({ color: eyeC, transparent: true })); eye.rotation.set(0, sx * .5, sx * -.45); H.add(eye);
+    for (let k = 0; k < 6; k++) H.add(dCone(.012 + (k === 1 ? .006 : 0), k === 1 ? .085 : .05, toothMat, sx * (.075 - k * .006), -.02, .13 + k * .045, V3(0, -1, .1)));   // upper teeth, one long fang
+    H.add(dEll(.02, .012, .02, sx * .035, .045, .43, mouthMat));           // nostrils
+    // antlers: a beam swept back with two tines
+    const a0 = V3(sx * .06, .1, -.06), a1 = V3(sx * .13, .25, -.2), a2 = V3(sx * .17, .32, -.46), t1 = V3(sx * .25, .38, -.13), t2 = V3(sx * .09, .47, -.36), am = V3(sx * .15, .29, -.32);
+    H.add(dSeg(a0, a1, .026, .02, horn), dSeg(a1, a2, .02, .004, horn), dSeg(a1, t1, .013, .003, horn), dSeg(am, t2, .012, .003, horn));
+    // cheek spikes and frills
+    H.add(dCone(.035, .2, horn, sx * .1, -.04, -.04, V3(sx * .9, -.2, -1)));
+    H.add(dCone(.05, .22, glowC, sx * .11, .0, -.06, V3(sx * .8, .3, -1)));
   }
-  const glow = new THREE.PointLight(c.clone().multiplyScalar(.5), 1.6, 3.5, 2); head.add(glow);
-  // a pillar of light where it rises from
-  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(.38, .55, 5, 24, 1, true), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-  pillar.position.set(t.x, 2.5 + t.y, t.z);
-  scene.add(body, aura, fins, head, pillar);
+  H.add(dEll(.075, .03, .17, 0, -.035, .18, mouthMat));                  // the inside of the mouth, seen when it opens
+  const jaw = new THREE.Group(); jaw.position.set(0, -.035, .0); H.add(jaw);
+  jaw.add(dWedge(.09, .045, .36, 6, 1, .35, skin, 0, -.03, .19));
+  for (const sx of [-1, 1]) for (let k = 0; k < 5; k++) jaw.add(dCone(.01 + (k === 0 ? .005 : 0), k === 0 ? .075 : .045, toothMat, sx * (.055 - k * .005), -.015, .1 + k * .05, V3(0, 1, .1)));
+  for (let k = 0; k < 4; k++) jaw.add(dCone(.02, .2 - k * .025, glowC, (k - 1.5) * .025, -.05, .06 - k * .02, V3(0, -1, -.6)));   // beard
+  // the flowing mane behind the head
+  const mane = new THREE.Group(); H.add(mane);
+  for (let k = 0; k < 20; k++) {
+    const a = (k / 19 - .5) * 2.8, len = .3 + .14 * Math.random();
+    mane.add(dCone(.035, len, glowC, Math.sin(a) * .1, .04 + Math.cos(a) * .07, -.1, V3(Math.sin(a) * .8, .25 + Math.cos(a) * .6, -1)));
+  }
+  // long whiskers trailing from the snout
+  const whisk = [];
+  for (const sx of [-1, 1]) {
+    const c = new THREE.CatmullRomCurve3([V3(sx * .07, .0, .38), V3(sx * .2, -.06, .28), V3(sx * .33, -.02, 0), V3(sx * .4, .06, -.35), V3(sx * .5, -.02, -.8)]);
+    const w = new THREE.Mesh(new THREE.TubeGeometry(c, 24, .007, 5), glowC); w.position.set(sx * .07, 0, .38); w.geometry.translate(-sx * .07, 0, -.38); H.add(w); whisk.push(w);
+  }
+  return { H, jaw, mane, whisk };
+}
+function buildLeg(skin, horn) {
+  // in leg space: x out to the side, y up, z forward
+  const G = new THREE.Group(), hip = V3(0, 0, 0), knee = V3(.13, -.05, .08), ank = V3(.17, -.17, -.02), foot = V3(.19, -.21, .03);
+  G.add(dEll(.055, .055, .07, 0, 0, 0, skin), dSeg(hip, knee, .05, .036, skin), dEll(.036, .036, .036, knee.x, knee.y, knee.z, skin), dSeg(knee, ank, .034, .024, skin), dSeg(ank, foot, .024, .02, skin));
+  for (let k = -1; k <= 1; k++) G.add(dCone(.012, .075, horn, foot.x + k * .022, foot.y, foot.z + .01, V3(k * .35, -.7, 1)));
+  return G;
+}
+function summonSpirit(t, target, color, life) {
+  const mx = Math.max(color[0], color[1], color[2]), hue = new THREE.Color(Math.pow(color[0] / mx, 2.2), Math.pow(color[1] / mx, 2.2), Math.pow(color[2] / mx, 2.2));
+  const belly = new THREE.Color(1, .85, .55).lerp(hue, .25), gold = new THREE.Color(1, .86, .55);
+  const skin = dragonMat(hue, belly, new THREE.Vector2(150, 16)), headSkin = dragonMat(hue, hue, new THREE.Vector2(14, 10)), horn = dragonMat(gold, gold, new THREE.Vector2(6, 4));
+  const mats = [skin, headSkin, horn];
+  // the body tube
+  const N = DRG.N, MR = DRG.M, V = N * (MR + 1), geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(V * 3), nor = new Float32Array(V * 3), uv = new Float32Array(V * 2), idx = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j <= MR; j++) { const v = i * (MR + 1) + j; uv[v * 2] = i / (N - 1); uv[v * 2 + 1] = j / MR; if (i < N - 1 && j < MR) { const a = v, b = v + MR + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); } }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(idx);
+  const body = new THREE.Mesh(geo, skin); body.frustumCulled = false;
+  const glowShell = new THREE.ShaderMaterial({ uniforms: { uHue: { value: hue.clone().multiplyScalar(.55) }, uOp: { value: 0 }, uPush: { value: .05 } }, vertexShader: DRG_VS, fragmentShader: DRG_GLOW_FS, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const aura = new THREE.Mesh(geo, glowShell); aura.frustumCulled = false;
+  // a flame-like crest running down the spine, spiked like a saw
+  const fgeo = new THREE.BufferGeometry(), fpos = new Float32Array(N * 2 * 3), fidx = [];
+  for (let i = 0; i < N - 1; i++) fidx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+  fgeo.setAttribute('position', new THREE.BufferAttribute(fpos, 3)); fgeo.setIndex(fidx);
+  const crestMat = glowMat(hue.clone().multiplyScalar(.75)), crest = new THREE.Mesh(fgeo, crestMat); crest.frustumCulled = false;
+  const fire = glowMat(hue.clone().multiplyScalar(.9)), eye = new THREE.Color(3, 2.6, 1.2);
+  const head = buildHead(headSkin, horn, fire, eye); head.H.scale.setScalar(DRG.HEAD);
+  head.H.add(new THREE.PointLight(hue.clone().multiplyScalar(.6), 2, 4, 2));
+  const legs = [[.16, 1], [.16, -1], [.52, 1], [.52, -1]].map(([s, side]) => { const g = buildLeg(skin, horn); g.scale.set(side, 1, 1); return { g, s, side }; });
+  const tail = new THREE.Group(); for (let k = 0; k < 7; k++) { const a = (k / 6 - .5) * 2.2; tail.add(dCone(.03, .3 + .1 * Math.cos(a), fire, 0, 0, 0, V3(Math.sin(a) * .7, Math.cos(a) * .6, -1))); }
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(.38, .6, 6, 32, 1, true), glowMat(hue.clone().multiplyScalar(.6)));
+  pillar.position.set(t.x, 3 + t.y, t.z);
+  const root = new THREE.Group(); root.add(body, aura, crest, head.H, tail, pillar, ...legs.map((l) => l.g)); scene.add(root);
   M.cine = { top: t, t: life, life };   // the camera swings low to watch it rise
-  SPIRITS.push({ hue: c.clone(), aura, t, target, body, fins, head, pillar, n, age: 0, life, struck: false, color, seed: Math.random() * TAU, dir: t.p.dir });
+  noise(1.3, 420, 90, .55, 'lowpass'); ping(110, 1.1, .16, 'sawtooth'); ping(74, 1.3, .14, 'sawtooth');   // a deep roar
+  SPIRITS.push({ root, body, aura, crest, head, legs, tail, pillar, mats, glowShell, crestMat, fire, t, target, hue, color, life, age: 0, struck: false, dived: false,
+    seed: Math.random() * TAU, dir: t.p.dir || 1, hist: [V3(t.x, t.y - .1, t.z), V3(t.x, t.y + .05, t.z)], up: V3(0, 1, 0), P: Array.from({ length: N }, () => V3()), T: Array.from({ length: N }, () => V3()), U: Array.from({ length: N }, () => V3()) });
 }
-const _scol = new THREE.Color(), _sm = new THREE.Matrix4(), _sq = new THREE.Quaternion(), _sv = new THREE.Vector3(), _ss = new THREE.Vector3(), _sp = [];
-function spiritPoint(S, i, out) {
-  // the body follows the head's path a little behind in time: a coil rising round the top, swaying as it goes
-  const a = clamp(S.age / S.life, 0, 1), lag = i * .026, u = Math.max(0, S.age - lag), rise = Math.min(1, u / .7);
-  const ang = S.seed + S.dir * -u * 3.1, rad = (.75 + .35 * Math.sin(u * 2.3 + S.seed)) * (1 - .3 * rise);
-  let x = S.t.x + Math.cos(ang) * rad, z = S.t.z + Math.sin(ang) * rad, y = S.t.y + .3 + rise * 1.7 + .3 * Math.sin(u * 3.7 + i * .2);
-  // the last stretch: it dives onto its target
-  const dive = clamp((u - S.life * .72) / (S.life * .25), 0, 1);
-  if (dive > 0) { const e = dive * dive; x = lerp(x, S.target.x, e); z = lerp(z, S.target.z, e); y = lerp(y, S.target.y + .2, e); }
-  out.set(x, y, z); return a;
+function dragonHeadAt(S, u, out) {
+  // up out of the top, then a wide climbing circle round the arena, then a dive onto the target
+  const tp = S.t, rise = clamp(u / .6, 0, 1), re = rise * rise * (3 - 2 * rise);
+  const ang = S.seed + S.dir * -Math.max(0, u - .3) * 2.2, rad = lerp(.02, 1.5 + .3 * Math.sin(u * 1.4 + S.seed), re);
+  let x = tp.x + Math.cos(ang) * rad, z = tp.z + Math.sin(ang) * rad, y = tp.y + .15 + re * 1.9 + .45 * Math.sin(u * 2.2 + S.seed) * re;
+  const ds = S.life * .66, dive = clamp((u - ds) / (S.life * .3), 0, 1);
+  if (dive > 0) { const e = dive * dive * (2 - dive) * dive; x = lerp(x, S.target.x, e); z = lerp(z, S.target.z, e); y = lerp(y, S.target.y + .05, e) + Math.sin(dive * PI) * .35 * (1 - dive); }
+  return out.set(x, y, z);
 }
+const _dh = new THREE.Vector3(), _dm = new THREE.Matrix4(), _dx = new THREE.Vector3(), _dt = new THREE.Vector3();
 function updateSpirits(raw) {
   for (let k = SPIRITS.length - 1; k >= 0; k--) {
     const S = SPIRITS[k]; S.age += raw;
-    const a = S.age / S.life, fade = Math.min(1, S.age / .25) * (a > .93 ? Math.max(0, (1 - a) / .07) : 1);
-    if (!_sp.length) for (let i = 0; i < 80; i++) _sp.push(new THREE.Vector3());
-    for (let i = 0; i < S.n; i++) spiritPoint(S, i, _sp[i]);
-    for (let i = 0; i < S.n; i++) {
-      const f = i / S.n, sc = (.12 * Math.pow(1 - f, .6) + .015) * (1 + .12 * Math.sin(i * .9));   // thick behind the head, tapering to the tail
-      _sm.compose(_sp[i], _sq.identity(), _ss.set(sc, sc, sc)); S.body.setMatrixAt(i, _sm);
-      S.body.setColorAt(i, _scol.copy(S.hue).multiplyScalar(1 - .6 * f).lerp(new THREE.Color(1, 1, 1), f < .08 ? .25 : 0));   // bright at the neck, dimmer to the tail
+    const a = S.age / S.life, fade = Math.min(1, S.age / .2) * (a > .95 ? Math.max(0, (1 - a) / .05) : 1);
+    // record the head's flight; the body is laid along it by arc length
+    dragonHeadAt(S, S.age, _dh); const last = S.hist[S.hist.length - 1];
+    if (_dh.distanceTo(last) > .004) S.hist.push(_dh.clone()); else last.copy(_dh);
+    const N = DRG.N, MR = DRG.M, L = DRG.L, P = S.P, T = S.T, U = S.U, step = L / (N - 1);
+    let h = S.hist.length - 1; P[0].copy(S.hist[h]); _dt.copy(P[0]);
+    for (let i = 1; i < N; i++) {
+      let need = step;
+      for (;;) {
+        if (h <= 0) { P[i].copy(S.hist[0]); break; }
+        const B = S.hist[h - 1], d = _dt.distanceTo(B);
+        if (d >= need) { _dt.lerp(B, need / d); P[i].copy(_dt); break; }
+        need -= d; _dt.copy(B); h--;
+      }
     }
-    S.body.instanceMatrix.needsUpdate = true; if (S.body.instanceColor) S.body.instanceColor.needsUpdate = true;
-    for (let j = 0; j < S.aura.count; j++) { const i = j * 3, sc = (.12 * Math.pow(1 - i / S.n, .6) + .015) * 2.3; _sm.compose(_sp[i], _sq.identity(), _ss.set(sc, sc, sc)); S.aura.setMatrixAt(j, _sm); }
-    S.aura.instanceMatrix.needsUpdate = true; S.aura.material.opacity = .14 * fade;
-    for (let j = 0; j < S.fins.count; j++) {   // spines along the back
-      const i = 2 + j * 4, p0 = _sp[i], p1 = _sp[Math.min(S.n - 1, i + 1)], sc = .09 * (1 - i / S.n) + .02;
-      _sv.subVectors(p0, p1).normalize(); _sq.setFromUnitVectors(new THREE.Vector3(0, 1, 0), _sv.lerp(new THREE.Vector3(0, 1, 0), .5).normalize());
-      _sm.compose(_ss.set(p0.x, p0.y + sc * .6, p0.z), _sq, new THREE.Vector3(sc, sc, sc)); S.fins.setMatrixAt(j, _sm);
+    // frames: tangent toward the head, an "up" carried down the body so it twists smoothly
+    for (let i = 0; i < N; i++) { const p = P[Math.max(0, i - 1)], q = P[Math.min(N - 1, i + 1)]; T[i].subVectors(p, q); if (T[i].lengthSq() < 1e-8) T[i].copy(i ? T[i - 1] : _up); T[i].normalize(); }
+    U[0].copy(S.up).addScaledVector(T[0], -S.up.dot(T[0])); if (U[0].lengthSq() < 1e-4) U[0].set(0, 1, 0).addScaledVector(T[0], -T[0].y);
+    U[0].normalize().lerp(_dx.set(0, 1, 0).addScaledVector(T[0], -T[0].y).normalize(), .08).normalize(); S.up.copy(U[0]);   // drifts back toward belly-down
+    for (let i = 1; i < N; i++) { U[i].copy(U[i - 1]).addScaledVector(T[i], -U[i - 1].dot(T[i])).normalize(); }
+    const pos = S.body.geometry.attributes.position.array, nor = S.body.geometry.attributes.normal.array, fp = S.crest.geometry.attributes.position.array;
+    for (let i = 0; i < N; i++) {
+      const s = i / (N - 1), r = dragonRadius(s) * (1 + .04 * Math.sin(s * 40 - S.age * 8)); _dx.crossVectors(T[i], U[i]);
+      for (let j = 0; j <= MR; j++) {
+        const th = j / MR * TAU, c = Math.cos(th), sn = Math.sin(th), v = (i * (MR + 1) + j) * 3;
+        const nx = U[i].x * c + _dx.x * sn, ny = U[i].y * c + _dx.y * sn, nz = U[i].z * c + _dx.z * sn, rr = r * (1 - .1 * c * c);   // a little flattened
+        pos[v] = P[i].x + nx * rr; pos[v + 1] = P[i].y + ny * rr; pos[v + 2] = P[i].z + nz * rr; nor[v] = nx; nor[v + 1] = ny; nor[v + 2] = nz;
+      }
+      const ch = s < .03 ? 0 : .11 * DRG.R / .15 * (.3 + .7 * (1 - ((s * 34) % 1))) * Math.pow(1 - s, .4) * (1 + .3 * Math.sin(S.age * 9 + s * 20));
+      fp[i * 6] = P[i].x + U[i].x * r * .85; fp[i * 6 + 1] = P[i].y + U[i].y * r * .85; fp[i * 6 + 2] = P[i].z + U[i].z * r * .85;
+      fp[i * 6 + 3] = P[i].x + U[i].x * (r + ch) - T[i].x * ch * .5; fp[i * 6 + 4] = P[i].y + U[i].y * (r + ch) - T[i].y * ch * .5; fp[i * 6 + 5] = P[i].z + U[i].z * (r + ch) - T[i].z * ch * .5;
     }
-    S.fins.instanceMatrix.needsUpdate = true;
-    S.head.position.copy(_sp[0]); _sv.subVectors(_sp[0], _sp[2]).add(_sp[0]); S.head.lookAt(_sv);
-    S.body.material.opacity = .95 * fade; S.fins.material.opacity = .6 * fade;
-    S.head.traverse((o) => { if (o.material && o.material.transparent) o.material.opacity = fade; });
-    S.pillar.material.opacity = Math.max(0, .55 * (1 - S.age / .9)); S.pillar.scale.set(1 + S.age, 1, 1 + S.age);
-    if (S.age > 0 && frameN % 5 === 0) sparks.burst(_sp[S.n - 1].x, _sp[S.n - 1].y, _sp[S.n - 1].z, 1, .2, [Math.min(1, S.color[0] / 2.6), Math.min(1, S.color[1] / 2.6), Math.min(1, S.color[2] / 2.6)]);
+    S.body.geometry.attributes.position.needsUpdate = S.body.geometry.attributes.normal.needsUpdate = true; S.crest.geometry.attributes.position.needsUpdate = true;
+    S.body.geometry.computeBoundingSphere();
+    // head: faces along the neck, jaw opens to roar as it rises and again for the strike
+    const hd = S.head; _dt.copy(T[0]); _dx.crossVectors(U[0], _dt).normalize();
+    _dm.makeBasis(_dx, _dh.crossVectors(_dt, _dx), _dt); hd.H.quaternion.setFromRotationMatrix(_dm); hd.H.position.copy(P[0]).addScaledVector(T[0], .02);
+    const dive = clamp((S.age - S.life * .66) / (S.life * .3), 0, 1);
+    const roar = Math.max(Math.sin(clamp((S.age - .15) / 1.1, 0, 1) * PI), clamp(dive * 2.5 - .5, 0, 1));
+    hd.jaw.rotation.x = .08 + roar * .62 + .04 * Math.sin(S.age * 30) * roar;
+    hd.mane.children.forEach((m, i) => { m.scale.setScalar(1 + .15 * Math.sin(S.age * 14 + i * 1.7)); });
+    hd.whisk.forEach((w, i) => { w.rotation.set(.15 * Math.sin(S.age * 4 + i), .2 * Math.sin(S.age * 3 + i * 2), 0); });
+    // legs hang from the chest and hips and paddle at the air
+    for (const l of S.legs) {
+      const i = Math.round(l.s * (N - 1)), r = dragonRadius(l.s); _dx.crossVectors(T[i], U[i]).multiplyScalar(l.side);
+      _dm.makeBasis(_dx, U[i], T[i]); l.g.quaternion.setFromRotationMatrix(_dm);
+      l.g.position.copy(P[i]).addScaledVector(_dx, r * .75).addScaledVector(U[i], -r * .35);
+      l.g.rotateX(.5 * Math.sin(S.age * 6 + l.s * 9 + (l.side > 0 ? 0 : PI))); l.g.scale.set(l.side * r / .1, r / .1, r / .1);
+    }
+    const ti = N - 1; S.tail.position.copy(P[ti]); _dt.copy(T[ti]); _dx.crossVectors(U[ti], _dt).normalize(); _dm.makeBasis(_dx, U[ti], _dt); S.tail.quaternion.setFromRotationMatrix(_dm);
+    S.tail.children.forEach((m, i) => m.scale.setScalar(.8 + .3 * Math.sin(S.age * 12 + i * 2)));
+    // fades and glows
+    for (const m of S.mats) { m.uniforms.uOp.value = fade; m.uniforms.uTime.value = S.age; }
+    S.glowShell.uniforms.uOp.value = .5 * fade; S.crestMat.opacity = .85 * fade; S.fire.opacity = .9 * fade;
+    S.root.traverse((o) => { if (o.material && o.material.isMeshBasicMaterial && o.material !== S.crestMat && o.material !== S.fire && o !== S.pillar) o.material.opacity = fade; });
+    S.pillar.material.opacity = Math.max(0, .6 * (1 - S.age / 1.1)); S.pillar.scale.set(1 + S.age * .8, 1, 1 + S.age * .8);
+    const ec = [Math.min(1, S.color[0] / 2.6), Math.min(1, S.color[1] / 2.6), Math.min(1, S.color[2] / 2.6)];
+    if (frameN % 2 === 0) { const i = 10 + Math.floor(Math.random() * (N - 12)); sparks.burst(P[i].x, P[i].y, P[i].z, 1, .25, ec); }   // embers shed from the scales
+    if (!S.dived && dive > 0) { S.dived = true; noise(.7, 500, 2600, .35); }
     if (!S.struck && a > .96) {   // impact
-      S.struck = true; shockwave(S.target.x, S.target.z, 1.8, S.color, 6); shake = Math.max(shake, .3);
-      sparks.burst(S.target.x, S.target.y + .3, S.target.z, 50, 1.5, [Math.min(1, S.color[0] / 2.6), Math.min(1, S.color[1] / 2.6), Math.min(1, S.color[2] / 2.6)]); sfx.burst();
+      S.struck = true; shockwave(S.target.x, S.target.z, 2.2, S.color, 7); shake = Math.max(shake, .35);
+      sparks.burst(S.target.x, S.target.y + .3, S.target.z, 70, 1.8, ec); sfx.burst();
     }
-    if (a >= 1) { scene.remove(S.body, S.aura, S.fins, S.head, S.pillar); SPIRITS.splice(k, 1); }
+    if (a >= 1) {
+      scene.remove(S.root); SPIRITS.splice(k, 1);
+      S.root.traverse((o) => { if (o.geometry && o.geometry !== S.body.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); S.body.geometry.dispose();
+    }
   }
 }
 // the anime cut-in: a dark band streaks in, the name comes in huge from the right, its characters slam down one by
@@ -1850,8 +1990,8 @@ function loop(now) {
   } else if (inMatch && M.cine && M.cine.t > 0 && M.cine.top.state !== 'burst') {
     // a special move: a low, close shot circling slowly round the top so the spirit can be seen rising
     const C = M.cine, k = 1 - C.t / C.life, tp = C.top, base = Math.atan2(START[0][0], START[0][1]) + camAng + .5 - k * .9;
-    _lookT.set(tp.x * .7, tp.y + .9, tp.z * .7);
-    _camT.set(_lookT.x + Math.sin(base) * 4.6, tp.y + 1.9, _lookT.z + Math.cos(base) * 4.6); fov = 50; ease = 3.2;
+    _lookT.set(tp.x * .7, tp.y + 1.2, tp.z * .7);
+    _camT.set(_lookT.x + Math.sin(base) * 5.2, tp.y + 2.1, _lookT.z + Math.cos(base) * 5.2); fov = 50; ease = 3.2;
   } else if (inMatch) {
     const r = Math.hypot(START[0][0], START[0][1]), base = Math.atan2(START[0][0] / r, START[0][1] / r), a = base + camAng;
     // nearly straight down by default, like filming from above; the player can tilt, turn and zoom, or follow their top
