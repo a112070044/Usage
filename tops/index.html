@@ -158,6 +158,9 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .icon-btn { position: absolute; z-index: 5; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font-size: 15px; display: grid; place-items: center; padding: 0; }
 #btn-menu { left: max(12px, env(safe-area-inset-left, 0px)); }
 #btn-mute { right: max(12px, env(safe-area-inset-right, 0px)); }
+#btn-view { right: calc(max(12px, env(safe-area-inset-right, 0px)) + 46px); width: auto; padding: 0 10px; font-size: 12.5px; font-weight: 700; }
+#btn-view.on { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 10px rgba(72, 214, 255, .35); }
+.view-hint { position: absolute; left: 50%; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; white-space: nowrap; pointer-events: none; transition: opacity .6s; }
 .next { position: absolute; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(320px, 80%); }
 @media (prefers-reduced-motion: reduce) { .banner, .toast { animation: none; } }
 </style>
@@ -172,6 +175,8 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <div class="side op" id="side1"><div class="nm" id="nm1">—</div><div class="rpm"><b id="rpm1">0</b><span>RPM</span></div><div class="bar"><i id="bar1"></i></div><div class="pts" id="pts1"></div></div>
   </div>
   <button class="icon-btn" id="btn-mute" type="button" aria-label="關閉聲音" hidden>♪</button>
+  <button class="icon-btn view-btn" id="btn-view" type="button" aria-label="切換視角" hidden>全場</button>
+  <div class="view-hint" id="view-hint" hidden>單指拖曳：旋轉／俯仰　兩指：縮放　點兩下：重設</div>
   <button class="icon-btn" id="btn-menu" type="button" aria-label="回主畫面" hidden>☰</button>
   <div id="fx-layer"></div>
   <div class="hand grip hide" id="hand-grip">按住拿起發射器</div>
@@ -195,7 +200,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
       <b>得分</b>：對手先停轉＝旋轉終結 1 分；撞進場邊的缺口＝場外終結 2 分；撞到散開＝爆裂終結 2 分。先拿 3 分獲勝。<br>
       <b>相剋</b>：攻擊剋持久、持久剋防禦、防禦剋攻擊。同方向旋轉碰撞最猛烈；左旋碰右旋會像齒輪互相分攤轉速，比的是誰撐得久。<br>
       <b>組裝</b>：點「＋ 組裝自己的陀螺」，挑鎖芯（顏色、左右旋）、主刃、輔助刃、固定環（凸點數－高度）和軸心，組出自己的陀螺。最多存 6 顆，可以隨時改裝。<br>
-      <b>對戰中</b>：左右拖曳可以轉動視角。
+      <b>視角</b>：對戰中單指左右拖曳旋轉、上下拖曳改變俯視角度，兩指捏合（或滑鼠滾輪）縮放，點兩下回到預設；右下「全場／跟隨」切換是否跟著你的陀螺。
     </div>
     <div class="rec" id="rec"></div>
   </div>
@@ -348,6 +353,7 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(col(0x040508), 14, 30);
 const camera = new THREE.PerspectiveCamera(40, 1, .1, 80);
 let camAng = 0, camDist = 9, shake = 0;
+const VIEW = { el: 0, zoom: 1, follow: false };   // the player's own camera: extra tilt (rad), zoom, and whether it follows their top
 
 // a dark arena: one hard light over the stadium and coloured edge lights in the gloom, so chrome and gloss catch them
 (function env() {
@@ -1078,7 +1084,8 @@ function startMatch() {
   setTops(topById(ui.mine), opp);
   M.demo = false; M.pts = [0, 0]; M.round = 0;
   $('#scr-home').hidden = true; $('#scr-result').hidden = true;
-  $('#hud').hidden = false; $('#btn-menu').hidden = false; $('#btn-mute').hidden = false;
+  $('#hud').hidden = false; $('#btn-menu').hidden = false; $('#btn-mute').hidden = false; $('#btn-view').hidden = false;
+  camAng = 0; VIEW.el = 0; VIEW.zoom = 1; M.hintShown = false;
   startRound();
 }
 function startRound() {
@@ -1090,7 +1097,7 @@ function startRound() {
   renderHud(); $('#btn-next').hidden = true;
   $('#launch').hidden = false; $('#meter').style.width = '0%';
   $('#launch-tip').textContent = TOUCH ? '按住發射器把它拿起來' : '準備……';
-  M.count = -1; camAng = 0;
+  M.count = -1;
   if (!TOUCH) setTimeout(() => { if (M.phase === 'ready' && !M.cd) startCountdown(); }, 700);
 }
 function startCountdown() {
@@ -1169,7 +1176,7 @@ function goHome() {
   document.querySelectorAll('.banner').forEach((e) => e.remove());
   M.phase = 'home'; M.demo = true;
   $('#scr-home').hidden = false; $('#scr-result').hidden = true; $('#hud').hidden = true;
-  $('#launch').hidden = true; $('#btn-next').hidden = true; $('#btn-menu').hidden = true; $('#btn-mute').hidden = true;
+  $('#launch').hidden = true; $('#btn-next').hidden = true; $('#btn-menu').hidden = true; $('#btn-mute').hidden = true; $('#btn-view').hidden = true; $('#view-hint').hidden = true;
   renderHome(); startDemo();
 }
 function startDemo() {
@@ -1255,11 +1262,11 @@ $('#btn-again').addEventListener('click', startMatch);
 $('#btn-home').addEventListener('click', goHome);
 $('#btn-menu').addEventListener('click', goHome);
 $('#btn-next').addEventListener('click', startRound);
+$('#btn-view').addEventListener('click', () => { VIEW.follow = !VIEW.follow; $('#btn-view').textContent = VIEW.follow ? '跟隨' : '全場'; $('#btn-view').classList.toggle('on', VIEW.follow); });
 $('#btn-mute').addEventListener('click', () => { AU.muted = !AU.muted; $('#btn-mute').textContent = AU.muted ? '✕' : '♪'; });
 
-// ---- input: first-person launch (left thumb holds the launcher, right thumb rips); drag to orbit during a battle ----
+// ---- input: first-person launch (left thumb holds the launcher, right thumb rips); drag to turn, tilt and zoom the camera during a battle ----
 const TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
-let drag = null;
 const isUI = (e) => e.target && e.target.closest && e.target.closest('button, .screen');
 // screen <-> world helpers for touching the launcher itself
 const _v = new THREE.Vector3(), _ray = new THREE.Raycaster(), _plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), _ndc = new THREE.Vector2(), _hit = new THREE.Vector3();
@@ -1299,8 +1306,12 @@ window.addEventListener('pointerdown', (e) => {
     }
     return;
   }
-  drag = { x: e.clientX, y: e.clientY, ang: camAng, id: e.pointerId };
+  PTRS.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
+  if (PTRS.size === 2) { const [a, b] = [...PTRS.values()]; PINCH.d0 = Math.hypot(a.x - b.x, a.y - b.y) || 1; PINCH.z0 = VIEW.zoom; }
 });
+const PTRS = new Map(), PINCH = { d0: 1, z0: 1 }; let lastTap = 0;
+const camFree = () => M.phase === 'battle' || M.phase === 'roundEnd';
+window.addEventListener('wheel', (e) => { if (!camFree() || isUI(e)) return; VIEW.zoom = clamp(VIEW.zoom * Math.exp(e.deltaY * .0012), .4, 1.6); }, { passive: true });
 window.addEventListener('pointermove', (e) => {
   if (M.phase === 'ready') {
     const me = tops[0];
@@ -1325,8 +1336,17 @@ window.addEventListener('pointermove', (e) => {
     }
     return;
   }
-  if (!drag || e.pointerId !== drag.id) return;
-  if (M.phase === 'battle' || M.phase === 'roundEnd' || M.phase === 'home') camAng = drag.ang - (e.clientX - drag.x) / innerWidth * 3;
+  const q = PTRS.get(e.pointerId); if (!q) return;
+  const dx = e.clientX - q.x, dy = e.clientY - q.y; q.x = e.clientX; q.y = e.clientY;
+  if (!camFree()) return;
+  if (PTRS.size >= 2) {
+    const [a, b] = [...PTRS.values()], d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    VIEW.zoom = clamp(PINCH.z0 * PINCH.d0 / d, .4, 1.6);
+  } else {
+    camAng -= dx / innerWidth * 3.2;
+    VIEW.el = clamp(VIEW.el + dy / innerHeight * 2.2, -62 * PI / 180, 14 * PI / 180);
+  }
+  $('#view-hint').hidden = true;
 });
 function release(e) {
   if (M.grip && e.pointerId === M.grip.id) M.grip = null;
@@ -1334,7 +1354,14 @@ function release(e) {
     if (M.rip.k > .3) finishRip(true);
     else { M.rip = null; if (tops[0] && tops[0].lc) tops[0].lc.k = 0; $('#meter').style.width = '0%'; }   // barely moved: let them try again
   }
-  if (drag && e.pointerId === drag.id) drag = null;
+  const q = PTRS.get(e.pointerId);
+  if (q) {
+    PTRS.delete(e.pointerId);
+    const now = performance.now();
+    if (camFree() && now - q.t0 < 250 && Math.hypot(e.clientX - q.x0, e.clientY - q.y0) < 12) {   // a tap: two in a row resets the view
+      if (now - lastTap < 320) { camAng = 0; VIEW.el = 0; VIEW.zoom = 1; lastTap = 0; } else lastTap = now;
+    }
+  }
 }
 window.addEventListener('pointerup', release);
 window.addEventListener('pointercancel', release);
@@ -1408,7 +1435,10 @@ function loop(now) {
     }
     // spin the held top a little as the cord runs
     if (me.state === 'ready' && M.rip) me.vis -= M.rip.k * raw * 40;
-    if (me.state !== 'ready' && op.state !== 'ready') { M.phase = 'battle'; M.battleT = 0; }
+    if (me.state !== 'ready' && op.state !== 'ready') {
+      M.phase = 'battle'; M.battleT = 0;
+      if (!M.hintShown) { M.hintShown = true; const h = $('#view-hint'); h.hidden = false; setTimeout(() => { h.hidden = true; }, 4500); }   // how to move the camera, once per match
+    }
     // aim arrow while holding
     aimG.visible = false; M.aim = 0;   // the throw now comes from how you move the launcher, not an arrow
     if (aimG.visible) {
@@ -1476,8 +1506,12 @@ function loop(now) {
     _camT.set(me.x + ux * 3, 4.3, me.z + uz * 3); _lookT.set(me.x * .1, .1, me.z * .1); fov = 56; ease = 5;
   } else if (inMatch) {
     const r = Math.hypot(START[0][0], START[0][1]), base = Math.atan2(START[0][0] / r, START[0][1] / r), a = base + camAng;
-    const hf = 2 * Math.atan(Math.tan(22 * PI / 180) * camera.aspect), d = Math.max(7.5, (RA * 1.12) / Math.tan(hf / 2) + .6), el = 74 * PI / 180;   // nearly straight down, like filming from above
-    _camT.set(Math.sin(a) * d * Math.cos(el), d * Math.sin(el), Math.cos(a) * d * Math.cos(el)); _lookT.set(0, -.1, 0); fov = 44; ease = M.phase === 'battle' && M.battleT < 1.2 ? 2.2 : 4;
+    // nearly straight down by default, like filming from above; the player can tilt, turn and zoom, or follow their top
+    const hf = 2 * Math.atan(Math.tan(22 * PI / 180) * camera.aspect), el = clamp(74 * PI / 180 + VIEW.el, 12 * PI / 180, 88 * PI / 180);
+    const d = Math.max(7.5, (RA * 1.12) / Math.tan(hf / 2) + .6) * VIEW.zoom * (VIEW.follow ? .55 : 1);
+    const f = VIEW.follow && me && me.state !== 'ready' && me.state !== 'burst' ? me : null, fx = f ? clamp(f.x, -RA, RA) : 0, fz = f ? clamp(f.z, -RA, RA) : 0;
+    _lookT.set(fx, f ? f.y + .1 : -.1, fz);
+    _camT.set(fx + Math.sin(a) * d * Math.cos(el), _lookT.y + d * Math.sin(el), fz + Math.cos(a) * d * Math.cos(el)); fov = 44; ease = M.phase === 'battle' && M.battleT < 1.2 ? 2.2 : 4;
   } else {
     _camT.set(Math.sin(camAng) * camDist * .5, camDist * .87, Math.cos(camAng) * camDist * .5); _lookT.set(0, -.15, 0); ease = 6;
   }
