@@ -149,6 +149,21 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .sec h2 small { font-size: 11px; letter-spacing: .05em; color: var(--muted); font-weight: 500; margin-left: 6px; }
 .card .ty { overflow-wrap: anywhere; }
 .card .mv { font-size: 11px; color: #ffd24a; font-weight: 700; }
+.card .voice { position: absolute; top: 8px; left: 8px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(255, 210, 74, .1); border: 1px solid rgba(255, 210, 74, .35); color: #ffd24a; }
+.card .voice.has { background: rgba(255, 210, 74, .28); }
+.dlg { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .7); }
+.dlg-box { width: min(380px, 100%); background: #0e1016; border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.dlg-box h3 { margin: 0; font-size: 18px; letter-spacing: .1em; }
+.vd-move { margin: 0; font-size: 20px; font-weight: 900; color: #ffd24a; text-shadow: 0 0 12px rgba(255, 210, 74, .5); }
+.vd-tip, .vd-msg { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.vd-msg { color: var(--cyan); min-height: 18px; }
+.vbtn { height: 44px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .06); color: var(--fg); font-weight: 900; font-size: 15px; }
+.vbtn:disabled { opacity: .4; }
+.vbtn.rec { background: rgba(255, 58, 58, .15); border-color: rgba(255, 58, 58, .5); color: #ff7a7a; }
+.vbtn.rec.on { background: #ff3a3a; color: #fff; animation: pulseMove .6s ease-in-out infinite; }
+.vd-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vd-file { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.vd-file input { font-size: 13px; color: var(--fg); }
 .card .edit { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid var(--line); color: var(--fg); }
 .card.add { align-items: center; justify-content: center; min-height: 180px; border-style: dashed; color: var(--muted); text-align: center; }
 .card.add b { font-size: 42px; line-height: 1; color: var(--cyan); }
@@ -226,7 +241,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
       <b>發射手法</b>：拉線時手拿著發射器不動＝直立發射，陀螺會落在原地慢慢滑到中央（適合持久、防禦）；拉線的同時把發射器往旁邊一甩＝滑動發射，陀螺斜斜落地、在場上畫出花瓣般的衝刺路線（適合攻擊）。<br>
       <b>得分</b>：對手先停轉＝旋轉終結 1 分；撞進場邊的缺口＝場外終結 2 分；撞到散開＝爆裂終結 2 分。先拿 3 分獲勝。<br>
       <b>相剋</b>：攻擊剋持久、持久剋防禦、防禦剋攻擊。同方向旋轉碰撞最猛烈；左旋碰右旋會像齒輪互相分攤轉速，比的是誰撐得久。<br>
-      <b>必殺技</b>：對戰中計量條會慢慢累積，撞擊也會加速集氣；集滿後按下方「必殺」開招，會喊出招式名稱；每回合只能用一次，抓準時機。攻擊型＝突擊、防禦型＝鐵壁、持久型＝回轉、平衡型＝風暴。招式名稱可以在組裝工坊自己取。<br>
+      <b>必殺技</b>：對戰中計量條會慢慢累積，撞擊也會加速集氣；集滿後按下方「必殺」開招，會喊出招式名稱；每回合只能用一次，抓準時機。攻擊型＝突擊、防禦型＝鐵壁、持久型＝回轉、平衡型＝風暴。招式名稱可以在組裝工坊自己取；點卡片左上角的「🎤 配音」還能錄自己的聲音，開招時就播你喊的。<br>
       <b>組裝</b>：點「＋ 組裝自己的陀螺」，挑鎖芯（顏色、左右旋）、主刃、輔助刃、固定環（凸點數－高度）和軸心，組出自己的陀螺。最多存 6 顆，可以隨時改裝。<br>
       <b>視角</b>：對戰中單指左右拖曳旋轉、上下拖曳改變俯視角度，兩指捏合（或滑鼠滾輪）縮放，點兩下回到預設；右下「全場／跟隨」切換是否跟著你的陀螺。
     </div>
@@ -250,6 +265,22 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <div id="b-parts"></div>
     <button type="button" class="cta" id="b-save">儲存並使用</button>
     <button type="button" class="cta alt" id="b-del" hidden>拆掉這顆</button>
+  </div>
+
+  <div class="dlg" id="voice-dlg" hidden>
+    <div class="dlg-box">
+      <h3>幫大招配音</h3>
+      <p class="vd-move" id="vd-move"></p>
+      <p class="vd-tip">按下錄音，對著手機大喊你的招式名稱（最長 4 秒）。開招時就會播你的聲音。</p>
+      <button type="button" class="vbtn rec" id="vd-rec">● 開始錄音</button>
+      <div class="vd-row">
+        <button type="button" class="vbtn" id="vd-play" disabled>▶ 試聽</button>
+        <button type="button" class="vbtn" id="vd-del" disabled>刪除配音</button>
+      </div>
+      <label class="vd-file">或選一個音檔（例如手機語音備忘錄錄好的）<input type="file" id="vd-file" accept="audio/*"></label>
+      <p class="vd-msg" id="vd-msg"></p>
+      <button type="button" class="cta" id="vd-done">完成</button>
+    </div>
   </div>
 
   <div class="screen result" id="scr-result" hidden>
@@ -791,6 +822,58 @@ function pickVoice() {
   VOICE.v = vs.find((v) => /^en(-|_)US/i.test(v.lang) && /male|daniel|alex|fred|google us/i.test(v.name)) || vs.find((v) => /^en/i.test(v.lang)) || null;
 }
 if (VOICE.ok) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+// ---- the player's own voice for a move: recorded on the phone (or picked from a file), kept on this device ----
+let VOICES = {};
+try { VOICES = JSON.parse(localStorage.getItem('tops-voice') || '{}') || {}; } catch (e) { VOICES = {}; }
+function saveVoices() { try { localStorage.setItem('tops-voice', JSON.stringify(VOICES)); return true; } catch (e) { return false; } }
+function playVoice(id) {
+  if (AU.muted || !VOICES[id]) return false;
+  try { speechSynthesis && speechSynthesis.cancel(); const a = new Audio(VOICES[id]); a.volume = 1; a.play().catch(() => {}); return true; } catch (e) { return false; }
+}
+const VD = { id: null, rec: null, stream: null, timer: 0 };
+function openVoice(id) {
+  const p = topById(id); VD.id = id;
+  $('#vd-move').textContent = p.moveName; $('#vd-msg').textContent = '';
+  syncVoiceUI(); $('#voice-dlg').hidden = false;
+}
+function syncVoiceUI() { const has = !!VOICES[VD.id]; $('#vd-play').disabled = !has; $('#vd-del').disabled = !has; }
+function stopRec() { if (VD.rec && VD.rec.state === 'recording') VD.rec.stop(); clearTimeout(VD.timer); }
+function keepVoice(blob) {
+  if (blob.size > 400000) { $('#vd-msg').textContent = '這段聲音太長了，請錄短一點（幾秒就好）。'; return; }
+  const r = new FileReader();
+  r.onload = () => {
+    VOICES[VD.id] = r.result;
+    if (!saveVoices()) { delete VOICES[VD.id]; $('#vd-msg').textContent = '手機空間不夠存這段聲音，試著錄短一點。'; }
+    else { $('#vd-msg').textContent = '配音存好了！按試聽聽聽看。'; }
+    syncVoiceUI(); renderHome();
+  };
+  r.readAsDataURL(blob);
+}
+$('#vd-rec').addEventListener('click', async () => {
+  if (VD.rec && VD.rec.state === 'recording') { stopRec(); return; }
+  if (VD.busy) return;   // the microphone is still starting up
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { $('#vd-msg').textContent = '這裡不能直接錄音，請用下面的「選一個音檔」。'; return; }
+  VD.busy = true; $('#vd-msg').textContent = '準備麥克風…';
+  try {
+    VD.stream = await navigator.mediaDevices.getUserMedia({ audio: true }); VD.busy = false;
+    const chunks = [], rec = new MediaRecorder(VD.stream); VD.rec = rec;
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      VD.stream.getTracks().forEach((tr) => tr.stop());
+      $('#vd-rec').classList.remove('on'); $('#vd-rec').textContent = '● 重新錄音';
+      if (chunks.length) keepVoice(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
+    };
+    rec.start(); $('#vd-rec').classList.add('on'); $('#vd-rec').textContent = '■ 錄音中…再按一次停止'; $('#vd-msg').textContent = '大聲喊出來！';
+    VD.timer = setTimeout(stopRec, 4000);
+  } catch (e) {
+    VD.busy = false;
+    $('#vd-msg').textContent = '麥克風被擋住了（可能是這個網頁不能用麥克風）。請改用下面的「選一個音檔」：先用手機的語音備忘錄錄好，再選那個檔案。';
+  }
+});
+$('#vd-file').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) keepVoice(f); e.target.value = ''; });
+$('#vd-play').addEventListener('click', () => { initAudio(); const was = AU.muted; AU.muted = false; playVoice(VD.id); AU.muted = was; });
+$('#vd-del').addEventListener('click', () => { delete VOICES[VD.id]; saveVoices(); syncVoiceUI(); renderHome(); $('#vd-msg').textContent = '已刪除，開招時會改用電腦語音。'; });
+$('#vd-done').addEventListener('click', () => { stopRec(); $('#voice-dlg').hidden = true; });
 function shoutMove(text) {
   if (!VOICE.ok || AU.muted) return;
   try {
@@ -1042,7 +1125,7 @@ function useMove(t) {
     const el = banner(`<small>${t.side === 0 ? '必殺技' : `${t.p.name} 的必殺技`}</small>${t.p.moveName}`, 'move' + (t.side === 0 ? '' : ' foe'), 1600);
     el.style.setProperty('--mc', `rgb(${c.map((v) => Math.round(Math.min(255, v * 98))).join(',')})`);
     const f = $('#flash'); f.style.background = `radial-gradient(circle, rgba(${c.map((v) => Math.round(Math.min(255, v * 98))).join(',')},.55), transparent 70%)`; f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
-    shoutMove(t.p.moveName); sfx.burst();
+    if (!playVoice(t.p.id)) shoutMove(t.p.moveName); sfx.burst();
   }
   return true;
 }
@@ -1312,13 +1395,14 @@ function statBars(p, c) { return STAT_LIST.map(([n, f]) => `<span>${n}</span><di
 function renderHome() {
   $('#cards').innerHTML = allTops().map((p) => {
     const c = uiColor(p);
-    return `<button type="button" class="card${ui.mine === p.id ? ' sel' : ''}" data-id="${p.id}" style="--c:${c}">${p.custom ? `<span class="edit" data-edit="${p.id}">改裝</span>` : ''}<img alt="" src="${fontsDone ? thumbOf(p) : ''}"><b>${p.name}</b><span class="ty"><em>${p.type}</em>・${p.dir > 0 ? '右旋' : '左旋'}・${p.code}</span><span class="mv">必殺：${p.moveName}</span><div class="stats">${statBars(p, c)}</div></button>`;
+    return `<button type="button" class="card${ui.mine === p.id ? ' sel' : ''}" data-id="${p.id}" style="--c:${c}"><span class="voice${VOICES[p.id] ? ' has' : ''}" data-voice="${p.id}">🎤${VOICES[p.id] ? '已配音' : '配音'}</span>${p.custom ? `<span class="edit" data-edit="${p.id}">改裝</span>` : ''}<img alt="" src="${fontsDone ? thumbOf(p) : ''}"><b>${p.name}</b><span class="ty"><em>${p.type}</em>・${p.dir > 0 ? '右旋' : '左旋'}・${p.code}</span><span class="mv">必殺：${p.moveName}</span><div class="stats">${statBars(p, c)}</div></button>`;
   }).join('') + (CUSTOM.length < 6 ? `<button type="button" class="card add" data-new="1"><b>＋</b><span>組裝自己的陀螺</span></button>` : '');
   $('#opp').innerHTML = [`<button type="button" data-o="rand" class="${ui.opp === 'rand' ? 'sel' : ''}">隨機</button>`].concat(TOPS.map((p, i) => `<button type="button" data-o="${i}" class="${String(ui.opp) === String(i) ? 'sel' : ''}">${p.name}</button>`)).join('');
   $('#rec').textContent = rec.w + rec.l ? `戰績 ${rec.w} 勝 ${rec.l} 敗` : '';
 }
 function savePrefs() { try { localStorage.setItem('tops-prefs', JSON.stringify(ui)); } catch (e) {} }
 $('#cards').addEventListener('click', (e) => {
+  const vc = e.target.closest('[data-voice]'); if (vc) { openVoice(vc.dataset.voice); return; }
   const ed = e.target.closest('[data-edit]'); if (ed) { openBuild(ed.dataset.edit); return; }
   if (e.target.closest('[data-new]')) { openBuild(null); return; }
   const b = e.target.closest('[data-id]'); if (!b) return; ui.mine = b.dataset.id; savePrefs(); renderHome();
@@ -1366,7 +1450,7 @@ $('#b-save').addEventListener('click', () => {
   else { const id = 'c' + Date.now().toString(36); CUSTOM.push(compose(B.sel, { id, name, moveName, custom: true })); ui.mine = id; }
   saveCustom(); savePrefs(); closeBuild();
 });
-$('#b-del').addEventListener('click', () => { CUSTOM = CUSTOM.filter((c) => c.id !== B.editId); if (ui.mine === B.editId) ui.mine = TOPS[0].id; saveCustom(); savePrefs(); closeBuild(); });
+$('#b-del').addEventListener('click', () => { delete VOICES[B.editId]; saveVoices(); CUSTOM = CUSTOM.filter((c) => c.id !== B.editId); if (ui.mine === B.editId) ui.mine = TOPS[0].id; saveCustom(); savePrefs(); closeBuild(); });
 $('#opp').addEventListener('click', (e) => { const b = e.target.closest('[data-o]'); if (!b) return; ui.opp = b.dataset.o; savePrefs(); renderHome(); });
 $('#btn-start').addEventListener('click', startMatch);
 $('#btn-again').addEventListener('click', startMatch);
