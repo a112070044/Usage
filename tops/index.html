@@ -1132,6 +1132,79 @@ function collide(a, b) {
 }
 
 // unleash a top's special move (the gauge must be full)
+// ---- the guardian spirit: a glowing dragon that bursts out of the top, coils up around it, then dives ----
+const SPIRITS = [];
+function summonSpirit(t, target, color, life) {
+  const n = 72, mx = Math.max(color[0], color[1], color[2]), c = new THREE.Color(Math.pow(color[0] / mx, 2.2), Math.pow(color[1] / mx, 2.2), Math.pow(color[2] / mx, 2.2));   // pure, saturated hue, so the glow stays coloured
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: true });
+  const body = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), mat, n); body.frustumCulled = false;
+  // a soft glow round the body (additive, faint, so overlaps don't burn to white)
+  const aura = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(.5), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }), Math.ceil(n / 3)); aura.frustumCulled = false;
+  const finMat = mat.clone(); finMat.color = c.clone().multiplyScalar(.45);
+  const fins = new THREE.InstancedMesh(new THREE.ConeGeometry(.5, 1.6, 4), finMat, Math.floor(n / 4)); fins.frustumCulled = false;
+  // the head: snout, jaw, swept-back horns and blazing eyes
+  const head = new THREE.Group();
+  const hm = mat.clone(); hm.color = c.clone().multiplyScalar(.9);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(.16, 14, 10), hm); skull.scale.set(1, .8, 1.3); head.add(skull);
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(.1, .32, 10), hm); snout.rotation.x = PI / 2; snout.position.z = .26; head.add(snout);
+  const jaw = new THREE.Mesh(new THREE.ConeGeometry(.07, .26, 8), hm); jaw.rotation.x = PI / 2 + .35; jaw.position.set(0, -.07, .2); head.add(jaw);
+  const hornMat = mat.clone(); hornMat.color = new THREE.Color(1, .92, .7);
+  for (const sx of [-1, 1]) {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(.035, .36, 6), hornMat); horn.position.set(sx * .09, .1, -.12); horn.rotation.set(-1.1, 0, sx * .35); head.add(horn);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(.028, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3, 2.4) })); eye.position.set(sx * .075, .045, .1); head.add(eye);
+    const whisk = new THREE.Mesh(new THREE.ConeGeometry(.012, .5, 4), hornMat); whisk.position.set(sx * .08, -.02, .2); whisk.rotation.set(1.9, 0, sx * .6); head.add(whisk);
+  }
+  const glow = new THREE.PointLight(c.clone().multiplyScalar(.5), 1.6, 3.5, 2); head.add(glow);
+  // a pillar of light where it rises from
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(.38, .55, 5, 24, 1, true), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  pillar.position.set(t.x, 2.5 + t.y, t.z);
+  scene.add(body, aura, fins, head, pillar);
+  M.cine = { top: t, t: life, life };   // the camera swings low to watch it rise
+  SPIRITS.push({ hue: c.clone(), aura, t, target, body, fins, head, pillar, n, age: 0, life, struck: false, color, seed: Math.random() * TAU, dir: t.p.dir });
+}
+const _scol = new THREE.Color(), _sm = new THREE.Matrix4(), _sq = new THREE.Quaternion(), _sv = new THREE.Vector3(), _ss = new THREE.Vector3(), _sp = [];
+function spiritPoint(S, i, out) {
+  // the body follows the head's path a little behind in time: a coil rising round the top, swaying as it goes
+  const a = clamp(S.age / S.life, 0, 1), lag = i * .026, u = Math.max(0, S.age - lag), rise = Math.min(1, u / .7);
+  const ang = S.seed + S.dir * -u * 3.1, rad = (.75 + .35 * Math.sin(u * 2.3 + S.seed)) * (1 - .3 * rise);
+  let x = S.t.x + Math.cos(ang) * rad, z = S.t.z + Math.sin(ang) * rad, y = S.t.y + .3 + rise * 1.7 + .3 * Math.sin(u * 3.7 + i * .2);
+  // the last stretch: it dives onto its target
+  const dive = clamp((u - S.life * .72) / (S.life * .25), 0, 1);
+  if (dive > 0) { const e = dive * dive; x = lerp(x, S.target.x, e); z = lerp(z, S.target.z, e); y = lerp(y, S.target.y + .2, e); }
+  out.set(x, y, z); return a;
+}
+function updateSpirits(raw) {
+  for (let k = SPIRITS.length - 1; k >= 0; k--) {
+    const S = SPIRITS[k]; S.age += raw;
+    const a = S.age / S.life, fade = Math.min(1, S.age / .25) * (a > .93 ? Math.max(0, (1 - a) / .07) : 1);
+    if (!_sp.length) for (let i = 0; i < 80; i++) _sp.push(new THREE.Vector3());
+    for (let i = 0; i < S.n; i++) spiritPoint(S, i, _sp[i]);
+    for (let i = 0; i < S.n; i++) {
+      const f = i / S.n, sc = (.12 * Math.pow(1 - f, .6) + .015) * (1 + .12 * Math.sin(i * .9));   // thick behind the head, tapering to the tail
+      _sm.compose(_sp[i], _sq.identity(), _ss.set(sc, sc, sc)); S.body.setMatrixAt(i, _sm);
+      S.body.setColorAt(i, _scol.copy(S.hue).multiplyScalar(1 - .6 * f).lerp(new THREE.Color(1, 1, 1), f < .08 ? .25 : 0));   // bright at the neck, dimmer to the tail
+    }
+    S.body.instanceMatrix.needsUpdate = true; if (S.body.instanceColor) S.body.instanceColor.needsUpdate = true;
+    for (let j = 0; j < S.aura.count; j++) { const i = j * 3, sc = (.12 * Math.pow(1 - i / S.n, .6) + .015) * 2.3; _sm.compose(_sp[i], _sq.identity(), _ss.set(sc, sc, sc)); S.aura.setMatrixAt(j, _sm); }
+    S.aura.instanceMatrix.needsUpdate = true; S.aura.material.opacity = .14 * fade;
+    for (let j = 0; j < S.fins.count; j++) {   // spines along the back
+      const i = 2 + j * 4, p0 = _sp[i], p1 = _sp[Math.min(S.n - 1, i + 1)], sc = .09 * (1 - i / S.n) + .02;
+      _sv.subVectors(p0, p1).normalize(); _sq.setFromUnitVectors(new THREE.Vector3(0, 1, 0), _sv.lerp(new THREE.Vector3(0, 1, 0), .5).normalize());
+      _sm.compose(_ss.set(p0.x, p0.y + sc * .6, p0.z), _sq, new THREE.Vector3(sc, sc, sc)); S.fins.setMatrixAt(j, _sm);
+    }
+    S.fins.instanceMatrix.needsUpdate = true;
+    S.head.position.copy(_sp[0]); _sv.subVectors(_sp[0], _sp[2]).add(_sp[0]); S.head.lookAt(_sv);
+    S.body.material.opacity = .95 * fade; S.fins.material.opacity = .6 * fade;
+    S.head.traverse((o) => { if (o.material && o.material.transparent) o.material.opacity = fade; });
+    S.pillar.material.opacity = Math.max(0, .55 * (1 - S.age / .9)); S.pillar.scale.set(1 + S.age, 1, 1 + S.age);
+    if (S.age > 0 && frameN % 5 === 0) sparks.burst(_sp[S.n - 1].x, _sp[S.n - 1].y, _sp[S.n - 1].z, 1, .2, [Math.min(1, S.color[0] / 2.6), Math.min(1, S.color[1] / 2.6), Math.min(1, S.color[2] / 2.6)]);
+    if (!S.struck && a > .96) {   // impact
+      S.struck = true; shockwave(S.target.x, S.target.z, 1.8, S.color, 6); shake = Math.max(shake, .3);
+      sparks.burst(S.target.x, S.target.y + .3, S.target.z, 50, 1.5, [Math.min(1, S.color[0] / 2.6), Math.min(1, S.color[1] / 2.6), Math.min(1, S.color[2] / 2.6)]); sfx.burst();
+    }
+    if (a >= 1) { scene.remove(S.body, S.aura, S.fins, S.head, S.pillar); SPIRITS.splice(k, 1); }
+  }
+}
 // the anime cut-in: a dark band streaks in, the name comes in huge from the right, its characters slam down one by
 // one in time with the shout (each one jolts the screen), it holds, then everything whips off to the left.
 // Returns how long it lasts (seconds) so the slow motion can cover it.
@@ -1142,7 +1215,7 @@ function cutIn(text, label, rgb, voiceDur) {
   const fs = Math.max(26, Math.min(innerWidth * .16, innerWidth * .92 / Math.max(1, n * .98)));
   root.innerHTML = `<div class="ci-band"></div><div class="ci-lines"></div><div class="ci-text"><small>${label}</small><div class="ci-name" style="font-size:${fs}px">${chars.map((ch) => `<span>${ch === ' ' ? '&nbsp;' : ch}</span>`).join('')}</div></div>`;
   $('#fx-layer').appendChild(root);
-  const spread = clamp(voiceDur * .85, .35, 2.2) * 1000, step = spread / Math.max(1, n), enter = 160, hold = 520, exit = 240;
+  const spread = clamp(voiceDur * .9, .8, 2.4) * 1000, step = spread / Math.max(1, n), enter = 260, hold = 1100, exit = 360;
   const total = enter + spread + hold + exit;
   if (!root.animate) { setTimeout(() => root.remove(), total); return total / 1000; }
   const ez = 'cubic-bezier(.2,.9,.25,1)';
@@ -1150,7 +1223,7 @@ function cutIn(text, label, rgb, voiceDur) {
   root.querySelector('.ci-text').animate([{ transform: 'translateX(70%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: enter + 60, easing: ez, fill: 'forwards' });
   root.querySelectorAll('.ci-name span').forEach((el, i) => {
     el.animate([{ transform: 'scale(3.2) translateX(40%)', opacity: 0, filter: 'blur(10px)' }, { transform: 'scale(.92)', opacity: 1, filter: 'blur(0)', offset: .75 }, { transform: 'scale(1)', opacity: 1, filter: 'blur(0)' }],
-      { duration: 170, delay: enter * .6 + i * step, easing: 'cubic-bezier(.3,1.5,.5,1)', fill: 'both' });
+      { duration: 240, delay: enter * .6 + i * step, easing: 'cubic-bezier(.3,1.5,.5,1)', fill: 'both' });
     setTimeout(() => { shake = Math.max(shake, .12); if (frameN % 2 === 0) sfx.clash(.25); }, enter * .6 + i * step + 120);
   });
   setTimeout(() => root.animate([{ transform: 'translateX(0)', opacity: 1 }, { transform: 'translateX(-130%)', opacity: 0 }], { duration: exit, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' }), enter + spread + hold);
@@ -1185,7 +1258,9 @@ function useMove(t) {
     const rgb = c.map((v) => Math.round(Math.min(255, v * 98))).join(',');
     let dur = t.side === 0 ? playVoice(t.p.id) : 0;
     if (!dur) { shoutMove(t.p.moveName); dur = .25 + t.p.moveName.length * .15; }
-    slowmo(cutIn(t.p.moveName, t.side === 0 ? '必殺技' : `${t.p.name} 的必殺技`, rgb, dur) + .2);
+    const len = cutIn(t.p.moveName, t.side === 0 ? '必殺技' : `${t.p.name} 的必殺技`, rgb, dur);
+    slowmo(len + .3); M.slowDeep = len;
+    summonSpirit(t, mv === 'rush' ? foe : t, c, len + .6);
     const f = $('#flash'); f.style.background = `radial-gradient(circle, rgba(${c.map((v) => Math.round(Math.min(255, v * 98))).join(',')},.55), transparent 70%)`; f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
     sfx.burst();
   }
@@ -1335,6 +1410,7 @@ function startMatch() {
   startRound();
 }
 function startRound() {
+  M.cine = null;
   unlockVoice();
   M.round++; M.phase = 'ready'; M.t = 0; M.goAt = 3.4; M.grip = null; M.rip = null; M.hand = []; M.handV = null; M.released = false; M.power = 0; M.aim = 0; M.relT = null; M.endT = 0;
   M.cd = false; M.waitT = 0; M.heldAtRip = true;
@@ -1654,7 +1730,7 @@ const camPos = new THREE.Vector3(0, 8, 4.6), camLook = new THREE.Vector3(0, -.15
 function loop(now) {
   requestAnimationFrame(loop);
   const raw = Math.min(1 / 30, (now - last) / 1000); last = now; frameN++;
-  if (M.slowT > 0) { M.slowT -= raw; M.timeScale = lerp(M.timeScale, .22, .3); } else M.timeScale = lerp(M.timeScale, 1, .12);
+  if (M.slowT > 0) { M.slowT -= raw; M.timeScale = lerp(M.timeScale, M.slowDeep > 0 ? .12 : .22, .3); M.slowDeep = (M.slowDeep || 0) - raw; } else M.timeScale = lerp(M.timeScale, 1, .12);
   const dt = raw * M.timeScale;
   M.t += raw;
 
@@ -1718,7 +1794,8 @@ function loop(now) {
     if (t.state === 'ready') { t.m.root.position.set(t.x, t.y, t.z); t.m.tilt.quaternion.identity(); t.m.spin.rotation.y = t.vis; t.m.blur.material.opacity = 0; }
     else drawTop(t, dt);
   }
-  sparks.update(dt); updateFx(raw);
+  sparks.update(dt); updateFx(raw); updateSpirits(raw);
+  if (M.cine) { M.cine.t -= raw; if (M.cine.t <= 0 || M.phase !== 'battle') M.cine = null; }
   for (const m of RAIL_GLOW) m.emissiveIntensity = lerp(m.emissiveIntensity, tops.some((t) => t.rail) ? 1.6 : .8, .15);
   tops.forEach((t, i) => updateLauncher(t, raw, i === 0 ? (!!M.grip || !TOUCH || t.lc && t.lc.k > 0) : true, 0));
   // labels pinned to the launcher and its cord handle
@@ -1738,7 +1815,7 @@ function loop(now) {
   if (M.phase === 'battle') {
     M.battleT += dt;
     const [a, b] = tops, da = !a.alive, db = !b.alive;
-    if (da || db) {
+    if ((da || db) && !M.cine) {   // (let a special move's show finish first)
       if (da && db) endRound(-1, 'draw');
       else { const loser = da ? a : b, winner = da ? 1 : 0; endRound(winner, loser.state === 'fallen' ? 'spin' : loser.state); }
     }
@@ -1770,6 +1847,11 @@ function loop(now) {
   if (inMatch && M.phase === 'ready' && me.state === 'ready') {
     const r = Math.hypot(me.x, me.z) || 1, ux = me.x / r, uz = me.z / r;
     _camT.set(me.x + ux * 3, 4.3, me.z + uz * 3); _lookT.set(me.x * .1, .1, me.z * .1); fov = 56; ease = 5;
+  } else if (inMatch && M.cine && M.cine.t > 0 && M.cine.top.state !== 'burst') {
+    // a special move: a low, close shot circling slowly round the top so the spirit can be seen rising
+    const C = M.cine, k = 1 - C.t / C.life, tp = C.top, base = Math.atan2(START[0][0], START[0][1]) + camAng + .5 - k * .9;
+    _lookT.set(tp.x * .7, tp.y + .9, tp.z * .7);
+    _camT.set(_lookT.x + Math.sin(base) * 4.6, tp.y + 1.9, _lookT.z + Math.cos(base) * 4.6); fov = 50; ease = 3.2;
   } else if (inMatch) {
     const r = Math.hypot(START[0][0], START[0][1]), base = Math.atan2(START[0][0] / r, START[0][1] / r), a = base + camAng;
     // nearly straight down by default, like filming from above; the player can tilt, turn and zoom, or follow their top
