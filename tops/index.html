@@ -1543,24 +1543,36 @@ function buildShark(M) {
   // one smooth torpedo body, rebuilt every frame so the whole back half sweeps from side to side as it swims
   const G = new THREE.Group(), front = new THREE.Group(); G.add(front);
   const body = new SoftTube(40, 20, M.skin); G.add(body.mesh);
-  front.add(dEll(.08, .028, .085, 0, -.06, .37, M.mouth));   // the throat, seen when the jaws open
-  // jagged, uneven triangular teeth in rows along pink gums; the inner rows smaller, raked back
-  const fang = (par, x, y, z, up, sz, rake) => { const t = dCone(.022 * sz, .1 * sz, M.tooth, x, y, z, V3(0, up, rake)); t.scale.z = .4; t.geometry = t.geometry; par.add(t); return t; };
-  const gumArc = (par, r, y, z, w) => { const g = new THREE.Mesh(new THREE.TorusGeometry(r, w, 6, 24, PI * .82), M.gum); g.rotation.set(PI / 2, 0, PI * .09 - PI / 2 + PI * .5); g.position.set(0, y, z); par.add(g); };
-  gumArc(front, .072, -.05, .33, .013);
-  for (let row = 0; row < 2; row++) for (let k = 0; k < 15; k++) {
-    const a = (k / 14 - .5) * 2.5, r = .074 - row * .014, sz = (1 - row * .3) * (.75 + .5 * Math.random()) * (1 - Math.abs(a) * .18);
-    fang(front, Math.sin(a) * r, -.055, .33 + Math.cos(a) * (.068 - row * .012), -1, sz * 1.15, .25 + row * .35);
-  }
-  const jaw = new THREE.Group(); jaw.position.set(0, -.07, .3); jaw.scale.setScalar(1.3); front.add(jaw);
-  jaw.add(dEll(.08, .03, .12, 0, -.014, .07, M.skin), dEll(.066, .012, .1, 0, .006, .06, M.gum));   // the jaw, and the raw pink floor of the mouth
-  gumArc(jaw, .064, .0, .04, .012);
-  for (let row = 0; row < 2; row++) for (let k = 0; k < 13; k++) {
-    const a = (k / 12 - .5) * 2.4, r = .066 - row * .013, sz = (1 - row * .3) * (.75 + .5 * Math.random()) * (1 - Math.abs(a) * .15);
-    fang(jaw, Math.sin(a) * r, .006, .04 + Math.cos(a) * (.068 - row * .012), 1, sz, .2 + row * .35);
-  }
+  // the mouth, built like a real shark's: the jaws run back to corners under the eyes, so the opening is nearly as wide
+  // as the head. Each jaw is a U of big triangular teeth on a raw red gum line; inside is a dark cavity.
+  const zf = (z) => (.62 - z) / 1.5, CZ = .17, arcN = 23;
+  const arc = (dy, inset) => Array.from({ length: arcN }, (_, i) => { const a = (i / (arcN - 1)) * 2 - 1, c = Math.cos(a * PI / 2), z = CZ + .25 * c * (1 - inset * .5);
+    return V3(.13 * (1 - inset) * Math.sin(a * PI / 2), sharkBot(zf(z)) + dy, z - inset * .03); });
+  const fan = (pts, cy, cz, mat) => {   // fill a U with a surface (palate or floor of the mouth)
+    const p = [], c = V3(0, cy, cz); for (let i = 0; i < pts.length - 1; i++) p.push(c, pts[i], pts[i + 1]);
+    const g = new THREE.BufferGeometry().setFromPoints(p); g.computeVertexNormals(); return new THREE.Mesh(g, mat);
+  };
+  const tooth = (par, p, up, sz, inward) => {
+    const t = dCone(.026 * sz, .1 * sz, M.tooth, p.x, p.y, p.z, V3(-p.x * 2.2 * inward, up, (.3 - p.z) * 1.6 * inward)); t.scale.z = .45; par.add(t);
+  };
+  const gumLine = (par, pts) => par.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, .016, 6), M.gum));
+  // upper jaw: gum, two rows of teeth pointing down and in, the palate above
+  const up1 = arc(.012, 0), up2 = arc(.006, .14);
+  gumLine(front, up1); front.add(fan(up1, sharkBot(zf(.3)) + .05, .27, M.mouth));
+  up1.forEach((p, i) => { const a = Math.abs(i / (arcN - 1) * 2 - 1); if (i % 1 === 0) tooth(front, p, -1, (1.05 - .45 * a) * (.85 + .3 * Math.random()), 1); });
+  up2.forEach((p, i) => { if (i % 2) tooth(front, p, -1, .55 + .2 * Math.random(), 1.6); });
+  // lower jaw: hinged at the corners, a full chin underneath so it reads as solid when shut
+  const pivY = sharkBot(zf(CZ)), jaw = new THREE.Group(); jaw.position.set(0, pivY, CZ); front.add(jaw);
+  const lo1 = arc(-.008, 0).map((p) => p.sub(jaw.position)), lo2 = arc(-.004, .14).map((p) => p.sub(jaw.position));
+  const chinG = new THREE.SphereGeometry(1, 24, 10, 0, TAU, PI / 2, PI / 2), chin = new THREE.Mesh(chinG, M.skin);
+  chin.scale.set(.135, .075, .15); chin.position.set(0, lo1[(arcN - 1) / 2].y * .5 - .006, .12); jaw.add(chin);
+  gumLine(jaw, lo1); jaw.add(fan(lo1, -.03, .1, M.gum));
+  lo1.forEach((p, i) => { const a = Math.abs(i / (arcN - 1) * 2 - 1); if (i % 2 === 0) tooth(jaw, p, 1, (.95 - .35 * a) * (.85 + .3 * Math.random()), 1); });
+  lo2.forEach((p, i) => { if (i % 2) tooth(jaw, p, 1, .5 + .2 * Math.random(), 1.6); });
+  // the back of the throat, stretched as the jaw drops
+  const throat = new THREE.Mesh(new THREE.PlaneGeometry(.27, 1), M.mouth); throat.position.set(0, pivY, CZ + .02); front.add(throat);
   for (const sx of [-1, 1]) {
-    front.add(dEll(.016, .016, .012, sx * .088, .025, .4, M.eye));
+    front.add(dEll(.016, .016, .012, sx * .099, .03, .4, M.eye));
     for (let k = 0; k < 5; k++) { const g = new THREE.Mesh(new THREE.BoxGeometry(.008, .09, .014), M.dark); g.position.set(sx * .158, -.015, .25 - k * .032); g.rotation.set(0, sx * .1, sx * .12); front.add(g); }
     const pec = dFin([[0, 0], [-.12, -.02], [-.32, -.22], [-.2, -.06]], M.skin); pec.position.set(sx * .13, -.1, .2); pec.rotation.set(0, 0, sx * -1.15); front.add(pec);
   }
@@ -1571,9 +1583,12 @@ function buildShark(M) {
     { m: dFin([[.06, 0], [-.12, .1], [-.36, .5], [-.1, .02], [-.26, -.32], [-.02, -.04]], M.skin, .022), s: 1, up: 0 },
   ];
   fins.forEach((f) => G.add(f.m));
-  return { G, front, body, fins, jaw, pts: Array.from({ length: 40 }, () => V3()) };
+  return { G, front, body, fins, jaw, throat, pivY, pts: Array.from({ length: 40 }, () => V3()) };
 }
-const SHARK_RX = [.02, .085, .135, .16, .15, .12, .085, .055, .035, .025], SHARK_RY = [.02, .055, .11, .18, .165, .13, .09, .06, .04, .035];
+const SHARK_RX = [.02, .085, .135, .16, .15, .12, .085, .055, .035, .025], SHARK_RY = [.02, .075, .13, .18, .165, .13, .09, .06, .04, .035];
+// the head's underside is hollowed into the mouth: the front of the tube is made shallower but keeps its top line
+const SHARK_W = (f) => Math.max(0, 1 - f / .36), sharkRY = (f) => lerpArr(SHARK_RY, f) * (1 - .45 * SHARK_W(f));
+const sharkDY = (f) => lerpArr(SHARK_RY, f) - sharkRY(f), sharkBot = (f) => sharkDY(f) - sharkRY(f);
 function summonBeast(t, target, color, life, kind) {
   if (kind === 'shark') life += 1.4;   // it needs time to rise and loom
   const mx = Math.max(color[0], color[1], color[2]), hue = new THREE.Color(Math.pow(color[0] / mx, 2.2), Math.pow(color[1] / mx, 2.2), Math.pow(color[2] / mx, 2.2));
@@ -1757,8 +1772,8 @@ function updateBeast(S, raw) {
     const cl = sharkClimax(S, u); if (cl) _bp.copy(S.root.position);
     S.ph += raw * (S.phase === 2 ? 9 : 5 + speed * .8); const amp = !cl ? 1 : S.phase === 0 ? 1.3 : S.phase === 2 ? .55 : .3;
     const n = R.pts.length;
-    for (let i = 0; i < n; i++) { const f = i / (n - 1); R.pts[i].set(amp * .13 * Math.sin(S.ph - f * 4) * Math.pow(f, 1.8) - .02 * Math.sin(S.ph) , .01 * f + (f < .3 ? .028 * (1 - f / .3) : 0), .62 - f * 1.5); }
-    R.body.set(R.pts, (t) => [lerpArr(SHARK_RX, t), lerpArr(SHARK_RY, t)]);
+    for (let i = 0; i < n; i++) { const f = i / (n - 1); R.pts[i].set(amp * .13 * Math.sin(S.ph - f * 4) * Math.pow(f, 1.8) - .02 * Math.sin(S.ph) , sharkDY(f), .62 - f * 1.5); }
+    R.body.set(R.pts, (t) => [lerpArr(SHARK_RX, t), sharkRY(t)]);
     R.front.position.x = R.pts[0].x;
     for (const f of R.fins) {
       const i = clamp(Math.round(f.s * (n - 1)), 1, n - 2), p = R.pts[f.s === 1 ? n - 1 : i], o = R.pts[i - 1], q = R.pts[i + 1];
@@ -1768,8 +1783,8 @@ function updateBeast(S, raw) {
     const flood = clamp(u / .6, 0, 1) * (a > .97 ? Math.max(0, (1 - a) / .03) : 1), sea = S.sea.material.uniforms;
     S.sea.position.y = lerp(-.05, S.SL, flood * flood * (3 - 2 * flood)); sea.uOp.value = flood; sea.uT.value = u; sea.uWake.value.set(_bp.x, _bp.z);
     const k = cl ? 1 : 0, L = S.life, gape = !cl ? 0 : S.phase === 1 ? clamp((u - L * .52) / (L * .1), 0, 1) : S.phase === 2 ? 1 : S.phase === 3 ? clamp(1 - (u - L * .9) / (L * .05), 0, 1) : 0;
-    R.jaw.rotation.x = .06 + 1.7 * gape + .06 * Math.sin(u * 40) * gape * (S.phase === 2 ? 1 : 0);   // jaws gape, trembling, then snap shut
-    const mi = R.front.children[0]; mi.scale.set(.07, .03 + gape * .11, .05); mi.position.set(0, -.06 - gape * .085, .27);
+    const ja = .02 + 1.15 * gape + .05 * Math.sin(u * 40) * gape * (S.phase === 2 ? 1 : 0);   // jaws gape, trembling, then snap shut
+    R.jaw.rotation.x = ja; const gap = Math.max(.001, Math.sin(ja) * .26); R.throat.scale.y = gap; R.throat.position.y = R.pivY - gap / 2 + .02;
     const under = _bp.y < S.sea.position.y;
     if (!cl && frameN % 2 === 0) { const f = R.fins[0].m, fw = f.getWorldPosition(_br); sparks.burst(fw.x, S.sea.position.y + .02, fw.z, 1, .25, [.8, .95, 1]); }   // foam off the fin
     if (S.wasUnder && !under && k > 0) {   // breach
