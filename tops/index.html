@@ -68,6 +68,18 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .banner.move small { color: var(--mc); letter-spacing: .4em; font-size: .36em; text-shadow: 0 0 10px var(--mc); }
 .banner.move.foe { top: 26%; font-size: clamp(24px, 8vw, 42px); }
 @keyframes moveIn { from { transform: translate(-30%, -50%) skewX(-8deg) scale(1.3); opacity: 0; letter-spacing: .4em; } to { transform: translate(-50%, -50%) skewX(-8deg) scale(1); opacity: 1; } }
+.cutin { position: absolute; left: 0; right: 0; top: 24%; height: 30vh; min-height: 170px; pointer-events: none; z-index: 6; overflow: visible; }
+.ci-band { position: absolute; inset: 12% -10%; transform: skewY(-7deg);
+  background: linear-gradient(90deg, rgba(0, 0, 0, .1), rgba(6, 7, 12, .92) 18%, rgba(6, 7, 12, .92) 82%, rgba(0, 0, 0, .1)), var(--mc);
+  border-top: 3px solid var(--mc); border-bottom: 3px solid var(--mc); box-shadow: 0 0 40px var(--mc), inset 0 0 60px rgba(0, 0, 0, .6); }
+.ci-lines { position: absolute; inset: 12% -10%; transform: skewY(-7deg); opacity: .35; mix-blend-mode: screen;
+  background: repeating-linear-gradient(90deg, transparent 0 22px, rgba(255, 255, 255, .5) 22px 24px, transparent 24px 60px); animation: ciLines .25s linear infinite; }
+@keyframes ciLines { to { background-position: -60px 0; } }
+.ci-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: skewX(-10deg); }
+.ci-text small { font-size: 13px; font-weight: 900; letter-spacing: .5em; color: var(--mc); text-shadow: 0 0 10px var(--mc); margin-bottom: 2px; }
+.ci-name { display: flex; font-weight: 900; line-height: 1.05; white-space: nowrap; color: #fff;
+  text-shadow: 0 0 6px var(--mc), 0 0 20px var(--mc), 0 0 46px var(--mc), 4px 5px 0 rgba(0, 0, 0, .75); }
+.ci-name span { display: inline-block; opacity: 0; }
 .spbar { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .08); overflow: hidden; margin-top: 3px; }
 .spbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffd24a, #ff6a3a); border-radius: 2px; }
 .spbar i.full { background: linear-gradient(90deg, #fff4b0, #ffd24a); box-shadow: 0 0 8px #ffd24a; }
@@ -826,9 +838,32 @@ if (VOICE.ok) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 let VOICES = {};
 try { VOICES = JSON.parse(localStorage.getItem('tops-voice') || '{}') || {}; } catch (e) { VOICES = {}; }
 function saveVoices() { try { localStorage.setItem('tops-voice', JSON.stringify(VOICES)); return true; } catch (e) { return false; } }
+// recordings are decoded ahead of time (when a match starts) with the silence before the shout trimmed off, so the
+// voice starts the instant the move fires and the cut-in can be timed to it
+const VBUF = {};
+function prepVoice(id) {
+  if (!AU.ctx || !VOICES[id] || (VBUF[id] && VBUF[id].src === VOICES[id])) return;
+  const src = VOICES[id];
+  fetch(src).then((r) => r.arrayBuffer()).then((ab) => new Promise((ok, no) => AU.ctx.decodeAudioData(ab, ok, no))).then((buf) => {
+    const ch = buf.getChannelData(0), n = ch.length, sr = buf.sampleRate;
+    let peak = 0; for (let i = 0; i < n; i += 4) peak = Math.max(peak, Math.abs(ch[i]));
+    const th = Math.max(.02, peak * .12); let a = 0, b = n - 1;
+    while (a < n && Math.abs(ch[a]) < th) a++;
+    while (b > a && Math.abs(ch[b]) < th) b--;
+    const off = Math.max(0, a / sr - .03), end = Math.min(buf.duration, b / sr + .12);
+    VBUF[id] = { src, buf, off, dur: Math.max(.25, end - off) };
+  }).catch(() => {});
+}
+// play the player's recording; returns how long the shout lasts, or 0 if there is none
 function playVoice(id) {
-  if (AU.muted || !VOICES[id]) return false;
-  try { speechSynthesis && speechSynthesis.cancel(); const a = new Audio(VOICES[id]); a.volume = 1; a.play().catch(() => {}); return true; } catch (e) { return false; }
+  if (AU.muted || !VOICES[id]) return 0;
+  try { speechSynthesis && speechSynthesis.cancel(); } catch (e) {}
+  const v = VBUF[id];
+  if (v && v.src === VOICES[id] && AU.ctx) {
+    const s = AU.ctx.createBufferSource(), g = AU.ctx.createGain(); g.gain.value = 1.4;
+    s.buffer = v.buf; s.connect(g); g.connect(AU.ctx.destination); s.start(0, v.off, v.dur); return v.dur;
+  }
+  try { const a = new Audio(VOICES[id]); a.play().catch(() => {}); prepVoice(id); return 1; } catch (e) { return 0; }
 }
 const VD = { id: null, rec: null, stream: null, timer: 0 };
 function openVoice(id) {
@@ -842,7 +877,7 @@ function keepVoice(blob) {
   if (blob.size > 400000) { $('#vd-msg').textContent = '這段聲音太長了，請錄短一點（幾秒就好）。'; return; }
   const r = new FileReader();
   r.onload = () => {
-    VOICES[VD.id] = r.result;
+    VOICES[VD.id] = r.result; prepVoice(VD.id);
     if (!saveVoices()) { delete VOICES[VD.id]; $('#vd-msg').textContent = '手機空間不夠存這段聲音，試著錄短一點。'; }
     else { $('#vd-msg').textContent = '配音存好了！按試聽聽聽看。'; }
     syncVoiceUI(); renderHome();
@@ -1097,6 +1132,31 @@ function collide(a, b) {
 }
 
 // unleash a top's special move (the gauge must be full)
+// the anime cut-in: a dark band streaks in, the name comes in huge from the right, its characters slam down one by
+// one in time with the shout (each one jolts the screen), it holds, then everything whips off to the left.
+// Returns how long it lasts (seconds) so the slow motion can cover it.
+function cutIn(text, label, rgb, voiceDur) {
+  document.querySelectorAll('.cutin').forEach((e) => e.remove());
+  const chars = [...text], n = chars.length, root = document.createElement('div');
+  root.className = 'cutin'; root.style.setProperty('--mc', `rgb(${rgb})`);
+  const fs = Math.max(26, Math.min(innerWidth * .16, innerWidth * .92 / Math.max(1, n * .98)));
+  root.innerHTML = `<div class="ci-band"></div><div class="ci-lines"></div><div class="ci-text"><small>${label}</small><div class="ci-name" style="font-size:${fs}px">${chars.map((ch) => `<span>${ch === ' ' ? '&nbsp;' : ch}</span>`).join('')}</div></div>`;
+  $('#fx-layer').appendChild(root);
+  const spread = clamp(voiceDur * .85, .35, 2.2) * 1000, step = spread / Math.max(1, n), enter = 160, hold = 520, exit = 240;
+  const total = enter + spread + hold + exit;
+  if (!root.animate) { setTimeout(() => root.remove(), total); return total / 1000; }
+  const ez = 'cubic-bezier(.2,.9,.25,1)';
+  root.querySelector('.ci-band').animate([{ transform: 'translateX(105%) skewY(-7deg)' }, { transform: 'translateX(0) skewY(-7deg)' }], { duration: enter, easing: ez, fill: 'forwards' });
+  root.querySelector('.ci-text').animate([{ transform: 'translateX(70%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: enter + 60, easing: ez, fill: 'forwards' });
+  root.querySelectorAll('.ci-name span').forEach((el, i) => {
+    el.animate([{ transform: 'scale(3.2) translateX(40%)', opacity: 0, filter: 'blur(10px)' }, { transform: 'scale(.92)', opacity: 1, filter: 'blur(0)', offset: .75 }, { transform: 'scale(1)', opacity: 1, filter: 'blur(0)' }],
+      { duration: 170, delay: enter * .6 + i * step, easing: 'cubic-bezier(.3,1.5,.5,1)', fill: 'both' });
+    setTimeout(() => { shake = Math.max(shake, .12); if (frameN % 2 === 0) sfx.clash(.25); }, enter * .6 + i * step + 120);
+  });
+  setTimeout(() => root.animate([{ transform: 'translateX(0)', opacity: 1 }, { transform: 'translateX(-130%)', opacity: 0 }], { duration: exit, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' }), enter + spread + hold);
+  setTimeout(() => root.remove(), total + 40);
+  return total / 1000;
+}
 function useMove(t) {
   const foe = tops.find((o) => o !== t);
   if (!t.alive || !t.landed || (t.sp || 0) < 1 || !foe) return false;
@@ -1118,14 +1178,16 @@ function useMove(t) {
   }
   // the show: slow motion, the name in lights, a shout, a burst of the move's colour
   const c = M2.color;
-  slowmo(1.1); shake = Math.max(shake, .25);
+  shake = Math.max(shake, .25);
   shockwave(t.x, t.z, mv === 'storm' ? 2.4 : 1.6, c, 6); shockwave(t.x, t.z, .9, [2.6, 2.6, 2.6], 0);
   sparks.burst(t.x, t.y + .3, t.z, 60, 1.4, [Math.min(1, c[0] / 2.6), Math.min(1, c[1] / 2.6), Math.min(1, c[2] / 2.6)]);
   if (!M.demo) {
-    const el = banner(`<small>${t.side === 0 ? '必殺技' : `${t.p.name} 的必殺技`}</small>${t.p.moveName}`, 'move' + (t.side === 0 ? '' : ' foe'), 1600);
-    el.style.setProperty('--mc', `rgb(${c.map((v) => Math.round(Math.min(255, v * 98))).join(',')})`);
+    const rgb = c.map((v) => Math.round(Math.min(255, v * 98))).join(',');
+    let dur = t.side === 0 ? playVoice(t.p.id) : 0;
+    if (!dur) { shoutMove(t.p.moveName); dur = .25 + t.p.moveName.length * .15; }
+    slowmo(cutIn(t.p.moveName, t.side === 0 ? '必殺技' : `${t.p.name} 的必殺技`, rgb, dur) + .2);
     const f = $('#flash'); f.style.background = `radial-gradient(circle, rgba(${c.map((v) => Math.round(Math.min(255, v * 98))).join(',')},.55), transparent 70%)`; f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
-    if (!playVoice(t.p.id)) shoutMove(t.p.moveName); sfx.burst();
+    sfx.burst();
   }
   return true;
 }
@@ -1263,7 +1325,7 @@ function renderHud() {
   $('#round-lbl').textContent = `R${M.round}`;
 }
 function startMatch() {
-  initAudio(); unlockVoice();
+  initAudio(); unlockVoice(); prepVoice(ui.mine);
   const opp = ui.opp === 'rand' ? Math.floor(Math.random() * TOPS.length) : +ui.opp;
   setTops(topById(ui.mine), opp);
   M.demo = false; M.pts = [0, 0]; M.round = 0;
