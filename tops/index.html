@@ -161,7 +161,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .bprev { width: min(560px, 100%); display: grid; grid-template-columns: 42% minmax(0, 1fr); gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
 .bprev img { width: 100%; aspect-ratio: 1; object-fit: contain; }
 .binfo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-#b-move { width: 100%; font: inherit; font-weight: 700; font-size: 13px; color: #ffd24a; background: rgba(255, 210, 74, .06); border: 1px solid rgba(255, 210, 74, .3); border-radius: 8px; padding: 5px 8px; }
+#b-move { width: 100%; font: inherit; font-weight: 700; font-size: 16px; color: #ffd24a; background: rgba(255, 210, 74, .06); border: 1px solid rgba(255, 210, 74, .3); border-radius: 8px; padding: 5px 8px; }
 .bmove { font-size: 11.5px; color: var(--muted); }
 #b-name { width: 100%; font: inherit; font-weight: 900; font-size: 17px; color: var(--fg); background: rgba(255, 255, 255, .06); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
 .bcode { font-family: var(--f-num); font-size: 15px; color: var(--cyan); letter-spacing: .06em; }
@@ -238,8 +238,8 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <div class="bprev">
       <img id="b-img" alt="">
       <div class="binfo">
-        <input id="b-name" maxlength="8" placeholder="幫它取名字" autocomplete="off">
-        <input id="b-move" maxlength="12" placeholder="必殺技名稱（自己想！）" autocomplete="off">
+        <input id="b-name" maxlength="8" placeholder="幫它取名字" autocomplete="off" enterkeyhint="done">
+        <input id="b-move" maxlength="12" placeholder="必殺技名稱（自己想！）" autocomplete="off" enterkeyhint="done">
         <div class="bcode" id="b-code"></div>
         <div class="btype" id="b-type"></div>
         <div class="bmove" id="b-movedesc"></div>
@@ -1351,6 +1351,13 @@ function renderBuild(focus) {
 $('#b-parts').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (!b) return; B.sel[b.dataset.k] = b.dataset.v; const sc = [...$('#b-parts').querySelectorAll('.chips')].map((el) => el.scrollLeft); renderBuild(b.dataset.k); $('#b-parts').querySelectorAll('.chips').forEach((el, i) => { el.scrollLeft = sc[i]; }); });
 $('#b-name').addEventListener('input', (e) => { B.name = e.target.value.slice(0, 8); });
 $('#b-move').addEventListener('input', (e) => { B.move = e.target.value.slice(0, 12); });
+// phones: the keyboard pushes the page up and doesn't always put it back; Enter closes the keyboard, and on leaving
+// the field the page is put back where it was
+for (const id of ['#b-name', '#b-move']) {
+  const el = $(id);
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+  el.addEventListener('blur', () => { setTimeout(() => { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; $('#app').scrollTop = 0; resize(); }, 60); });
+}
 function closeBuild() { $('#scr-build').hidden = true; $('#scr-home').hidden = false; renderHome(); }
 $('#b-cancel').addEventListener('click', closeBuild);
 $('#b-save').addEventListener('click', () => {
