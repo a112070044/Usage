@@ -124,6 +124,34 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .howto { width: min(560px, 100%); font-size: 13.5px; line-height: 1.65; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
 .howto b { color: var(--fg); }
 .result { justify-content: center; }
+.sec h2 small { font-size: 11px; letter-spacing: .05em; color: var(--muted); font-weight: 500; margin-left: 6px; }
+.card .ty { overflow-wrap: anywhere; }
+.card .edit { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid var(--line); color: var(--fg); }
+.card.add { align-items: center; justify-content: center; min-height: 180px; border-style: dashed; color: var(--muted); text-align: center; }
+.card.add b { font-size: 42px; line-height: 1; color: var(--cyan); }
+.card.add span { font-size: 13px; font-weight: 700; }
+/* workshop */
+.build { gap: 12px; }
+.bhead { width: min(560px, 100%); display: flex; align-items: center; gap: 10px; }
+.bhead h2 { margin: 0; font-size: 20px; letter-spacing: .15em; }
+.back { height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font-weight: 700; }
+.bprev { width: min(560px, 100%); display: grid; grid-template-columns: 42% minmax(0, 1fr); gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+.bprev img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+.binfo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+#b-name { width: 100%; font: inherit; font-weight: 900; font-size: 17px; color: var(--fg); background: rgba(255, 255, 255, .06); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.bcode { font-family: var(--f-num); font-size: 15px; color: var(--cyan); letter-spacing: .06em; }
+.btype { font-size: 12px; color: var(--muted); }
+.btype em { font-style: normal; font-weight: 700; }
+.bdesc { width: min(560px, 100%); font-size: 13px; color: var(--fg); background: rgba(72, 214, 255, .08); border: 1px solid rgba(72, 214, 255, .25); border-radius: 10px; padding: 8px 12px; min-height: 20px; }
+#b-parts { width: min(560px, 100%); display: flex; flex-direction: column; gap: 10px; }
+.prow { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.plabel { font-weight: 900; font-size: 14px; margin-bottom: 6px; }
+.plabel small { display: block; font-weight: 500; font-size: 11px; color: var(--muted); margin-top: 1px; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; touch-action: pan-x; scrollbar-width: none; }
+.chip { flex: none; display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255, 255, 255, .04); color: var(--fg); font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+.chip small { font-size: 10.5px; color: var(--muted); font-weight: 500; }
+.chip .sw { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255, 255, 255, .4); }
+.chip.on { border-color: var(--cyan); background: rgba(72, 214, 255, .16); box-shadow: 0 0 12px rgba(72, 214, 255, .35); }
 .result .big { font-size: clamp(44px, 14vw, 76px); font-weight: 900; letter-spacing: .1em; }
 .result .score { font-family: var(--f-num); font-size: 40px; font-weight: 700; color: var(--gold); }
 .result p { margin: 0; color: var(--muted); text-align: center; max-width: 34ch; line-height: 1.6; }
@@ -158,7 +186,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
   <div class="screen" id="scr-home">
     <div class="logo"><h1>陀螺鬥場</h1><p>SPIN · CLASH · BURST</p></div>
-    <div class="sec"><h2>選你的陀螺</h2><div class="cards" id="cards"></div></div>
+    <div class="sec"><h2>選你的陀螺 <small>也可以用零件組自己的</small></h2><div class="cards" id="cards"></div></div>
     <div class="sec"><h2>對手</h2><div class="opp" id="opp"></div></div>
     <button type="button" class="cta" id="btn-start">開始對戰</button>
     <div class="howto">
@@ -166,9 +194,27 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
       <b>發射手法</b>：拉線時手拿著發射器不動＝直立發射，陀螺會落在原地慢慢滑到中央（適合持久、防禦）；拉線的同時把發射器往旁邊一甩＝滑動發射，陀螺斜斜落地、在場上畫出花瓣般的衝刺路線（適合攻擊）。<br>
       <b>得分</b>：對手先停轉＝旋轉終結 1 分；撞進場邊的缺口＝場外終結 2 分；撞到散開＝爆裂終結 2 分。先拿 3 分獲勝。<br>
       <b>相剋</b>：攻擊剋持久、持久剋防禦、防禦剋攻擊。同方向旋轉碰撞最猛烈；左旋碰右旋會像齒輪互相分攤轉速，比的是誰撐得久。<br>
+      <b>組裝</b>：點「＋ 組裝自己的陀螺」，挑鎖芯（顏色、左右旋）、主刃、輔助刃、固定環（凸點數－高度）和軸心，組出自己的陀螺。最多存 6 顆，可以隨時改裝。<br>
       <b>對戰中</b>：左右拖曳可以轉動視角。
     </div>
     <div class="rec" id="rec"></div>
+  </div>
+
+  <div class="screen build" id="scr-build" hidden>
+    <div class="bhead"><button type="button" class="back" id="b-cancel">‹ 返回</button><h2>組裝工坊</h2></div>
+    <div class="bprev">
+      <img id="b-img" alt="">
+      <div class="binfo">
+        <input id="b-name" maxlength="8" placeholder="幫它取名字" autocomplete="off">
+        <div class="bcode" id="b-code"></div>
+        <div class="btype" id="b-type"></div>
+        <div class="stats" id="b-stats"></div>
+      </div>
+    </div>
+    <div class="bdesc" id="b-desc"></div>
+    <div id="b-parts"></div>
+    <button type="button" class="cta" id="b-save">儲存並使用</button>
+    <button type="button" class="cta alt" id="b-del" hidden>拆掉這顆</button>
   </div>
 
   <div class="screen result" id="scr-result" hidden>
@@ -208,17 +254,81 @@ const RPM = (w) => Math.abs(w) * 60 / TAU;
 // Body: mass, k (moment of inertia = k·m·R²), crit (spin below which it can no longer stay upright),
 //   atk (blade bite), def (round, smooth outline: deflects hits), burst (how firmly the parts lock together)
 const TOP_SCALE = .85;
-const TOPS = [
-  { id: 'falcon', name: '赤焰隼', type: '攻擊型', dir: 1, color: 0xe03a2a, accent: 0xffb02e, emblem: '隼', blades: 3, sharp: .95, tip: 'flat',
-    mass: 1.0, R: .4, k: .5, tipR: .085, mu: .9, rise: .1, drag: 17, crit: 150, atk: 1.4, def: .15, burst: 1.25, shoot: 'slide' },
-  { id: 'tortoise', name: '玄武盾', type: '防禦型', dir: 1, color: 0x2f8a55, accent: 0x20252a, emblem: '武', blades: 6, sharp: .22, tip: 'ball',
-    mass: 1.35, R: .39, k: .5, tipR: .03, mu: .35, rise: 1.1, drag: 9.5, crit: 113, atk: .08, def: .88, burst: 2.4, shoot: 'straight' },
-  { id: 'moon', name: '月影', type: '持久型', dir: 1, color: 0xc2c4d6, accent: 0x7652c2, emblem: '月', blades: 10, sharp: .1, tip: 'sharp',
-    mass: 1.08, R: .38, k: .78, tipR: .004, mu: .28, rise: .9, drag: 7.6, crit: 112, atk: .1, def: .86, burst: 2.2, shoot: 'straight' },
-  { id: 'wolf', name: '雷霆狼', type: '平衡型', dir: -1, color: 0x2a62d8, accent: 0xf2c230, emblem: '狼', blades: 4, sharp: .55, tip: 'semi',
-    mass: 1.12, R: .39, k: .55, tipR: .035, mu: .55, rise: .35, drag: 10, crit: 114, atk: .85, def: .45, burst: 1.45, shoot: 'slide' },
+// ---- parts: a top is assembled from five parts, like the real customisable ones ----
+// lock chip (emblem, colour, spin direction) / main blade / assist blade / ratchet "contacts-height" / bit (the tip)
+const LOCKS = [
+  { id: 'hayabusa', name: '隼', dir: 1, color: 0xe03a2a, accent: 0xffb02e },
+  { id: 'bu', name: '武', dir: 1, color: 0x2f8a55, accent: 0x20252a },
+  { id: 'tsuki', name: '月', dir: 1, color: 0xc2c4d6, accent: 0x7652c2 },
+  { id: 'ookami', name: '狼', dir: -1, color: 0x2a62d8, accent: 0xf2c230 },
+  { id: 'ryu', name: '龍', dir: 1, color: 0x8a3cf0, accent: 0xe8e8f0 },
+  { id: 'tora', name: '虎', dir: 1, color: 0xf5a623, accent: 0x1b1b1b },
+  { id: 'karasu', name: '鴉', dir: -1, color: 0x3a3d46, accent: 0xff3a3a },
+  { id: 'same', name: '鯊', dir: -1, color: 0x18b8c8, accent: 0xe8f4f8 },
 ];
-for (const t of TOPS) t.R *= TOP_SCALE;
+const BLADES = [
+  { id: 'claw', sharp: .95, name: '鉤爪刃', desc: '三片帶鉤的尖刃，咬擊最兇，但自己也不耐撞', style: 'claw', R: .4, mass: .75, k: .5, atk: 1.4, def: .15, burst: 1.25 },
+  { id: 'saw', sharp: .85, name: '鋸齒刃', desc: '五片鋸齒，攻擊連續、比鉤爪穩一點', style: 'saw', R: .4, mass: .78, k: .52, atk: 1.1, def: .3, burst: 1.35 },
+  { id: 'fang', sharp: .55, name: '獠牙刃', desc: '四片刃，攻守平均', style: 'fang', R: .39, mass: .87, k: .55, atk: .85, def: .45, burst: 1.38 },
+  { id: 'shield', sharp: .22, name: '圓盾刃', desc: '六個圓凸，把撞擊彈開', style: 'shield', R: .39, mass: 1.0, k: .46, atk: .08, def: .83, burst: 2.0 },
+  { id: 'tower', sharp: .12, name: '堡壘刃', desc: '八角厚重，最難撞動，但轉速掉得快', style: 'tower', R: .385, mass: 1.12, k: .46, atk: .12, def: .9, burst: 2.1, drag: 3 },
+  { id: 'disc', sharp: .1, name: '圓月刃', desc: '幾乎正圓、重量在外圈，最耐轉', style: 'disc', R: .38, mass: .77, k: .74, atk: .1, def: .86, burst: 1.7 },
+];
+const ASSISTS = [
+  { id: 'none', name: '不裝', desc: '最輕，攻擊型常用', mass: 0, k: 0, atk: 0, def: 0, drag: 0, R: 0 },
+  { id: 'heavy', name: '重環', desc: '加重：更穩、更難被撞開', mass: .1, k: .04, atk: 0, def: .05, drag: 0, R: 0 },
+  { id: 'balance', name: '平衡環', desc: '重量往外移：更耐轉', mass: .06, k: .04, atk: 0, def: 0, drag: 0, R: 0 },
+  { id: 'wing', name: '翼刃', desc: '多兩片小刃：攻擊↑，但風阻讓轉速掉得快', mass: .05, k: .02, atk: .15, def: -.05, drag: 1.2, R: .01 },
+];
+// ratchet "contacts-height": more contacts = rounder and locks tighter (harder to burst); lower = steadier, higher = hits from above
+const RATCHET_H = { 50: { atk: -.06, def: .04, crit: .94 }, 55: { atk: -.04, def: .03, crit: .96 }, 60: { atk: 0, def: 0, crit: 1 }, 70: { atk: .05, def: 0, crit: 1.05 }, 80: { atk: .1, def: -.05, crit: 1.1 } };
+const RATCHET_N = { 3: 1, 4: 1.05, 5: 1.1, 6: 1.2, 7: 1.25, 9: 1.3 };
+const RATCHETS = ['3-60', '4-60', '4-55', '5-70', '6-60', '7-55', '9-60', '3-80', '5-50'].map((c) => { const [n, h] = c.split('-').map(Number); return { id: c, name: c, n, h }; });
+const BITS = [
+  { id: 'F', name: '平頭', tip: 'flat', tipR: .085, mu: .9, rise: .1, drag: 17, crit: 150, shoot: 'slide', desc: '抓地強、會上軌道衝刺，耗轉快' },
+  { id: 'G', name: '齒輪平頭', tip: 'flat', tipR: .1, mu: 1, rise: .08, drag: 20, crit: 155, shoot: 'slide', desc: '最快、最常衝刺，也最容易自己衝出場' },
+  { id: 'Q', name: '疾風', tip: 'flat', tipR: .065, mu: .85, rise: .14, drag: 14, crit: 142, shoot: 'slide', desc: '小平頭：攻擊型裡最耐轉' },
+  { id: 'S', name: '半平', tip: 'semi', tipR: .035, mu: .55, rise: .35, drag: 10, crit: 114, shoot: 'slide', desc: '半攻半守，會四處移動' },
+  { id: 'T', name: '錐形', tip: 'semi', tipR: .02, mu: .45, rise: .6, drag: 9, crit: 116, shoot: 'straight', desc: '穩，偶爾移動' },
+  { id: 'B', name: '球形', tip: 'ball', tipR: .03, mu: .35, rise: 1.1, drag: 9.5, crit: 113, shoot: 'straight', desc: '被撞歪會自己立起來' },
+  { id: 'O', name: '圓珠', tip: 'ball', tipR: .02, mu: .3, rise: 1, drag: 8.4, crit: 113, shoot: 'straight', desc: '小球頭，比球形更耐轉' },
+  { id: 'N', name: '尖頭', tip: 'sharp', tipR: .004, mu: .28, rise: .9, drag: 7.6, crit: 112, shoot: 'straight', desc: '接觸面最小，待在中央轉最久' },
+];
+const PART_LISTS = { lock: LOCKS, blade: BLADES, assist: ASSISTS, ratchet: RATCHETS, bit: BITS };
+const findPart = (kind, id) => PART_LISTS[kind].find((x) => x.id === id) || PART_LISTS[kind][0];
+function classify(p) {
+  if (p.tip === 'flat' && p.atk >= .8) return '攻擊型';
+  if (p.def >= .75 && p.mass >= 1.25) return '防禦型';
+  if (p.drag <= 8.6 && p.def >= .6) return '持久型';
+  return '平衡型';
+}
+// assemble a top's numbers from its parts (all the physics reads these)
+function compose(sel, extra) {
+  const L = findPart('lock', sel.lock), B = findPart('blade', sel.blade), A = findPart('assist', sel.assist), Rt = findPart('ratchet', sel.ratchet), Bt = findPart('bit', sel.bit), H = RATCHET_H[Rt.h];
+  const p = Object.assign({
+    emblem: L.name, dir: L.dir, color: L.color, accent: L.accent, style: B.style, sharp: B.sharp, tip: Bt.tip, ratchetN: Rt.n, ratchetH: Rt.h,
+    mass: +(B.mass + A.mass + .25).toFixed(3), R: B.R + A.R, k: B.k + A.k, tipR: Bt.tipR, mu: Bt.mu, rise: Bt.rise, drag: Bt.drag + A.drag + (B.drag || 0), crit: Bt.crit * H.crit,
+    atk: Math.max(.02, B.atk + A.atk + H.atk), def: clamp(B.def + A.def + H.def, 0, .95), burst: B.burst * RATCHET_N[Rt.n], shoot: Bt.shoot,
+    sel: Object.assign({}, sel), code: `${L.name}${B.name.slice(0, 2)} ${Rt.id}${Bt.id}`,
+  }, extra || {});
+  p.type = classify(p);
+  if (!p.name) p.name = `${L.name}・${B.name.replace('刃', '')}`;
+  p.R *= TOP_SCALE;
+  return p;
+}
+const TOPS = [
+  compose({ lock: 'hayabusa', blade: 'claw', assist: 'none', ratchet: '3-60', bit: 'F' }, { id: 'falcon', name: '赤焰隼' }),
+  compose({ lock: 'bu', blade: 'shield', assist: 'heavy', ratchet: '6-60', bit: 'B' }, { id: 'tortoise', name: '玄武盾' }),
+  compose({ lock: 'tsuki', blade: 'disc', assist: 'balance', ratchet: '9-60', bit: 'N' }, { id: 'moon', name: '月影' }),
+  compose({ lock: 'ookami', blade: 'fang', assist: 'none', ratchet: '4-60', bit: 'S' }, { id: 'wolf', name: '雷霆狼' }),
+];
+// the player's own builds, kept on this device
+let CUSTOM = [];
+try { CUSTOM = (JSON.parse(localStorage.getItem('tops-custom') || '[]') || []).map((c, i) => compose(c.sel, { id: 'c' + i, name: c.name, custom: true })); } catch (e) { CUSTOM = []; }
+const allTops = () => TOPS.concat(CUSTOM);
+const topById = (id) => allTops().find((t) => t.id === id) || TOPS[0];
+function saveCustom() { try { localStorage.setItem('tops-custom', JSON.stringify(CUSTOM.map((c) => ({ sel: c.sel, name: c.name })))); } catch (e) {} }
+
 const STAT_LIST = [
   ['攻擊', (t) => t.atk], ['防禦', (t) => t.def * .7 + (t.mass - .9) * .8], ['持久', (t) => 1 - (t.drag - 5) / 17], ['機動', (t) => t.tipR * t.mu / .05], ['重量', (t) => (t.mass - .8) / .6],
 ];
@@ -327,6 +437,12 @@ const STYLE = {   // per tip type: the outline of the metal blade and the shape 
   ball: { n: 6, sharp: .15, hook: 0, holes: 6, amp: .45, layer: 'shield' },
   sharp: { n: 16, sharp: 0, hook: 0, holes: 0, amp: .1, layer: 'crescent' },
   semi: { n: 4, sharp: .6, hook: .12, holes: 4, amp: .8, layer: 'fang' },
+  claw: { n: 3, sharp: .95, hook: .22, holes: 3, amp: 1, layer: 'flame' },
+  saw: { n: 5, sharp: .85, hook: .1, holes: 5, amp: .75, layer: 'flame' },
+  fang: { n: 4, sharp: .6, hook: .12, holes: 4, amp: .8, layer: 'fang' },
+  shield: { n: 6, sharp: .15, hook: 0, holes: 6, amp: .45, layer: 'shield' },
+  tower: { n: 8, sharp: .05, hook: 0, holes: 8, amp: .3, layer: 'shield' },
+  disc: { n: 16, sharp: 0, hook: 0, holes: 0, amp: .1, layer: 'crescent' },
 };
 // outline of the metal blade: n blades, each rising steeply to a hooked edge then sweeping back
 function bladeShape(n, ro, ri, sharp, hook, holes, dir, amp) {
@@ -414,7 +530,7 @@ const METAL_ENV = (() => {
 // a top is built standing on its tip at the origin, so tilting rotates it about the tip
 function buildTopMesh(p0) {
   const p = Object.assign({}, p0, { R: p0.R / TOP_SCALE });   // the mesh is built at base size, then scaled up
-  const st = STYLE[p.tip], dir = p.dir, R = p.R;
+  const st = STYLE[p.style || p.tip], dir = p.dir, R = p.R;
   const root = new THREE.Group(), tilt = new THREE.Group(), spin = new THREE.Group();
   root.add(tilt); tilt.add(spin); root.scale.setScalar(TOP_SCALE);
   const chrome = new THREE.MeshStandardMaterial({ color: col(0xeef1f5), metalness: 1, roughness: .1, envMap: METAL_ENV, envMapIntensity: 1.1 });
@@ -435,9 +551,9 @@ function buildTopMesh(p0) {
   const bit = new THREE.Mesh(new THREE.LatheGeometry(prof, 32), bitMat); bit.position.y = tipH - .02;
   const ribs = new THREE.Mesh(new THREE.CylinderGeometry(.165, .16, .05, 12, 1, true), plastic(p.color, { roughness: .45 })); ribs.position.y = tipH + .06;
   const tipG = new THREE.Group(); tipG.add(tipMesh, bit, ribs); spin.add(tipG); parts.tip = tipG;
-  const yR = tipH + .15;   // top of the bit
+  const yR = tipH + .15 + ((p.ratchetH || 60) - 60) * .0025;   // top of the bit (a taller ratchet lifts the whole top)
   // --- the ratchet: a dark toothed ring that locks the bit to the blade
-  const ratchetGeo = new THREE.ExtrudeGeometry(gearShape(8, R * .56, R * .48, .05), { depth: .055, bevelEnabled: true, bevelThickness: .008, bevelSize: .008, bevelSegments: 1 });
+  const ratchetGeo = new THREE.ExtrudeGeometry(gearShape(p.ratchetN || 8, R * .56, R * .48, .05), { depth: .055, bevelEnabled: true, bevelThickness: .008, bevelSize: .008, bevelSegments: 1 });
   ratchetGeo.rotateX(-PI / 2);
   const ratchet = new THREE.Mesh(ratchetGeo, plastic(0x2a2c33, { roughness: .4 })); ratchet.position.y = yR; spin.add(ratchet); parts.disk = ratchet;
   // --- the metal blade (chrome, bevelled, with windows) and the translucent plastic layer set into it
@@ -921,8 +1037,9 @@ function updateHum() {
 }
 
 // ======================= game flow =======================
-const ui = { mine: 0, opp: 'rand' };
+const ui = { mine: 'falcon', opp: 'rand' };
 try { const s = JSON.parse(localStorage.getItem('tops-prefs') || 'null'); if (s) Object.assign(ui, s); } catch (e) {}
+if (typeof ui.mine === 'number') ui.mine = (TOPS[ui.mine] || TOPS[0]).id;   // older saves stored an index
 let rec = { w: 0, l: 0 };
 try { rec = JSON.parse(localStorage.getItem('tops-rec') || 'null') || rec; } catch (e) {}
 const M = { phase: 'home', pts: [0, 0], round: 0, t: 0, goAt: 0, timeScale: 1, slowT: 0, demo: true, pull: null, released: false, aim: 0, power: 0, endT: 0, firstHit: false };
@@ -930,7 +1047,8 @@ const START = [[-1.35, 1.25], [1.35, -1.25]];
 
 function setTops(a, b) {
   for (const t of tops) { t.dispose(); disposeLauncher(t.lc); }
-  tops = [new Top(TOPS[a], 0), new Top(TOPS[b], 1)];
+  const P = (x) => typeof x === 'number' ? TOPS[x] : x;
+  tops = [new Top(P(a), 0), new Top(P(b), 1)];
 }
 function placeForLaunch() {
   tops.forEach((t, i) => { t.reset(START[i][0], START[i][1]); t.y = .75; });
@@ -947,7 +1065,7 @@ function toast(text, cls) {
 }
 function renderHud() {
   tops.forEach((t, i) => {
-    const p = t.p, c = '#' + new THREE.Color(p.color).getHexString();
+    const p = t.p, c = uiColor(p);
     $('#side' + i).style.setProperty('--c', c);
     $('#nm' + i).innerHTML = `${p.name}<small>${p.type}・${p.dir > 0 ? '右旋' : '左旋'}${i === 0 ? '・你' : ''}</small>`;
     $('#pts' + i).innerHTML = [0, 1, 2].map((k) => `<b class="${M.pts[i] > k ? 'on' : ''}"></b>`).join('');
@@ -957,7 +1075,7 @@ function renderHud() {
 function startMatch() {
   initAudio(); unlockVoice();
   const opp = ui.opp === 'rand' ? Math.floor(Math.random() * TOPS.length) : +ui.opp;
-  setTops(ui.mine, opp);
+  setTops(topById(ui.mine), opp);
   M.demo = false; M.pts = [0, 0]; M.round = 0;
   $('#scr-home').hidden = true; $('#scr-result').hidden = true;
   $('#hud').hidden = false; $('#btn-menu').hidden = false; $('#btn-mute').hidden = false;
@@ -1077,18 +1195,60 @@ function thumb(p) {
   for (let y = 0; y < SZ; y++) img.data.set(buf.subarray((SZ - 1 - y) * SZ * 4, (SZ - y) * SZ * 4), y * SZ * 4);
   g.putImageData(img, 0, 0); return c.toDataURL();
 }
-const THUMBS = [];
+const THUMBS = {};   // by part code
+const thumbOf = (p) => THUMBS[p.code] || (THUMBS[p.code] = thumb(p));
+// the colour used for a top's labels and bars: its main colour, or its accent if the main one is too dark to read
+const uiColor = (p) => { const c = new THREE.Color(p.color), hsl = c.getHSL({}); return '#' + (hsl.l < .3 ? new THREE.Color(p.accent) : c).getHexString(); };
+const TIP_NAME = { flat: '平頭軸', ball: '球形軸', sharp: '尖頭軸', semi: '半平軸' };
+function statBars(p, c) { return STAT_LIST.map(([n, f]) => `<span>${n}</span><div class="bar"><i style="width:${Math.round(clamp(f(p), .08, 1) * 100)}%;--c:${c}"></i></div>`).join(''); }
 function renderHome() {
-  $('#cards').innerHTML = TOPS.map((p, i) => {
-    const c = '#' + new THREE.Color(p.color).getHexString();
-    const stats = STAT_LIST.map(([n, f]) => `<span>${n}</span><div class="bar"><i style="width:${Math.round(clamp(f(p), .08, 1) * 100)}%;--c:${c}"></i></div>`).join('');
-    return `<button type="button" class="card${ui.mine === i ? ' sel' : ''}" data-i="${i}" style="--c:${c}"><img alt="" src="${THUMBS[i] || ''}"><b>${p.name}</b><span class="ty"><em>${p.type}</em>・${p.dir > 0 ? '右旋' : '左旋'}・${{ flat: '平頭軸', ball: '球形軸', sharp: '尖頭軸', semi: '半平軸' }[p.tip]}</span><div class="stats">${stats}</div></button>`;
-  }).join('');
+  $('#cards').innerHTML = allTops().map((p) => {
+    const c = uiColor(p);
+    return `<button type="button" class="card${ui.mine === p.id ? ' sel' : ''}" data-id="${p.id}" style="--c:${c}">${p.custom ? `<span class="edit" data-edit="${p.id}">改裝</span>` : ''}<img alt="" src="${fontsDone ? thumbOf(p) : ''}"><b>${p.name}</b><span class="ty"><em>${p.type}</em>・${p.dir > 0 ? '右旋' : '左旋'}・${p.code}</span><div class="stats">${statBars(p, c)}</div></button>`;
+  }).join('') + (CUSTOM.length < 6 ? `<button type="button" class="card add" data-new="1"><b>＋</b><span>組裝自己的陀螺</span></button>` : '');
   $('#opp').innerHTML = [`<button type="button" data-o="rand" class="${ui.opp === 'rand' ? 'sel' : ''}">隨機</button>`].concat(TOPS.map((p, i) => `<button type="button" data-o="${i}" class="${String(ui.opp) === String(i) ? 'sel' : ''}">${p.name}</button>`)).join('');
   $('#rec').textContent = rec.w + rec.l ? `戰績 ${rec.w} 勝 ${rec.l} 敗` : '';
 }
 function savePrefs() { try { localStorage.setItem('tops-prefs', JSON.stringify(ui)); } catch (e) {} }
-$('#cards').addEventListener('click', (e) => { const b = e.target.closest('[data-i]'); if (!b) return; ui.mine = +b.dataset.i; savePrefs(); renderHome(); });
+$('#cards').addEventListener('click', (e) => {
+  const ed = e.target.closest('[data-edit]'); if (ed) { openBuild(ed.dataset.edit); return; }
+  if (e.target.closest('[data-new]')) { openBuild(null); return; }
+  const b = e.target.closest('[data-id]'); if (!b) return; ui.mine = b.dataset.id; savePrefs(); renderHome();
+});
+
+// ---- the workshop: pick each part and watch the top change ----
+const PART_ROWS = [['lock', '鎖芯', '徽章、顏色和旋轉方向'], ['blade', '主刃', '撞擊的主要部分'], ['assist', '輔助刃', '加重或改變重量分布'], ['ratchet', '固定環', '凸點數－高度：凸點多越難爆裂；越低越穩，越高越容易從上方撞到人'], ['bit', '軸心', '決定怎麼移動']];
+const B = { sel: null, editId: null, name: '' };
+function openBuild(id) {
+  const cur = id ? topById(id) : null;
+  B.editId = id; B.sel = Object.assign({}, cur ? cur.sel : { lock: 'ryu', blade: 'fang', assist: 'none', ratchet: '4-60', bit: 'S' }); B.name = cur ? cur.name : '';
+  $('#b-name').value = B.name; $('#b-del').hidden = !id;
+  $('#scr-home').hidden = true; $('#scr-build').hidden = false; $('#scr-build').scrollTop = 0;
+  renderBuild();
+}
+function renderBuild(focus) {
+  const p = compose(B.sel, { name: B.name || undefined }), c = uiColor(p);
+  $('#b-img').src = thumbOf(p);
+  $('#b-code').textContent = p.code; $('#b-type').innerHTML = `<em style="color:${c}">${p.type}</em>・${p.dir > 0 ? '右旋' : '左旋'}・${TIP_NAME[p.tip]}`;
+  $('#b-stats').innerHTML = statBars(p, c); $('#b-stats').style.setProperty('--c', c);
+  $('#b-parts').innerHTML = PART_ROWS.map(([k, label, hint]) => `<div class="prow"><div class="plabel">${label}<small>${hint}</small></div><div class="chips">${PART_LISTS[k].map((x) => {
+    const on = B.sel[k] === x.id, sw = k === 'lock' ? `<i class="sw" style="background:#${new THREE.Color(x.color).getHexString()}"></i>` : '';
+    return `<button type="button" class="chip${on ? ' on' : ''}" data-k="${k}" data-v="${x.id}">${sw}${x.name}${k === 'lock' ? `<small>${x.dir > 0 ? '右旋' : '左旋'}</small>` : k === 'bit' ? `<small>${x.id}</small>` : ''}</button>`;
+  }).join('')}</div></div>`).join('');
+  const part = focus ? findPart(focus, B.sel[focus]) : null;
+  $('#b-desc').textContent = part && part.desc ? `${part.name}：${part.desc}` : '點選零件來組合，右上方會即時顯示能力。';
+}
+$('#b-parts').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (!b) return; B.sel[b.dataset.k] = b.dataset.v; const sc = [...$('#b-parts').querySelectorAll('.chips')].map((el) => el.scrollLeft); renderBuild(b.dataset.k); $('#b-parts').querySelectorAll('.chips').forEach((el, i) => { el.scrollLeft = sc[i]; }); });
+$('#b-name').addEventListener('input', (e) => { B.name = e.target.value.slice(0, 8); });
+function closeBuild() { $('#scr-build').hidden = true; $('#scr-home').hidden = false; renderHome(); }
+$('#b-cancel').addEventListener('click', closeBuild);
+$('#b-save').addEventListener('click', () => {
+  const name = (B.name || '').trim() || undefined;
+  if (B.editId) { const i = CUSTOM.findIndex((c) => c.id === B.editId); CUSTOM[i] = compose(B.sel, { id: B.editId, name, custom: true }); ui.mine = B.editId; }
+  else { const id = 'c' + Date.now().toString(36); CUSTOM.push(compose(B.sel, { id, name, custom: true })); ui.mine = id; }
+  saveCustom(); savePrefs(); closeBuild();
+});
+$('#b-del').addEventListener('click', () => { CUSTOM = CUSTOM.filter((c) => c.id !== B.editId); if (ui.mine === B.editId) ui.mine = TOPS[0].id; saveCustom(); savePrefs(); closeBuild(); });
 $('#opp').addEventListener('click', (e) => { const b = e.target.closest('[data-o]'); if (!b) return; ui.opp = b.dataset.o; savePrefs(); renderHome(); });
 $('#btn-start').addEventListener('click', startMatch);
 $('#btn-again').addEventListener('click', startMatch);
@@ -1331,7 +1491,8 @@ function loop(now) {
 
 // build the card thumbnails once fonts are in, then show the home screen with a demo battle behind it
 const fontsReady = document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]) : Promise.resolve();
-fontsReady.then(() => { TOPS.forEach((p, i) => { THUMBS[i] = thumb(p); }); renderHome(); });
+let fontsDone = false;
+fontsReady.then(() => { fontsDone = true; renderHome(); });
 goHome();
 requestAnimationFrame(loop);
 })();
