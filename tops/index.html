@@ -68,7 +68,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .banner.move small { color: var(--mc); letter-spacing: .4em; font-size: .36em; text-shadow: 0 0 10px var(--mc); }
 .banner.move.foe { top: 26%; font-size: clamp(24px, 8vw, 42px); }
 @keyframes moveIn { from { transform: translate(-30%, -50%) skewX(-8deg) scale(1.3); opacity: 0; letter-spacing: .4em; } to { transform: translate(-50%, -50%) skewX(-8deg) scale(1); opacity: 1; } }
-.cutin { position: absolute; left: 0; right: 0; top: 24%; height: 30vh; min-height: 170px; pointer-events: none; z-index: 6; overflow: visible; }
+.cutin { position: absolute; left: 0; right: 0; bottom: 112px; height: 13vh; min-height: 84px; max-height: 130px; pointer-events: none; z-index: 6; overflow: visible; }
 .ci-band { position: absolute; inset: 12% -10%; transform: skewY(-7deg);
   background: linear-gradient(90deg, rgba(0, 0, 0, .1), rgba(6, 7, 12, .92) 18%, rgba(6, 7, 12, .92) 82%, rgba(0, 0, 0, .1)), var(--mc);
   border-top: 3px solid var(--mc); border-bottom: 3px solid var(--mc); box-shadow: 0 0 40px var(--mc), inset 0 0 60px rgba(0, 0, 0, .6); }
@@ -76,7 +76,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   background: repeating-linear-gradient(90deg, transparent 0 22px, rgba(255, 255, 255, .5) 22px 24px, transparent 24px 60px); animation: ciLines .25s linear infinite; }
 @keyframes ciLines { to { background-position: -60px 0; } }
 .ci-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: skewX(-10deg); }
-.ci-text small { font-size: 13px; font-weight: 900; letter-spacing: .5em; color: var(--mc); text-shadow: 0 0 10px var(--mc); margin-bottom: 2px; }
+.ci-text small { font-size: 10px; font-weight: 900; letter-spacing: .5em; color: var(--mc); text-shadow: 0 0 10px var(--mc); margin-bottom: 2px; }
 .ci-name { display: flex; font-weight: 900; line-height: 1.05; white-space: nowrap; color: #fff;
   text-shadow: 0 0 6px var(--mc), 0 0 20px var(--mc), 0 0 46px var(--mc), 4px 5px 0 rgba(0, 0, 0, .75); }
 .ci-name span { display: inline-block; opacity: 0; }
@@ -1367,7 +1367,7 @@ const BEAST = {
   wolf: { k: 1.3, rad: 1.4, h: .9, wob: .12, spd: 2.2, leap: 1.0, pitch: .45, bank: .35 },
   tiger: { k: 1.35, rad: 1.4, h: .9, wob: .12, spd: 2.0, leap: 1.1, pitch: .45, bank: .35 },
   fox: { k: 1.25, rad: 1.5, h: 1.1, wob: .25, spd: 2.3, leap: .9, pitch: .45, bank: .45 },
-  shark: { k: 1.45, rad: 1.6, h: .6, wob: .18, spd: 2.0, leap: 1.6, pitch: .55, bank: .7 },
+  shark: { k: 1.65, rad: 1.25, h: 0, wob: 0, spd: 2.6, leap: 0, pitch: 1.05, bank: .5 },
   tortoise: { k: 1.3, rad: .35, h: 1.5, wob: .08, spd: .6, leap: 0, pitch: .08, bank: 0 },
 };
 function beastMat(base, belly, rim, pat, scale) {
@@ -1540,10 +1540,10 @@ function buildShark(M) {
   const G = new THREE.Group(), front = new THREE.Group(); G.add(front);
   const body = new SoftTube(40, 20, M.skin); G.add(body.mesh); const bg = new THREE.Mesh(body.mesh.geometry, M.shellT); bg.frustumCulled = false; G.add(bg);
   front.add(dEll(.08, .028, .085, 0, -.06, .37, M.mouth));
-  for (let k = 0; k < 9; k++) { const a = (k / 8 - .5) * 2.4; front.add(dCone(.011, .042, M.tooth, Math.sin(a) * .075, -.052, .33 + Math.cos(a) * .07, V3(0, -1, .1))); }
+  for (let k = 0; k < 9; k++) { const a = (k / 8 - .5) * 2.4; front.add(dCone(.015, .062, M.tooth, Math.sin(a) * .075, -.05, .33 + Math.cos(a) * .07, V3(0, -1, .1))); }
   const jaw = new THREE.Group(); jaw.position.set(0, -.07, .3); front.add(jaw);
   jaw.add(dEll(.078, .022, .1, 0, -.008, .07, M.skin));
-  for (let k = 0; k < 9; k++) { const a = (k / 8 - .5) * 2.4; jaw.add(dCone(.01, .038, M.tooth, Math.sin(a) * .066, .004, .04 + Math.cos(a) * .07, V3(0, 1, .1))); }
+  for (let k = 0; k < 9; k++) { const a = (k / 8 - .5) * 2.4; jaw.add(dCone(.014, .055, M.tooth, Math.sin(a) * .066, .004, .04 + Math.cos(a) * .07, V3(0, 1, .1))); }
   for (const sx of [-1, 1]) {
     front.add(dEll(.016, .016, .012, sx * .088, .025, .4, M.eye));
     for (let k = 0; k < 5; k++) { const g = new THREE.Mesh(new THREE.BoxGeometry(.008, .09, .014), M.dark); g.position.set(sx * .158, -.015, .25 - k * .032); g.rotation.set(0, sx * .1, sx * .12); front.add(g); }
@@ -1566,7 +1566,7 @@ function summonBeast(t, target, color, life, kind) {
   const glow = glowMat(hue.clone().multiplyScalar(.9)), eye = new THREE.MeshBasicMaterial({ color: kind === 'crow' ? C(3, .3, .2) : C(3, 2.6, 1.2), transparent: true });
   const shell = new THREE.ShaderMaterial({ uniforms: { uHue: { value: hue.clone().multiplyScalar(.45) }, uOp: { value: 0 }, uPush: { value: .14 } }, vertexShader: DRG_VS, fragmentShader: DRG_GLOW_FS, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const shellT = new THREE.ShaderMaterial({ uniforms: { uHue: { value: hue.clone().multiplyScalar(.45) }, uOp: { value: 0 }, uPush: { value: .03 } }, vertexShader: DRG_VS, fragmentShader: DRG_GLOW_FS, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-  const dark = new THREE.MeshBasicMaterial({ color: C(.02, .02, .025), transparent: true }), mouth = new THREE.MeshBasicMaterial({ color: C(.45, .03, .03), transparent: true });
+  const dark = new THREE.MeshBasicMaterial({ color: C(.02, .02, .025), transparent: true }), mouth = new THREE.MeshBasicMaterial({ color: C(.32, .015, .02), transparent: true });
   const tooth = beastMat(white, white, rim.clone().multiplyScalar(.4), 3, new THREE.Vector2(1, 1)), gold = beastMat(C(1.3, 1.05, .6), C(1.3, 1.05, .6), rim.clone().multiplyScalar(.5), 3, new THREE.Vector2(1, 1));
   const mats = [tooth, gold];
   let rig;
@@ -1595,6 +1595,7 @@ function summonBeast(t, target, color, life, kind) {
   const root = new THREE.Group(); root.add(rig.G); scene.add(root, pillar);
   M.cine = { top: t, t: life, life };
   const S = { beast: true, kind, cfg, rig, root, pillar, mats, shell, shellT, glow, t, target, hue, color, life, age: 0, struck: false, dived: false, seed: Math.random() * TAU, dir: t.p.dir || 1, ph: 0, yaw: null, pitch: 0, bank: 0 };
+  if (kind === 'shark') { S.SL = clamp(target.y + .03, .06, bowlH(RA) * .8); S.sea = makeSea(hue); S.sea.position.y = 0; scene.add(S.sea); S.wasUnder = true; pillar.visible = false; }
   spiritCry(kind); M.cine.sp = root.position;
   SPIRITS.push(S); return S;
 }
@@ -1624,7 +1625,39 @@ function bolt(a, b, color) {
 function updateBolts(raw) {
   for (let i = BOLTS.length - 1; i >= 0; i--) { const B = BOLTS[i]; B.t -= raw; B.line.material.opacity = Math.max(0, B.t / .22) * (Math.random() < .3 ? .3 : 1); if (B.t <= 0) { scene.remove(B.line); B.line.geometry.dispose(); B.line.material.dispose(); BOLTS.splice(i, 1); } }
 }
+// the shark's sea: the arena floods, it circles with only its fin out, bursts out of the water, and comes down jaws first
+const SEA_VS = `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+const SEA_FS = `uniform float uT; uniform float uOp; uniform vec2 uWake; uniform vec3 uCol; varying vec3 vW;
+  void main(){
+    vec2 p = vW.xz;
+    float w = sin(p.x * 3.1 + p.y * 1.3 + uT * 1.6) + .7 * sin(p.y * 4.7 - p.x * 2.2 - uT * 1.9) + .35 * sin((p.x + p.y) * 11. - uT * 3.3) + .2 * sin(p.x * 23. - p.y * 17. + uT * 5.);
+    float d = length(p - uWake), wake = sin(d * 20. - uT * 8.) * exp(-d * 1.8);
+    float crest = pow(clamp((w + wake * 1.4) * .22 + .5, 0., 1.), 7.);
+    vec3 col = mix(vec3(.01, .05, .1), vec3(.03, .16, .26), w * .15 + .5) + uCol * .08 + vec3(.5, .8, 1.) * crest * .9;
+    float edge = smoothstep(${(RA * 1.08).toFixed(3)}, ${(RA * .8).toFixed(3)}, length(p));
+    gl_FragColor = vec4(col, uOp * (.6 + .3 * crest) * edge);
+  }`;
+function makeSea(hue) {
+  const m = new THREE.Mesh(new THREE.CircleGeometry(RA * 1.08, 96).rotateX(-PI / 2), new THREE.ShaderMaterial({ uniforms: { uT: { value: 0 }, uOp: { value: 0 }, uWake: { value: new THREE.Vector2() }, uCol: { value: hue.clone() } }, vertexShader: SEA_VS, fragmentShader: SEA_FS, transparent: true, depthWrite: false }));
+  m.renderOrder = 2; return m;
+}
+function sharkPath(S, u, out) {
+  const L = S.life, tg = S.target, tb = L * .48, te = L * .97;
+  if (u < tb) {   // circling the prey, fin cutting the surface
+    const ang = S.seed + S.dir * -u * S.cfg.spd, rad = S.cfg.rad + .15 * Math.sin(u * 2 + S.seed);
+    return out.set(tg.x + Math.cos(ang) * rad, S.SL - .28 - .3 * Math.max(0, 1 - u / .5), tg.z + Math.sin(ang) * rad);
+  }
+  if (!S.P0) { sharkPath(S, tb - .001, S.P0 = V3()); }
+  // the breach and the strike: one arc out of the water, slow at the top, fast coming down
+  const k = clamp((u - tb) / (te - tb), 0, 1), e = k + .1 * Math.sin(TAU * k), P0 = S.P0;
+  const mx = (P0.x + tg.x) / 2, mz = (P0.z + tg.z) / 2, hy = S.SL + 3.6;
+  const a = (1 - e) * (1 - e), b = 2 * (1 - e) * e, c = e * e;
+  out.set(a * P0.x + b * mx + c * tg.x, a * P0.y + b * hy + c * (tg.y + .12), a * P0.z + b * mz + c * tg.z);
+  if (u > te) out.y -= (u - te) * 14;   // and on down, under the water
+  return out;
+}
 function beastPath(S, u, out) {
+  if (S.kind === 'shark') return sharkPath(S, u, out);
   const c = S.cfg, tp = S.t, rise = clamp(u / .7, 0, 1), re = rise * rise * (3 - 2 * rise);
   const ang = S.seed + S.dir * -Math.max(0, u - .2) * c.spd, rad = lerp(.02, c.rad + .2 * Math.sin(u * 1.3 + S.seed), re);
   let x = tp.x + Math.cos(ang) * rad, z = tp.z + Math.sin(ang) * rad, y = tp.y + .1 + re * c.h + c.wob * Math.sin(u * 2.4 + S.seed) * re;
@@ -1664,8 +1697,18 @@ function updateBeast(S, raw) {
       const i = clamp(Math.round(f.s * (n - 1)), 1, n - 2), p = R.pts[f.s === 1 ? n - 1 : i], o = R.pts[i - 1], q = R.pts[i + 1];
       f.m.position.set(p.x, p.y + f.up * lerpArr(SHARK_RY, f.s) * .85, p.z + (f.up ? .05 : 0)); f.m.rotation.y = Math.atan2(o.x - q.x, o.z - q.z) * (f.s === 1 ? 1.6 : 1);
     }
-    R.jaw.rotation.x = .1 + .75 * Math.max(strike, .4 * Math.sin(clamp((u - .1) / .9, 0, 1) * PI));
-    if (Math.abs(_bp.y - S.t.y - .25) < .12 && frameN % 4 === 0) shockwave(_bp.x, _bp.z, .7, S.color, 0);   // cutting the surface
+    // the sea: floods in, ripples round the fin, drains away at the end
+    const flood = clamp(u / .6, 0, 1) * (a > .97 ? Math.max(0, (1 - a) / .03) : 1), sea = S.sea.material.uniforms;
+    S.sea.position.y = lerp(-.05, S.SL, flood * flood * (3 - 2 * flood)); sea.uOp.value = flood; sea.uT.value = u; sea.uWake.value.set(_bp.x, _bp.z);
+    const k = clamp((u - S.life * .48) / (S.life * .49), 0, 1), gape = clamp((k - .35) / .25, 0, 1);
+    R.jaw.rotation.x = .08 + 1.45 * gape + .1 * Math.max(0, Math.sin(clamp((u - .1) / 1.2, 0, 1) * PI)) * (1 - gape);   // the jaws gape wide on the way down
+    const mi = R.front.children[0]; mi.scale.set(.08 * (1 + gape * .15), .028 * (1 + gape * 4), .085 * (1 + gape * .5)); mi.position.set(0, -.06 - gape * .055, .37 - gape * .03);
+    const under = _bp.y < S.sea.position.y;
+    if (u < S.life * .48 && frameN % 2 === 0) { const f = R.fins[0].m, fw = f.getWorldPosition(_br); sparks.burst(fw.x, S.sea.position.y + .02, fw.z, 1, .25, [.8, .95, 1]); }   // foam off the fin
+    if (S.wasUnder && !under && k > 0) {   // breach
+      sparks.burst(_bp.x, S.sea.position.y, _bp.z, 110, 2.4, [.75, .92, 1]); shockwave(_bp.x, _bp.z, 1.6, [1.2, 2, 2.8], 3); noise(.9, 2500, 400, .5, 'lowpass'); noise(.5, 600, 3000, .3); shake = Math.max(shake, .25);
+    }
+    S.wasUnder = under;
   } else if (S.kind === 'tortoise') {
     S.ph += raw * 3;
     R.legs.forEach((l) => { l.hip.rotation.set(.35 * Math.sin(S.ph + (l.zf * l.sx > 0 ? 0 : PI)), 0, l.sx * .2 * Math.sin(S.ph)); });
@@ -1707,19 +1750,20 @@ function updateBeast(S, raw) {
   S.pillar.material.opacity = Math.max(0, .6 * (1 - u / 1.1)); S.pillar.scale.set(1 + u * .8, 1, 1 + u * .8);
   const ec = [Math.min(1, S.color[0] / 2.6), Math.min(1, S.color[1] / 2.6), Math.min(1, S.color[2] / 2.6)];
   if (frameN % 2 === 0) sparks.burst(_bp.x + rand(-.3, .3), _bp.y + rand(-.1, .4), _bp.z + rand(-.3, .3), 1, .25, ec);
-  if (!S.dived && dive > 0) { S.dived = true; noise(.7, 500, 2600, .35); if (S.kind !== 'tortoise') spiritCry(S.kind === 'shark' ? 'shark' : S.kind); }
+  if (!S.dived && dive > 0 && S.kind !== 'shark') { S.dived = true; noise(.7, 500, 2600, .35); if (S.kind !== 'tortoise') spiritCry(S.kind); }
   if (!S.struck && a > .96) {
     S.struck = true; shockwave(S.target.x, S.target.z, S.kind === 'tortoise' ? 2.8 : 2.2, S.color, 7); shake = Math.max(shake, S.kind === 'tortoise' ? .5 : .35);
     sparks.burst(S.target.x, S.target.y + .3, S.target.z, 70, 1.8, ec); sfx.burst();
     const tg = S.target;
     if (S.kind === 'wolf') for (let k = 0; k < 4; k++) bolt(_bq.set(tg.x + rand(-.5, .5), tg.y + 4, tg.z + rand(-.5, .5)), tg.m ? tg.m.root.position : _bp, new THREE.Color(1.2, 1.8, 3.2));
     else if (S.kind === 'tortoise') { shockwave(tg.x, tg.z, 3.4, S.color, 4); shockwave(tg.x, tg.z, 1.2, [2.4, 2.2, 1.6], 3); sparks.burst(tg.x, tg.y + .05, tg.z, 60, 1.2, [.75, .65, .45]); }   // the floor itself shakes: dust and rock
-    else if (S.kind === 'shark') sparks.burst(tg.x, tg.y + .1, tg.z, 90, 2.2, [.75, .9, 1]);   // a splash
+    else if (S.kind === 'shark') { sparks.burst(tg.x, tg.y + .1, tg.z, 140, 2.8, [.75, .92, 1]); shockwave(tg.x, tg.z, 3, [1.2, 2, 2.8], 4); shake = Math.max(shake, .45); }   // a great splash
     else if (S.kind === 'falcon' || S.kind === 'crow') sparks.burst(tg.x, tg.y + .4, tg.z, 50, 1.4, S.kind === 'crow' ? [.25, .2, .25] : [1, .7, .25]);   // feathers scatter
     else if (S.kind === 'fox') for (let k = 0; k < 3; k++) shockwave(tg.x, tg.z, 1 + k * .7, S.color, 2);
     else if (S.kind === 'tiger') { shockwave(tg.x, tg.z, 2.8, [2.6, 1.4, .4], 4); shake = Math.max(shake, .45); }
   }
   if (a >= 1) {
+    if (S.sea) { scene.remove(S.sea); S.sea.geometry.dispose(); S.sea.material.dispose(); }
     scene.remove(S.root, S.pillar); const seen = new Set();
     for (const o of [S.root, S.pillar]) o.traverse((q) => { if (q.geometry && !seen.has(q.geometry)) { seen.add(q.geometry); q.geometry.dispose(); } if (q.material && !seen.has(q.material)) { seen.add(q.material); q.material.dispose(); } });
     return true;
@@ -1737,7 +1781,7 @@ function cutIn(text, label, rgb, voiceDur) {
   document.querySelectorAll('.cutin').forEach((e) => e.remove());
   const chars = [...text], n = chars.length, root = document.createElement('div');
   root.className = 'cutin'; root.style.setProperty('--mc', `rgb(${rgb})`);
-  const fs = Math.max(26, Math.min(innerWidth * .16, innerWidth * .92 / Math.max(1, n * .98)));
+  const fs = Math.max(18, Math.min(60, innerWidth * .085, innerWidth * .8 / Math.max(1, n * .98)));   // big enough to slam in, small enough to leave the effects in view
   root.innerHTML = `<div class="ci-band"></div><div class="ci-lines"></div><div class="ci-text"><small>${label}</small><div class="ci-name" style="font-size:${fs}px">${chars.map((ch) => `<span>${ch === ' ' ? '&nbsp;' : ch}</span>`).join('')}</div></div>`;
   $('#fx-layer').appendChild(root);
   const spread = clamp(voiceDur * .9, .8, 2.4) * 1000, step = spread / Math.max(1, n), enter = 260, hold = 1100, exit = 360;
