@@ -1140,28 +1140,36 @@ const DRG = { N: 110, M: 16, L: 4.2, R: .15, HEAD: 1.3 };   // rings, verts per 
 const DRG_VS = `varying vec2 vUv; varying vec3 vN; varying vec3 vV; uniform float uPush;
   void main(){ vUv = uv; vec3 p = position + normal * uPush; vec4 w = modelMatrix * vec4(p, 1.);
     vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix * viewMatrix * w; }`;
-const DRG_FS = `uniform vec3 uHue; uniform vec3 uBelly; uniform float uOp; uniform float uTime; uniform vec2 uScale;
+const DRG_FS = `uniform vec3 uHue; uniform vec3 uBelly; uniform vec3 uRim; uniform float uOp; uniform float uTime; uniform vec2 uScale; uniform float uPat; uniform float uBM; uniform float uPulse;
   varying vec2 vUv; varying vec3 vN; varying vec3 vV;
   void main(){
     vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
-    // overlapping scales, rows staggered, each one bright in the middle and dark at its rim
-    vec2 g = vUv * uScale; float row = floor(g.x); g.y += mod(row, 2.) * .5;
-    vec2 f = fract(g) - vec2(.35, .5); float sc = smoothstep(.75, .1, length(f * vec2(1.1, 1.)));
-    // the pale plated belly underneath (v = .5 is the bottom of the body)
-    float bel = smoothstep(.2, .1, abs(vUv.y - .5)), plate = smoothstep(.0, .25, fract(vUv.x * uScale.x * .45));
+    float sc = 1., dark = 1., plate = 1.;
+    if (uPat < .5) {
+      // overlapping scales / feathers, rows staggered, each one bright in the middle and dark at its rim
+      vec2 g = vUv * uScale; float row = floor(g.x); g.y += mod(row, 2.) * .5;
+      vec2 f = fract(g) - vec2(.35, .5); sc = smoothstep(.75, .1, length(f * vec2(1.1, 1.)));
+      plate = smoothstep(.0, .25, fract(vUv.x * uScale.x * .45));
+    } else if (uPat < 2.5) {
+      // fur: fine strands; tigers add their dark, wavering stripes
+      sc = .8 + .2 * sin((vUv.y * 14. + sin(vUv.x * 60.) * .2) * 6.283 * 9.) * sin(vUv.x * 300. + vUv.y * 40.);
+      if (uPat > 1.5) { float st = sin(vUv.x * 44. + sin(vUv.y * 9.) * 2.2 + sin(vUv.y * 23.) * .6); dark = mix(1., .06, smoothstep(.3, .6, st)); }
+    }
+    // the pale belly underneath: v = .5 is the bottom of the dragon's tube; other bodies use the surface facing down
+    float bel = uBM < .5 ? smoothstep(.2, .1, abs(vUv.y - .5)) : smoothstep(-.15, -.6, n.y);
     vec3 L = normalize(vec3(.3, 1., .45)); float dif = max(dot(n, L), 0.) * .75 + .25;
-    float spec = pow(max(dot(reflect(-L, n), vV), 0.), 28.);
-    vec3 col = mix(uHue * .16, uHue * .62, sc) * dif;
-    col = mix(col, uBelly * (.35 + .45 * plate) * dif, bel);
+    float spec = pow(max(dot(reflect(-L, n), vV), 0.), 28.) * ((uPat > .5 && uPat < 2.5) ? .25 : 1.);
+    vec3 col = mix(uHue * .16, uHue * .62, sc) * dif * dark;
+    col = mix(col, uBelly * (.35 + .45 * plate) * dif, bel * (uPat > 1.5 && uPat < 2.5 ? mix(1., .7, 1. - dark) : 1.));
     float rim = pow(1. - abs(dot(n, vV)), 2.6);
-    col += rim * uHue * 1.5 + spec * vec3(1., .95, .85) * (.5 + .5 * sc);
-    col += uHue * .9 * exp(-pow(fract(vUv.x * 1.5 - uTime * .9) - .5, 2.) * 90.) * sc;   // a pulse of power running down the body
+    col += rim * uRim + spec * vec3(1., .95, .85) * (.5 + .5 * sc);
+    col += uHue * .9 * uPulse * exp(-pow(fract(vUv.x * 1.5 - uTime * .9) - .5, 2.) * 90.) * sc;   // a pulse of power running down the body
     gl_FragColor = vec4(col, uOp);
   }`;
 const DRG_GLOW_FS = `uniform vec3 uHue; uniform float uOp; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
   void main(){ float r = pow(1. - abs(dot(normalize(vN), vV)), 1.6); gl_FragColor = vec4(uHue * r * uOp, 1.); }`;
 function dragonMat(hue, belly, scale) {
-  return new THREE.ShaderMaterial({ uniforms: { uHue: { value: hue }, uBelly: { value: belly }, uOp: { value: 0 }, uTime: { value: 0 }, uPush: { value: 0 }, uScale: { value: scale || new THREE.Vector2(10, 6) } },
+  return new THREE.ShaderMaterial({ uniforms: { uHue: { value: hue }, uBelly: { value: belly }, uRim: { value: hue.clone().multiplyScalar(1.5) }, uPat: { value: 0 }, uBM: { value: 0 }, uPulse: { value: 1 }, uOp: { value: 0 }, uTime: { value: 0 }, uPush: { value: 0 }, uScale: { value: scale || new THREE.Vector2(10, 6) } },
     vertexShader: DRG_VS, fragmentShader: DRG_FS, transparent: true, side: THREE.DoubleSide });
 }
 const glowMat = (c) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
@@ -1232,7 +1240,7 @@ function buildLeg(skin, horn) {
   for (let k = -1; k <= 1; k++) G.add(dCone(.012, .075, horn, foot.x + k * .022, foot.y, foot.z + .01, V3(k * .35, -.7, 1)));
   return G;
 }
-function summonSpirit(t, target, color, life) {
+function summonDragon(t, target, color, life) {
   const mx = Math.max(color[0], color[1], color[2]), hue = new THREE.Color(Math.pow(color[0] / mx, 2.2), Math.pow(color[1] / mx, 2.2), Math.pow(color[2] / mx, 2.2));
   const belly = new THREE.Color(1, .85, .55).lerp(hue, .25), gold = new THREE.Color(1, .86, .55);
   const skin = dragonMat(hue, belly, new THREE.Vector2(150, 16)), headSkin = dragonMat(hue, hue, new THREE.Vector2(14, 10)), horn = dragonMat(gold, gold, new THREE.Vector2(6, 4));
@@ -1275,7 +1283,8 @@ function dragonHeadAt(S, u, out) {
 const _dh = new THREE.Vector3(), _dm = new THREE.Matrix4(), _dx = new THREE.Vector3(), _dt = new THREE.Vector3();
 function updateSpirits(raw) {
   for (let k = SPIRITS.length - 1; k >= 0; k--) {
-    const S = SPIRITS[k]; S.age += raw;
+    const S = SPIRITS[k]; if (S.beast) { if (updateBeast(S, raw)) SPIRITS.splice(k, 1); continue; }
+    S.age += raw;
     const a = S.age / S.life, fade = Math.min(1, S.age / .2) * (a > .95 ? Math.max(0, (1 - a) / .05) : 1);
     // record the head's flight; the body is laid along it by arc length
     dragonHeadAt(S, S.age, _dh); const last = S.hist[S.hist.length - 1];
@@ -1344,6 +1353,345 @@ function updateSpirits(raw) {
       S.root.traverse((o) => { if (o.geometry && o.geometry !== S.body.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); S.body.geometry.dispose();
     }
   }
+}
+// ---- the other guardian spirits: one per lock chip. Birds, big cats and canines, a tortoise with its serpent, a shark.
+// Each is a rigged model built from shaped parts, flown along a path (rise out of the top, circle, then strike)
+// and animated by its own gait: wings beat, legs gallop, the shark's tail sweeps, the serpent coils.
+const SPIRIT_OF = { hayabusa: 'falcon', bu: 'tortoise', tsuki: 'fox', ookami: 'wolf', ryu: 'dragon', tora: 'tiger', karasu: 'crow', same: 'shark' };
+const SPIRIT_NAME = { falcon: '赤焰火隼', tortoise: '玄武（靈龜與蛇）', fox: '九尾月狐', wolf: '雷霆巨狼', dragon: '東方神龍', tiger: '猛虎', crow: '冥府鴉', shark: '深淵巨鯊' };
+const BEAST = {
+  falcon: { k: 1.4, rad: 1.6, h: 2.0, wob: .45, spd: 2.3, leap: 0, pitch: 1.1, bank: 1 },
+  crow: { k: 1.35, rad: 1.7, h: 2.2, wob: .55, spd: 2.5, leap: 0, pitch: 1.1, bank: 1 },
+  wolf: { k: 1.3, rad: 1.4, h: .9, wob: .12, spd: 2.2, leap: 1.0, pitch: .45, bank: .35 },
+  tiger: { k: 1.35, rad: 1.4, h: .9, wob: .12, spd: 2.0, leap: 1.1, pitch: .45, bank: .35 },
+  fox: { k: 1.25, rad: 1.5, h: 1.1, wob: .25, spd: 2.3, leap: .9, pitch: .45, bank: .45 },
+  shark: { k: 1.45, rad: 1.6, h: .6, wob: .18, spd: 2.0, leap: 1.6, pitch: .55, bank: .7 },
+  tortoise: { k: 1.3, rad: .35, h: 1.5, wob: .08, spd: .6, leap: 0, pitch: .08, bank: 0 },
+};
+function beastMat(base, belly, rim, pat, scale) {
+  const m = dragonMat(base, belly, scale); m.uniforms.uRim.value = rim; m.uniforms.uPat.value = pat; m.uniforms.uBM.value = 1; m.uniforms.uPulse.value = 0; return m;
+}
+function shellOf(mesh, gm) { mesh.add(new THREE.Mesh(mesh.geometry, gm)); return mesh; }
+// a flat fin cut from an outline (points in the z/y plane: z forward, y up), given a little thickness
+function dFin(pts, mat, th) {
+  const sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: th || .016, bevelEnabled: false }); g.rotateY(-PI / 2); g.translate((th || .016) / 2, 0, 0);
+  return new THREE.Mesh(facet(g), mat);
+}
+function feather(len, w, mat) { const g = new THREE.Group(), f = dEll(w, .006, len / 2, 0, 0, -len / 2, mat); g.add(f); return g; }
+
+// a smooth tube with an oval cross-section laid along a line of points (a body, a neck, a bushy tail)
+class SoftTube {
+  constructor(N, Mv, mat) {
+    this.N = N; this.Mv = Mv; const V = N * (Mv + 1), g = new THREE.BufferGeometry(), uv = new Float32Array(V * 2), idx = [];
+    for (let i = 0; i < N; i++) for (let j = 0; j <= Mv; j++) { const v = i * (Mv + 1) + j; uv[v * 2] = i / (N - 1); uv[v * 2 + 1] = j / Mv; if (i < N - 1 && j < Mv) { const a = v, b = v + Mv + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); } }
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(V * 3), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(V * 3), 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(idx);
+    this.mesh = new THREE.Mesh(g, mat); this.mesh.frustumCulled = false; this._t = new THREE.Vector3(); this._u = new THREE.Vector3(); this._s = new THREE.Vector3();
+  }
+  // pts: N points from one end to the other; rad(s) -> [half-width, half-height]
+  set(pts, rad) {
+    const { N, Mv } = this, pos = this.mesh.geometry.attributes.position.array, nor = this.mesh.geometry.attributes.normal.array, T = this._t, U = this._u, Sd = this._s;
+    U.set(0, 1, 0);
+    for (let i = 0; i < N; i++) {
+      T.subVectors(pts[Math.min(N - 1, i + 1)], pts[Math.max(0, i - 1)]).normalize();
+      U.addScaledVector(T, -U.dot(T)); if (U.lengthSq() < 1e-6) U.set(1, 0, 0).addScaledVector(T, -T.x); U.normalize(); Sd.crossVectors(T, U);
+      const [rx, ry] = rad(i / (N - 1));
+      for (let j = 0; j <= Mv; j++) {
+        const th = j / Mv * TAU, c = Math.cos(th), sn = Math.sin(th), v = (i * (Mv + 1) + j) * 3, p = pts[i];
+        pos[v] = p.x + U.x * c * ry + Sd.x * sn * rx; pos[v + 1] = p.y + U.y * c * ry + Sd.y * sn * rx; pos[v + 2] = p.z + U.z * c * ry + Sd.z * sn * rx;
+        let nx = U.x * c * rx + Sd.x * sn * ry, ny = U.y * c * rx + Sd.y * sn * ry, nz = U.z * c * rx + Sd.z * sn * ry; const l = Math.hypot(nx, ny, nz) || 1;
+        nor[v] = nx / l; nor[v + 1] = ny / l; nor[v + 2] = nz / l;
+      }
+    }
+    this.mesh.geometry.attributes.position.needsUpdate = this.mesh.geometry.attributes.normal.needsUpdate = true;
+  }
+}
+const lerpArr = (arr, s) => { const f = s * (arr.length - 1), i = Math.min(arr.length - 2, Math.floor(f)), k = f - i; return lerp(arr[i], arr[i + 1], k); };
+function buildQuad(o, M) {
+  const G = new THREE.Group(), b = o.bulk, hw = o.hw, ml = o.muzzle;
+  // one continuous body: tail root, haunches, a tucked waist, a deep chest, then the neck up to the head
+  const spine = new THREE.CatmullRomCurve3([V3(0, .09, -.46), V3(0, .07, -.32), V3(0, .06, -.08), V3(0, .04, .15), V3(0, .14, .35), V3(0, .27, .49)]);
+  const RX = [.05, .15, .12, .16, .12, .085].map((r) => r * b), RY = [.05, .16, .12, .2, .125, .08].map((r) => r * (b * .5 + .5));
+  const body = new SoftTube(40, 18, M.skin); body.set(spine.getPoints(39), (t) => [lerpArr(RX, t), lerpArr(RY, t)]); G.add(body.mesh);
+  const bodyGlow = new THREE.Mesh(body.mesh.geometry, M.shellT); bodyGlow.frustumCulled = false; G.add(bodyGlow);
+  const head = new THREE.Group(); head.position.set(0, .29, .5); G.add(head);
+  head.add(shellOf(dEll(.105 * hw, .09, .11, 0, 0, 0, M.skin), M.shell));
+  head.add(dWedge(.075 * hw, .045 * hw, ml, 6, 1, .75, M.skin, 0, -.025, .07 + ml / 2));
+  head.add(dEll(.03 * hw, .022, .022, 0, -.01, .07 + ml, M.dark));
+  head.add(dEll(.05 * hw, .02, ml * .45, 0, -.05, .05 + ml * .45, M.mouth));
+  for (const sx of [-1, 1]) {
+    const eye = dEll(.024, .011, .014, sx * .058 * hw, .03, .085, M.eye); eye.rotation.set(0, sx * .45, sx * -.35); head.add(eye);
+    const brow = dWedge(.02, .03, .09, 4, 1, .6, M.skin, sx * .05 * hw, .055, .07, .3); brow.rotation.y = sx * .2; head.add(brow);
+    head.add(dCone(.01, .055, M.tooth, sx * .03 * hw, -.055, .06 + ml * .85, V3(0, -1, .1)));
+    if (o.ears === 'round') head.add(dEll(.04, .04, .016, sx * .08 * hw, .075, -.03, M.skin));
+    else { const big = o.ears === 'fox'; head.add(dCone(big ? .055 : .042, big ? .2 : .15, M.skin, sx * .06 * hw, .065, -.03, V3(sx * .3, 1, -.2)), dCone(big ? .03 : .022, big ? .13 : .09, M.glow, sx * .062 * hw, .075, -.015, V3(sx * .3, 1, -.15))); }
+    if (o.ruff) for (let k = 0; k < 4; k++) head.add(dCone(.035, .13 + k * .02, M.skin, sx * .085 * hw, -.03 - k * .025, -.01, V3(sx * .8, -.2 - k * .2, -1)));
+  }
+  const jaw = new THREE.Group(); jaw.position.set(0, -.055, .03); head.add(jaw);
+  jaw.add(dWedge(.06 * hw, .03 * hw, ml * .95, 6, 1, .4, M.skin, 0, -.012, .04 + ml * .47));
+  for (const sx of [-1, 1]) jaw.add(dCone(.009, .045, M.tooth, sx * .026 * hw, -.005, .05 + ml * .8, V3(0, 1, .1)));
+  if (o.mane) for (let k = 0; k < 11; k++) { const a = (k / 10 - .5) * 2.8; G.add(dCone(.06, .2, M.skin, Math.sin(a) * .1, .22 + Math.cos(a) * .05, .36, V3(Math.sin(a) * .5, .25 + Math.cos(a) * .3, -1))); }
+  const legs = [];
+  for (const [z, front] of [[.2, 1], [-.3, 0]]) for (const sx of [-1, 1]) {
+    const hip = new THREE.Group(); hip.position.set(sx * .1 * b, -.02, z); G.add(hip);
+    const kz = front ? .02 : -.06, pz = front ? .03 : .09;
+    hip.add(dEll(.07 * b, .09 * b, .085, 0, -.03, 0, M.skin), dSeg(V3(0, -.02, 0), V3(0, -.2, kz), .055 * b, .04 * b, M.skin));
+    const knee = new THREE.Group(); knee.position.set(0, -.2, kz); hip.add(knee);
+    knee.add(dSeg(V3(0, 0, 0), V3(0, -.19, pz - kz), .036 * b, .027 * b, M.skin), dEll(.043 * b, .026, .056, 0, -.2, pz - kz + .02, M.skin));
+    for (let c = -1; c <= 1; c++) knee.add(dCone(.008, .045, M.tooth, c * .02 * b, -.21, pz - kz + .07, V3(0, -.4, 1)));
+    legs.push({ hip, knee, front, sx });
+  }
+  const tails = [];
+  const tail = (base, yaw, pitch, len, prof, bend, tipGlow) => {
+    const tube = new SoftTube(16, 12, M.skin); G.add(tube.mesh); const tip = tipGlow ? dCone(.035, .22, M.glow, 0, 0, 0, V3(0, 0, 1)) : null; if (tip) G.add(tip);
+    tails.push({ base, yaw, pitch, len, prof, bend, tube, tip, pts: Array.from({ length: 16 }, () => V3()) });
+  };
+  if (o.tail === 'nine') for (let k = 0; k < 9; k++) { const f = k / 8 - .5; tail(V3(0, .1, -.44), f * 2.3, .55 + .35 * Math.cos(f * PI), .72, [.035, .06, .075, .07, .05, .012], .5, true); }
+  else if (o.tail === 'thin') tail(V3(0, .1, -.46), 0, .1, .8, [.032, .026, .023, .022, .022, .03, .012], 1, false);
+  else tail(V3(0, .08, -.44), 0, -.35, .55, [.04, .075, .085, .08, .055, .01], .6, false);
+  // spirit fire licking off each paw
+  const flames = [];
+  for (const l of legs) { const f = dCone(.03, .2, M.glow, 0, -.2, .0, V3(0, .2, -1)); l.knee.add(f); flames.push(f); }
+  return { G, head, jaw, legs, tails, flames };
+}
+function buildBird(o, M) {
+  const G = new THREE.Group();
+  G.add(shellOf(dEll(.12, .11, .27, 0, 0, 0, M.skin), M.shell), dEll(.11, .115, .15, 0, -.015, .12, M.skin));
+  const head = new THREE.Group(); head.position.set(0, .06, .3); G.add(head);
+  head.add(shellOf(dEll(.075, .07, .085, 0, 0, 0, M.skin), M.shell));
+  head.add(dCone(.032, .1, M.beak, 0, .0, .055, V3(0, -.25, 1)), dCone(.012, .055, M.beak, 0, -.012, .145, V3(0, -1, .35)), dCone(.022, .07, M.beak, 0, -.025, .055, V3(0, -.15, 1)));
+  for (const sx of [-1, 1]) {
+    head.add(dEll(.018, .018, .012, sx * .05, .02, .035, M.eye));
+    const brow = dWedge(.012, .02, .08, 4, 1, .5, M.skin, sx * .045, .042, .035, .2); brow.rotation.y = sx * .25; head.add(brow);
+  }
+  if (o.crest) for (let k = 0; k < 5; k++) head.add(dCone(.024, .2 - k * .02, M.glow, 0, .05, -.02 - k * .02, V3(0, .55, -1)));
+  const wings = [];
+  for (const sx of [-1, 1]) {
+    const sh = new THREE.Group(); sh.position.set(sx * .08, .05, .06); G.add(sh);
+    sh.add(dSeg(V3(0, 0, 0), V3(sx * .38, 0, -.03), .045, .03, M.skin));
+    for (let k = 0; k < 6; k++) { const f = feather(.27, .04, M.feather); f.position.set(sx * (.04 + k * .062), .005, -.01); f.rotation.y = -sx * k * .02; sh.add(f); }
+    for (let k = 0; k < 5; k++) { const f = feather(.15, .035, M.skin); f.position.set(sx * (.04 + k * .07), .015, 0); sh.add(f); }   // coverts
+    const out = new THREE.Group(); out.position.set(sx * .38, 0, -.03); sh.add(out);
+    out.add(dSeg(V3(0, 0, 0), V3(sx * .28, 0, .03), .03, .014, M.skin));
+    for (let k = 0; k < 8; k++) { const f = feather(.3 + k * .028, .038, M.feather); f.position.set(sx * (.02 + k * .037), 0, .01); f.rotation.y = -sx * k * .1; out.add(f); }
+    wings.push({ sh, out, sx });
+  }
+  const tail = new THREE.Group(); tail.position.set(0, .01, -.24); G.add(tail);
+  for (let k = 0; k < 7; k++) { const f = feather(.24, .04, M.feather); f.rotation.y = (k - 3) * .13; f.position.y = -Math.abs(k - 3) * .003; tail.add(f); }
+  const streamers = [];
+  if (o.streamers) for (let k = 0; k < 3; k++) { const s = dCone(.035, .8, M.glow, (k - 1) * .04, 0, -.05, V3((k - 1) * .18, -.05, -1)); tail.add(s); streamers.push(s); }
+  const talons = new THREE.Group(); G.add(talons);
+  for (const sx of [-1, 1]) {
+    talons.add(dSeg(V3(sx * .04, -.07, .03), V3(sx * .05, -.15, -.02), .02, .015, M.skin));
+    for (let c = -1; c <= 1; c++) talons.add(dCone(.009, .06, M.beak, sx * .05 + c * .015, -.15, -.0, V3(c * .3, -.3, 1)));
+  }
+  return { G, head, wings, tail, streamers, talons };
+}
+function buildTortoise(M) {
+  const G = new THREE.Group();
+  const shell = new THREE.Mesh(facet(new THREE.SphereGeometry(1, 12, 6, 0, TAU, 0, PI / 2)), M.shellMat); shell.scale.set(.5, .3, .6); G.add(shellOf(shell, M.shell));
+  const rim = new THREE.Mesh(facet(new THREE.CylinderGeometry(1, .94, .07, 24)), M.shellMat); rim.scale.set(.53, 1, .63); G.add(rim);
+  G.add(dEll(.45, .06, .55, 0, -.05, 0, M.skin));
+  for (let k = 0; k < 5; k++) { const z = .36 - k * .18, y = .3 * Math.sqrt(Math.max(0, 1 - (z / .6) ** 2)); G.add(dCone(.04, .12, M.claw, 0, y - .025, z, V3(0, 1, -.25))); }
+  for (let k = 0; k < 14; k++) { const a = k / 14 * TAU; G.add(dCone(.028, .1, M.claw, Math.cos(a) * .52, 0, Math.sin(a) * .62, V3(Math.cos(a), -.15, Math.sin(a)))); }
+  G.add(dSeg(V3(0, 0, .48), V3(0, .1, .72), .095, .075, M.skin));
+  const head = new THREE.Group(); head.position.set(0, .13, .78); G.add(head);
+  head.add(shellOf(dEll(.085, .07, .11, 0, 0, 0, M.skin), M.shell), dCone(.05, .08, M.claw, 0, -.01, .08, V3(0, -.55, 1)));
+  head.add(dEll(.05, .02, .07, 0, -.04, .05, M.mouth));
+  for (const sx of [-1, 1]) { head.add(dEll(.02, .012, .016, sx * .06, .025, .05, M.eye)); const brow = dWedge(.018, .026, .08, 4, 1, .6, M.skin, sx * .05, .05, .04, .3); head.add(brow); }
+  const jaw = new THREE.Group(); jaw.position.set(0, -.035, .02); head.add(jaw); jaw.add(dWedge(.055, .03, .12, 5, 1, .45, M.skin, 0, -.01, .07));
+  const legs = [];
+  for (const zf of [1, -1]) for (const sx of [-1, 1]) {
+    const hip = new THREE.Group(); hip.position.set(sx * .36, -.02, zf * .38); G.add(hip);
+    hip.add(dSeg(V3(0, 0, 0), V3(sx * .12, -.2, zf * .06), .095, .075, M.skin), dEll(.085, .035, .095, sx * .13, -.22, zf * .07 + .02, M.skin));
+    for (let c = -1; c <= 1; c++) hip.add(dCone(.012, .05, M.claw, sx * .13 + c * .03, -.23, zf * .07 + .1, V3(0, -.3, 1)));
+    legs.push({ hip, zf, sx });
+  }
+  // the serpent that is the tortoise's tail, coiling up over the shell
+  const tube = new SoftTube(32, 12, M.snake); G.add(tube.mesh);
+  const sHead = new THREE.Group(); sHead.scale.setScalar(1.6); G.add(sHead);
+  sHead.add(shellOf(dWedge(.06, .035, .14, 6, 1, .55, M.snake, 0, 0, .05), M.shell));
+  for (const sx of [-1, 1]) { sHead.add(dEll(.014, .008, .012, sx * .035, .022, .06, M.eye), dCone(.006, .04, M.tooth, sx * .02, -.02, .1, V3(0, -1, .2))); }
+  const sJaw = new THREE.Group(); sJaw.position.set(0, -.015, 0); sHead.add(sJaw); sJaw.add(dWedge(.045, .025, .12, 6, 1, .3, M.snake, 0, -.005, .05));
+  const dome = new THREE.Mesh(new THREE.IcosahedronGeometry(.95, 1), new THREE.MeshBasicMaterial({ color: M.domeC, wireframe: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  dome.userData.keep = true; G.add(dome);
+  return { G, head, jaw, legs, snake: { tube, pts: Array.from({ length: 32 }, () => V3()), head: sHead, jaw: sJaw }, dome };
+}
+function buildShark(M) {
+  // one smooth torpedo body, rebuilt every frame so the whole back half sweeps from side to side as it swims
+  const G = new THREE.Group(), front = new THREE.Group(); G.add(front);
+  const body = new SoftTube(40, 20, M.skin); G.add(body.mesh); const bg = new THREE.Mesh(body.mesh.geometry, M.shellT); bg.frustumCulled = false; G.add(bg);
+  front.add(dEll(.08, .028, .085, 0, -.06, .37, M.mouth));
+  for (let k = 0; k < 9; k++) { const a = (k / 8 - .5) * 2.4; front.add(dCone(.011, .042, M.tooth, Math.sin(a) * .075, -.052, .33 + Math.cos(a) * .07, V3(0, -1, .1))); }
+  const jaw = new THREE.Group(); jaw.position.set(0, -.07, .3); front.add(jaw);
+  jaw.add(dEll(.078, .022, .1, 0, -.008, .07, M.skin));
+  for (let k = 0; k < 9; k++) { const a = (k / 8 - .5) * 2.4; jaw.add(dCone(.01, .038, M.tooth, Math.sin(a) * .066, .004, .04 + Math.cos(a) * .07, V3(0, 1, .1))); }
+  for (const sx of [-1, 1]) {
+    front.add(dEll(.016, .016, .012, sx * .088, .025, .4, M.eye));
+    for (let k = 0; k < 5; k++) { const g = new THREE.Mesh(new THREE.BoxGeometry(.008, .09, .014), M.dark); g.position.set(sx * .158, -.015, .25 - k * .032); g.rotation.set(0, sx * .1, sx * .12); front.add(g); }
+    const pec = dFin([[0, 0], [-.12, -.02], [-.32, -.22], [-.2, -.06]], M.skin); pec.position.set(sx * .13, -.1, .2); pec.rotation.set(0, 0, sx * -1.15); front.add(pec);
+  }
+  const fins = [
+    { m: dFin([[0, 0], [-.26, 0], [-.15, .1], [-.22, .36], [-.04, .13]], M.skin, .022), s: .3, up: 1 },
+    { m: dFin([[0, 0], [-.09, 0], [-.08, .08]], M.skin), s: .68, up: 1 },
+    { m: dFin([[0, 0], [-.09, 0], [-.08, -.08]], M.skin), s: .7, up: -1 },
+    { m: dFin([[.06, 0], [-.12, .1], [-.36, .5], [-.1, .02], [-.26, -.32], [-.02, -.04]], M.skin, .022), s: 1, up: 0 },
+  ];
+  fins.forEach((f) => G.add(f.m));
+  return { G, front, body, fins, jaw, pts: Array.from({ length: 40 }, () => V3()) };
+}
+const SHARK_RX = [.02, .085, .135, .16, .15, .12, .085, .055, .035, .025], SHARK_RY = [.02, .08, .135, .18, .165, .13, .09, .06, .04, .035];
+function summonBeast(t, target, color, life, kind) {
+  const mx = Math.max(color[0], color[1], color[2]), hue = new THREE.Color(Math.pow(color[0] / mx, 2.2), Math.pow(color[1] / mx, 2.2), Math.pow(color[2] / mx, 2.2));
+  const cfg = BEAST[kind], rim = hue.clone().multiplyScalar(1.5), white = new THREE.Color(1, .97, .92);
+  const C = (r, g, b) => new THREE.Color(r, g, b), mix = (a, b, k) => a.clone().lerp(b, k);
+  const glow = glowMat(hue.clone().multiplyScalar(.9)), eye = new THREE.MeshBasicMaterial({ color: kind === 'crow' ? C(3, .3, .2) : C(3, 2.6, 1.2), transparent: true });
+  const shell = new THREE.ShaderMaterial({ uniforms: { uHue: { value: hue.clone().multiplyScalar(.45) }, uOp: { value: 0 }, uPush: { value: .14 } }, vertexShader: DRG_VS, fragmentShader: DRG_GLOW_FS, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const shellT = new THREE.ShaderMaterial({ uniforms: { uHue: { value: hue.clone().multiplyScalar(.45) }, uOp: { value: 0 }, uPush: { value: .03 } }, vertexShader: DRG_VS, fragmentShader: DRG_GLOW_FS, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const dark = new THREE.MeshBasicMaterial({ color: C(.02, .02, .025), transparent: true }), mouth = new THREE.MeshBasicMaterial({ color: C(.45, .03, .03), transparent: true });
+  const tooth = beastMat(white, white, rim.clone().multiplyScalar(.4), 3, new THREE.Vector2(1, 1)), gold = beastMat(C(1.3, 1.05, .6), C(1.3, 1.05, .6), rim.clone().multiplyScalar(.5), 3, new THREE.Vector2(1, 1));
+  const mats = [tooth, gold];
+  let rig;
+  if (kind === 'falcon' || kind === 'crow') {
+    const base = kind === 'crow' ? C(.06, .06, .08) : mix(C(1.2, .35, .12), hue, .4), skin = beastMat(base, kind === 'crow' ? C(.1, .1, .12) : C(1.3, 1, .7), rim, 0, new THREE.Vector2(26, 12));
+    const fea = beastMat(kind === 'crow' ? C(.05, .05, .07) : mix(C(1.1, .3, .1), hue, .3), C(.2, .2, .2), rim, 0, new THREE.Vector2(3, 18)); mats.push(skin, fea);
+    rig = buildBird({ crest: kind === 'falcon', streamers: kind === 'falcon' }, { skin, feather: fea, beak: kind === 'crow' ? beastMat(C(.08, .08, .09), C(.08, .08, .09), rim, 3, new THREE.Vector2(1, 1)) : gold, eye, glow, shell });
+    if (kind === 'crow') mats.push(rig.head.children[1].material);
+  } else if (kind === 'shark') {
+    const skin = beastMat(mix(C(.35, .45, .6), hue, .25), white, rim, 3, new THREE.Vector2(1, 1)); mats.push(skin);
+    rig = buildShark({ skin, dark, mouth, tooth, eye, shell, shellT });
+  } else if (kind === 'tortoise') {
+    const skin = beastMat(mix(C(.45, .5, .35), hue, .2), C(1, .9, .6), rim, 0, new THREE.Vector2(30, 16)), shellMat = beastMat(mix(C(.22, .3, .2), hue, .3), C(.9, .8, .5), rim, 0, new THREE.Vector2(9, 5));
+    const snake = beastMat(mix(C(.15, .2, .15), hue, .35), C(1, .9, .55), rim, 0, new THREE.Vector2(20, 10)); mats.push(skin, shellMat, snake);
+    rig = buildTortoise({ skin, shellMat, snake, claw: gold, tooth, mouth, eye, shell, domeC: hue.clone().multiplyScalar(.8) });
+  } else {
+    const o = kind === 'tiger' ? { bulk: 1.2, hw: 1.25, muzzle: .13, ears: 'round', tail: 'thin', ruff: true, mane: false }
+      : kind === 'fox' ? { bulk: .8, hw: .85, muzzle: .21, ears: 'fox', tail: 'nine', ruff: true, mane: false }
+        : { bulk: 1, hw: 1, muzzle: .2, ears: 'tall', tail: 'bush', ruff: true, mane: true };
+    const base = kind === 'tiger' ? C(1.3, .6, .15) : kind === 'fox' ? mix(C(1.1, 1.08, 1.2), hue, .15) : mix(C(.55, .62, .78), hue, .2);
+    const skin = beastMat(base, white, rim, kind === 'tiger' ? 2 : 1, new THREE.Vector2(1, 1)); mats.push(skin);
+    rig = buildQuad(o, { skin, dark, mouth, tooth, eye, glow, shell, shellT });
+  }
+  rig.G.scale.setScalar(cfg.k);
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(.38, .6, 6, 32, 1, true), glowMat(hue.clone().multiplyScalar(.6))); pillar.position.set(t.x, 3 + t.y, t.z);
+  const root = new THREE.Group(); root.add(rig.G); scene.add(root, pillar);
+  M.cine = { top: t, t: life, life };
+  const S = { beast: true, kind, cfg, rig, root, pillar, mats, shell, shellT, glow, t, target, hue, color, life, age: 0, struck: false, dived: false, seed: Math.random() * TAU, dir: t.p.dir || 1, ph: 0, yaw: null, pitch: 0, bank: 0 };
+  spiritCry(kind);
+  SPIRITS.push(S); return S;
+}
+function tone(f0, f1, f2, dur, vol, type, delay) {
+  if (!AU.ctx || AU.muted) return; const c = AU.ctx, t = c.currentTime + (delay || 0), o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f1, t + dur * .35); o.frequency.linearRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .06); g.gain.setValueAtTime(vol, t + dur * .6); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(AU.master); o.start(t); o.stop(t + dur + .05);
+}
+function spiritCry(kind) {
+  if (kind === 'falcon') { tone(2000, 3100, 1500, .6, .1, 'sawtooth'); tone(2010, 3120, 1510, .6, .06, 'square'); noise(.5, 4000, 2000, .15, 'highpass'); }
+  else if (kind === 'crow') { tone(760, 880, 520, .32, .14, 'square'); tone(740, 860, 500, .38, .14, 'square', .42); }
+  else if (kind === 'wolf') { tone(360, 720, 520, 1.8, .14, 'sine'); tone(364, 726, 524, 1.8, .07, 'triangle'); }
+  else if (kind === 'tiger') { noise(1.3, 700, 90, .65, 'lowpass'); tone(130, 190, 70, 1.2, .2, 'sawtooth'); tone(97, 140, 55, 1.2, .14, 'sawtooth'); }
+  else if (kind === 'fox') { tone(900, 1500, 700, .8, .1, 'triangle'); ping(2600, 1, .07); ping(3300, 1.1, .05); }
+  else if (kind === 'shark') { noise(1.1, 250, 1400, .4); noise(.6, 900, 200, .3, 'lowpass'); }
+  else if (kind === 'tortoise') { ping(98, 2.2, .25, 'sine'); ping(147, 2, .12, 'sine'); noise(.9, 300, 70, .45, 'lowpass'); }
+}
+function beastPath(S, u, out) {
+  const c = S.cfg, tp = S.t, rise = clamp(u / .7, 0, 1), re = rise * rise * (3 - 2 * rise);
+  const ang = S.seed + S.dir * -Math.max(0, u - .2) * c.spd, rad = lerp(.02, c.rad + .2 * Math.sin(u * 1.3 + S.seed), re);
+  let x = tp.x + Math.cos(ang) * rad, z = tp.z + Math.sin(ang) * rad, y = tp.y + .1 + re * c.h + c.wob * Math.sin(u * 2.4 + S.seed) * re;
+  const dive = clamp((u - S.life * .64) / (S.life * .32), 0, 1);
+  if (dive > 0) { const e = S.kind === 'tortoise' ? dive * dive * dive : dive * dive * (3 - 2 * dive); x = lerp(x, S.target.x, e); z = lerp(z, S.target.z, e); y = lerp(y, S.target.y + .15, e) + Math.sin(dive * PI) * c.leap; }
+  return out.set(x, y, z);
+}
+const _bz = new THREE.Vector3(0, 0, 1), _bp = new THREE.Vector3(), _bq = new THREE.Vector3(), _br = new THREE.Vector3();
+const angLerp = (a, b, k) => a + (((b - a + PI) % TAU + TAU) % TAU - PI) * k;
+function updateBeast(S, raw) {
+  S.age += raw; const a = S.age / S.life, fade = Math.min(1, S.age / .2) * (a > .95 ? Math.max(0, (1 - a) / .05) : 1), R = S.rig, u = S.age;
+  beastPath(S, u, _bp); beastPath(S, u + .04, _bq); beastPath(S, u + .08, _br);
+  const fx = _bq.x - _bp.x, fy = _bq.y - _bp.y, fz = _bq.z - _bp.z, hz = Math.hypot(fx, fz), speed = Math.hypot(hz, fy) / .04;
+  const yaw = hz > 1e-4 ? Math.atan2(fx, fz) : (S.yaw || 0), yaw2 = Math.hypot(_br.x - _bq.x, _br.z - _bq.z) > 1e-4 ? Math.atan2(_br.x - _bq.x, _br.z - _bq.z) : yaw;
+  const lim = S.cfg.pitch * 1.4, pitch = clamp(Math.atan2(fy, Math.max(hz, 1e-4)), -lim, lim), turn = angLerp(0, yaw2 - yaw, 1) / .04;
+  const kk = Math.min(1, raw * 10); S.yaw = S.yaw === null ? yaw : angLerp(S.yaw, yaw, kk); S.pitch = lerp(S.pitch, pitch, kk); S.bank = lerp(S.bank, clamp(-turn * S.cfg.bank * .25, -.9, .9), kk);
+  S.root.position.copy(_bp); S.root.rotation.set(-S.pitch, S.yaw, S.bank, 'YXZ');
+  const dive = clamp((u - S.life * .64) / (S.life * .32), 0, 1), strike = clamp(dive * 2.2 - .4, 0, 1);
+  const roar = Math.max(Math.sin(clamp((u - .1) / 1, 0, 1) * PI), strike);
+  if (S.kind === 'falcon' || S.kind === 'crow') {
+    const fold = dive > 0 ? clamp(dive * 2.5, 0, 1) : 0, beat = 1 - fold * .85;
+    S.ph += raw * (7.5 + Math.max(0, fy / .04) * .8);
+    for (const w of R.wings) {
+      w.sh.rotation.set(0, w.sx * fold * 1.0, w.sx * (.12 + .7 * beat * Math.sin(S.ph)));
+      w.out.rotation.set(0, w.sx * fold * .5, w.sx * (.55 * beat * Math.sin(S.ph - .8) - fold * .2));
+    }
+    R.tail.rotation.x = .15 * Math.sin(S.ph * .5); R.head.rotation.x = -.15 * roar;
+    R.talons.rotation.x = -strike * 1.1; R.talons.position.z = strike * .1;
+    R.streamers.forEach((s, i) => { s.scale.set(1, .8 + .3 * Math.sin(u * 11 + i * 2), 1); });
+  } else if (S.kind === 'shark') {
+    S.ph += raw * (5 + speed * .8);
+    const n = R.pts.length;
+    for (let i = 0; i < n; i++) { const f = i / (n - 1); R.pts[i].set(.13 * Math.sin(S.ph - f * 4) * Math.pow(f, 1.8) - .02 * Math.sin(S.ph) , .01 * f, .62 - f * 1.5); }
+    R.body.set(R.pts, (t) => [lerpArr(SHARK_RX, t), lerpArr(SHARK_RY, t)]);
+    R.front.position.x = R.pts[0].x;
+    for (const f of R.fins) {
+      const i = clamp(Math.round(f.s * (n - 1)), 1, n - 2), p = R.pts[f.s === 1 ? n - 1 : i], o = R.pts[i - 1], q = R.pts[i + 1];
+      f.m.position.set(p.x, p.y + f.up * lerpArr(SHARK_RY, f.s) * .85, p.z + (f.up ? .05 : 0)); f.m.rotation.y = Math.atan2(o.x - q.x, o.z - q.z) * (f.s === 1 ? 1.6 : 1);
+    }
+    R.jaw.rotation.x = .1 + .75 * Math.max(strike, .4 * Math.sin(clamp((u - .1) / .9, 0, 1) * PI));
+    if (Math.abs(_bp.y - S.t.y - .25) < .12 && frameN % 4 === 0) shockwave(_bp.x, _bp.z, .7, S.color, 0);   // cutting the surface
+  } else if (S.kind === 'tortoise') {
+    S.ph += raw * 3;
+    R.legs.forEach((l) => { l.hip.rotation.set(.35 * Math.sin(S.ph + (l.zf * l.sx > 0 ? 0 : PI)), 0, l.sx * .2 * Math.sin(S.ph)); });
+    R.jaw.rotation.x = .1 + .5 * roar; R.head.rotation.x = -.2 * roar;
+    const sn = R.snake, n = sn.pts.length;
+    for (let k = 0; k < n; k++) { const f = k / (n - 1); sn.pts[k].set(.3 * Math.sin(f * 6 + u * 3) * (.3 + f * .7), .02 + f * .52 + .06 * Math.sin(f * 8 + u * 4), -.58 - .12 * Math.sin(f * PI) + f * .42); }
+    sn.tube.set(sn.pts, (t) => { const r = (t < .1 ? .03 + t * .5 : .08 - t * .025); return [r, r * .9]; });
+    const sp = sn.pts[n - 1], sq = sn.pts[n - 3]; sn.head.position.copy(sp); sn.head.quaternion.setFromUnitVectors(_bz, _br.subVectors(sp, sq).normalize()); sn.head.rotateX(-.25 + strike * .5);
+    sn.jaw.rotation.x = .1 + .7 * Math.max(roar * .6, strike);
+    R.dome.rotation.y += raw * .6; R.dome.material.opacity = .3 * fade * clamp(u / .6, 0, 1) * (1 - dive);
+  } else {
+    // a gallop: the legs swing in pairs, the body pitches with each stride; on the pounce the forelegs reach out
+    const pounce = clamp(dive * 2 - .2, 0, 1);
+    S.ph += raw * (6 + speed * 1.6);
+    for (const l of R.legs) {
+      const p = S.ph + (l.front ? 0 : PI * .9) + (l.sx > 0 ? .35 : 0), sw = Math.sin(p);
+      const reach = l.front ? -1.1 : 1.0;
+      l.hip.rotation.x = lerp(.75 * sw, reach, pounce); l.knee.rotation.x = lerp(l.front ? Math.max(0, -Math.cos(p)) * 1.2 : -Math.max(0, Math.cos(p)) * 1.1, l.front ? -.2 : .3, pounce);
+    }
+    R.G.rotation.x = .07 * Math.sin(S.ph * 2) * (1 - pounce); R.G.position.y = .03 * Math.abs(Math.sin(S.ph)) * (1 - pounce);
+    R.head.rotation.x = -.12 * Math.sin(S.ph * 2) - .25 * roar; R.jaw.rotation.x = .08 + .65 * roar;
+    R.tails.forEach((tl, ti) => {
+      // the tail swings and curls from root to tip; the tiger's sags then lifts at the end
+      let y = tl.yaw, p = tl.pitch; const n = tl.pts.length, step = tl.len / (n - 1); tl.pts[0].copy(tl.base);
+      for (let i = 1; i < n; i++) {
+        const f = i / (n - 1); y += tl.bend * .12 * Math.sin(u * 5 - f * 3.5 + ti * .9) * f; p += S.kind === 'tiger' ? (f < .55 ? -.09 : .16) : .02 + .05 * tl.bend * Math.sin(u * 4 - f * 3 + ti);
+        tl.pts[i].set(tl.pts[i - 1].x - Math.cos(p) * Math.sin(y) * step, tl.pts[i - 1].y + Math.sin(p) * step, tl.pts[i - 1].z - Math.cos(p) * Math.cos(y) * step);
+      }
+      tl.tube.set(tl.pts, (t) => { const r = lerpArr(tl.prof, t); return [r, r]; });
+      if (tl.tip) { tl.tip.position.copy(tl.pts[n - 1]); tl.tip.quaternion.setFromUnitVectors(_up, _bq.subVectors(tl.pts[n - 1], tl.pts[n - 3]).normalize()); tl.tip.scale.set(1, .8 + .4 * Math.sin(u * 12 + ti), 1); }
+    });
+    R.flames.forEach((f, i) => f.scale.set(1, .6 + .6 * Math.abs(Math.sin(u * 10 + i * 1.3)), 1));
+    if (S.kind === 'wolf' && frameN % 3 === 0) sparks.burst(_bp.x + rand(-.4, .4), _bp.y + rand(0, .6), _bp.z + rand(-.4, .4), 2, .6, [.6, .85, 1]);   // crackling lightning
+  }
+  for (const m of S.mats) { m.uniforms.uOp.value = fade; m.uniforms.uTime.value = u; }
+  S.shell.uniforms.uOp.value = S.shellT.uniforms.uOp.value = .55 * fade; S.glow.opacity = .85 * fade;
+  S.root.traverse((o) => { if (o.material && o.material.isMeshBasicMaterial && o.material !== S.glow && !o.userData.keep) o.material.opacity = fade; });
+  S.pillar.material.opacity = Math.max(0, .6 * (1 - u / 1.1)); S.pillar.scale.set(1 + u * .8, 1, 1 + u * .8);
+  const ec = [Math.min(1, S.color[0] / 2.6), Math.min(1, S.color[1] / 2.6), Math.min(1, S.color[2] / 2.6)];
+  if (frameN % 2 === 0) sparks.burst(_bp.x + rand(-.3, .3), _bp.y + rand(-.1, .4), _bp.z + rand(-.3, .3), 1, .25, ec);
+  if (!S.dived && dive > 0) { S.dived = true; noise(.7, 500, 2600, .35); if (S.kind !== 'tortoise') spiritCry(S.kind === 'shark' ? 'shark' : S.kind); }
+  if (!S.struck && a > .96) {
+    S.struck = true; shockwave(S.target.x, S.target.z, S.kind === 'tortoise' ? 2.8 : 2.2, S.color, 7); shake = Math.max(shake, S.kind === 'tortoise' ? .5 : .35);
+    sparks.burst(S.target.x, S.target.y + .3, S.target.z, 70, 1.8, ec); sfx.burst();
+  }
+  if (a >= 1) {
+    scene.remove(S.root, S.pillar); const seen = new Set();
+    for (const o of [S.root, S.pillar]) o.traverse((q) => { if (q.geometry && !seen.has(q.geometry)) { seen.add(q.geometry); q.geometry.dispose(); } if (q.material && !seen.has(q.material)) { seen.add(q.material); q.material.dispose(); } });
+    return true;
+  }
+  return false;
+}
+function summonSpirit(t, target, color, life) {
+  const kind = SPIRIT_OF[t.p.sel && t.p.sel.lock] || 'dragon';
+  return kind === 'dragon' ? summonDragon(t, target, color, life) : summonBeast(t, target, color, life, kind);
 }
 // the anime cut-in: a dark band streaks in, the name comes in huge from the right, its characters slam down one by
 // one in time with the shout (each one jolts the screen), it holds, then everything whips off to the left.
@@ -1699,7 +2047,7 @@ function openBuild(id) {
 function renderBuild(focus) {
   const p = compose(B.sel, { name: B.name || undefined, moveName: B.move || undefined }), c = uiColor(p);
   $('#b-move').placeholder = `必殺技名稱（預設：${p.moveName}）`;
-  $('#b-movedesc').textContent = `必殺「${MOVES[p.move].label}」：${MOVES[p.move].desc}`;
+  $('#b-movedesc').textContent = `必殺「${MOVES[p.move].label}」：${MOVES[p.move].desc}。守護靈：${SPIRIT_NAME[SPIRIT_OF[p.sel.lock] || 'dragon']}`;
   $('#b-img').src = thumbOf(p);
   $('#b-code').textContent = p.code; $('#b-type').innerHTML = `<em style="color:${c}">${p.type}</em>・${p.dir > 0 ? '右旋' : '左旋'}・${TIP_NAME[p.tip]}`;
   $('#b-stats').innerHTML = statBars(p, c); $('#b-stats').style.setProperty('--c', c);
