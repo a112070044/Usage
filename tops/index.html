@@ -160,7 +160,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <div class="sec"><h2>對手</h2><div class="opp" id="opp"></div></div>
     <button type="button" class="cta" id="btn-start">開始對戰</button>
     <div class="howto">
-      <b>發射</b>：發射器浮在場地上空。一根手指按住發射器把它拿起來（拖著可以移動發射位置），喊完「3、2、1，GO SHOOT！」時，另一根手指抓住發射器側邊的拉條，往外一口氣抽出來。抽得越快，陀螺轉得越快；搶拍、拉太慢或沒拿穩都會變弱。<br>
+      <b>發射</b>：發射器浮在場地上空。一根手指按住發射器把它拿起來（拖著可以移動發射位置），喊完「1、2、3，GO SHOOT！」時，另一根手指抓住發射器側邊的拉條，往外一口氣抽出來。抽得越快，陀螺轉得越快；搶拍、拉太慢或沒拿穩都會變弱。<br>
       <b>發射手法</b>：拉線時手拿著發射器不動＝直立發射，陀螺會落在原地慢慢滑到中央（適合持久、防禦）；拉線的同時把發射器往旁邊一甩＝滑動發射，陀螺斜斜落地、在場上畫出花瓣般的衝刺路線（適合攻擊）。<br>
       <b>得分</b>：對手先停轉＝旋轉終結 1 分；撞進場邊的缺口＝場外終結 2 分；撞到散開＝爆裂終結 2 分。先拿 3 分獲勝。<br>
       <b>相剋</b>：攻擊剋持久、持久剋防禦、防禦剋攻擊。同方向旋轉碰撞最猛烈；左旋碰右旋會像齒輪互相分攤轉速，比的是誰撐得久。<br>
@@ -1147,7 +1147,7 @@ function loop(now) {
     // countdown: 3, 2, 1, GO SHOOT!
     if (M.cd) {
       const k = Math.floor(M.t - .2);
-      if (k !== M.count && M.t >= .2 && k < 3) { M.count = k; banner(String(3 - k), '', 700); sfx.beep(false); shout(['Three!', 'Two!', 'One!'][k]); }
+      if (k !== M.count && M.t >= .2 && k < 3) { M.count = k; banner(String(k + 1), '', 700); sfx.beep(false); shout(['One!', 'Two!', 'Three!'][k]); }
       if (M.t >= M.goAt - .12 && M.count < 3) { M.count = 3; shout('Go, shoot!', true); }
       if (M.t >= M.goAt && M.count < 4) { M.count = 4; banner('GO SHOOT!', 'go', 900); sfx.beep(true); }
     }
