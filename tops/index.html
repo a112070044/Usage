@@ -1566,11 +1566,12 @@ function buildShark(M) {
   const lo1 = arc(-.008, 0).map((p) => p.sub(jaw.position)), lo2 = arc(-.004, .14).map((p) => p.sub(jaw.position));
   const chinG = new THREE.SphereGeometry(1, 24, 10, 0, TAU, PI / 2, PI / 2), chin = new THREE.Mesh(chinG, M.skin);
   chin.scale.set(.135, .075, .15); chin.position.set(0, lo1[(arcN - 1) / 2].y * .5 - .006, .12); jaw.add(chin);
-  gumLine(jaw, lo1); jaw.add(fan(lo1, -.03, .1, M.gum));
+  gumLine(jaw, lo1); jaw.add(fan(lo1, -.03, .1, M.mouth));
   lo1.forEach((p, i) => { const a = Math.abs(i / (arcN - 1) * 2 - 1); if (i % 2 === 0) tooth(jaw, p, 1, (.95 - .35 * a) * (.85 + .3 * Math.random()), 1); });
   lo2.forEach((p, i) => { if (i % 2) tooth(jaw, p, 1, .5 + .2 * Math.random(), 1.6); });
   // the back of the throat, stretched as the jaw drops
-  const throat = new THREE.Mesh(new THREE.PlaneGeometry(.27, 1), M.mouth); throat.position.set(0, pivY, CZ + .02); front.add(throat);
+  // the gullet: a dark hollow at the back of the mouth, seen between the jaws
+  const throat = dEll(.09, .05, .06, 0, pivY + .01, CZ + .05, M.dark); front.add(throat);
   for (const sx of [-1, 1]) {
     front.add(dEll(.016, .016, .012, sx * .099, .03, .4, M.eye));
     for (let k = 0; k < 5; k++) { const g = new THREE.Mesh(new THREE.BoxGeometry(.008, .09, .014), M.dark); g.position.set(sx * .158, -.015, .25 - k * .032); g.rotation.set(0, sx * .1, sx * .12); front.add(g); }
@@ -1608,7 +1609,7 @@ function summonBeast(t, target, color, life, kind) {
     rig = buildBird({ crest: kind === 'falcon', streamers: kind === 'falcon' }, { skin, feather: fea, beak, eye, glow, shell, shellT });
   } else if (kind === 'shark') {
     const skin = beastMat(C(.4, .44, .5), C(1.05, 1.03, 1), hue.clone().multiplyScalar(.22), 4, new THREE.Vector2(1, 1)); skin.transparent = false; mats.push(skin);   // a solid, real-looking hide
-    const gum = new THREE.MeshBasicMaterial({ color: C(.7, .22, .26), transparent: true }), throat = beastMat(C(.32, .02, .03), C(.18, .01, .02), C(.05, 0, 0), 3, new THREE.Vector2(1, 1)); throat.transparent = false; gum.transparent = false; mats.push(throat);
+    const gum = new THREE.MeshBasicMaterial({ color: C(.62, .12, .14), transparent: true }), throat = beastMat(C(.22, .05, .05), C(.16, .03, .03), C(.04, 0, 0), 3, new THREE.Vector2(1, 1)); throat.transparent = false; gum.transparent = false; mats.push(throat);
     const ivory = new THREE.MeshBasicMaterial({ color: C(1.05, 1, .9) });
     rig = buildShark({ skin, dark, mouth: throat, tooth: ivory, eye: new THREE.MeshBasicMaterial({ color: C(.03, .03, .04) }), shell, shellT, gum });
   } else if (kind === 'tortoise') {
@@ -1784,7 +1785,7 @@ function updateBeast(S, raw) {
     S.sea.position.y = lerp(-.05, S.SL, flood * flood * (3 - 2 * flood)); sea.uOp.value = flood; sea.uT.value = u; sea.uWake.value.set(_bp.x, _bp.z);
     const k = cl ? 1 : 0, L = S.life, gape = !cl ? 0 : S.phase === 1 ? clamp((u - L * .52) / (L * .1), 0, 1) : S.phase === 2 ? 1 : S.phase === 3 ? clamp(1 - (u - L * .9) / (L * .05), 0, 1) : 0;
     const ja = .02 + 1.15 * gape + .05 * Math.sin(u * 40) * gape * (S.phase === 2 ? 1 : 0);   // jaws gape, trembling, then snap shut
-    R.jaw.rotation.x = ja; const gap = Math.max(.001, Math.sin(ja) * .26); R.throat.scale.y = gap; R.throat.position.y = R.pivY - gap / 2 + .02;
+    R.jaw.rotation.x = ja; R.throat.scale.y = .02 + .07 * gape;
     const under = _bp.y < S.sea.position.y;
     if (!cl && frameN % 2 === 0) { const f = R.fins[0].m, fw = f.getWorldPosition(_br); sparks.burst(fw.x, S.sea.position.y + .02, fw.z, 1, .25, [.8, .95, 1]); }   // foam off the fin
     if (S.wasUnder && !under && k > 0) {   // breach
