@@ -1715,6 +1715,12 @@ function makeSea(hue) {
   const m = new THREE.Mesh(new THREE.CircleGeometry(RA * 1.08, 96).rotateX(-PI / 2), new THREE.ShaderMaterial({ uniforms: { uT: { value: 0 }, uOp: { value: 0 }, uWake: { value: new THREE.Vector2() }, uCol: { value: hue.clone() } }, vertexShader: SEA_VS, fragmentShader: SEA_FS, transparent: true, depthWrite: false }));
   m.renderOrder = 2; return m;
 }
+// a special-move camera stays where it can see: pulled inside the bowl when it is low, and always above the floor
+function keepInBowl(p) {
+  const r = Math.hypot(p.x, p.z), lim = RA - .4;
+  if (r > lim && p.y < bowlH(RA) + 1.2) { const k = lim / r; p.x *= k; p.z *= k; }
+  p.y = Math.max(p.y, bowlH(Math.min(RA, Math.hypot(p.x, p.z))) + .3);
+}
 // which way the big shot faces: from the prey toward the middle of the arena (or toward the camera if it is central)
 function sharkStage(S) {
   if (S.v) return; const tg = S.target; let vx = -tg.x, vz = -tg.z, d = Math.hypot(vx, vz);
@@ -1727,31 +1733,31 @@ function sharkClimax(S, u) {
   const L = S.life, ta = L * .34, te = L * .46, th = L * .64, ts = L * .8, tend = L * .95, tg = S.target, P = S.root.position;
   if (u < ta) return false;
   if (!S.A0) {
-    sharkStage(S); S.B = V3(tg.x - S.v.x * 1.25, 0, tg.z - S.v.z * 1.25);
+    sharkStage(S); S.B = V3(tg.x - S.v.x * 1.25, 0, tg.z - S.v.z * 1.25); const br = Math.hypot(S.B.x, S.B.z); if (br > RA * .78) S.B.multiplyScalar(RA * .78 / br);   // it breaches inside the bowl, not out of the wall
     const th = .42 * (S.dir || 1); S.f = V3(S.v.x * Math.cos(th) + S.v.z * Math.sin(th), 0, -S.v.x * Math.sin(th) + S.v.z * Math.cos(th)); S.yawC = Math.atan2(S.f.x, S.f.z); S.A0 = P.clone();   // turned three-quarters to the camera
   }
   const v = S.v, B = S.B, SL = S.SL; let k = S.cfg.k, pitch = 0, yaw = S.yawC, phase;
   if (u < te) {   // dives and races under the prey
     const f = (u - ta) / (te - ta), e = f * f * (3 - 2 * f); phase = 0;
     P.set(lerp(S.A0.x, B.x, e), lerp(S.A0.y, SL - 1.5, e), lerp(S.A0.z, B.z, e)); pitch = -.25 * Math.sin(f * PI);
-    yaw = Math.atan2(B.x - S.A0.x, B.z - S.A0.z); k = lerp(S.cfg.k, 2.4, e);
+    yaw = Math.atan2(B.x - S.A0.x, B.z - S.A0.z); k = lerp(S.cfg.k, 2.2, e);
   } else if (u < th) {   // erupts straight up out of the water, growing
     const f = (u - te) / (th - te), e = 1 - Math.pow(1 - f, 2.4); phase = 1;
-    k = lerp(2.4, 3.5, e); P.set(B.x, lerp(SL - 1.9, SL + 1.35, e), B.z); pitch = lerp(1.35, 1.0, e);
+    k = lerp(2.2, 3.0, e); P.set(B.x, lerp(SL - 1.7, SL + 1.2, e), B.z); pitch = lerp(1.35, 1.0, e);
   } else if (u < ts) {   // towers over it, jaws wide, leaning in
     const f = (u - th) / (ts - th); phase = 2;
-    k = 3.5; P.set(B.x + S.f.x * .3 * f, SL + 1.35 + .12 * Math.sin(f * PI), B.z + S.f.z * .3 * f); pitch = lerp(1.0, .55, f * f);
+    k = 3.0; P.set(B.x + S.f.x * .3 * f, SL + 1.2 + .12 * Math.sin(f * PI), B.z + S.f.z * .3 * f); pitch = lerp(1.0, .55, f * f);
   } else {   // and comes down on it
     const f = clamp((u - ts) / (tend - ts), 0, 1), e = f * f; phase = 3;
-    k = lerp(3.5, 2.8, e); pitch = lerp(.55, -1.1, e); const reach = .5 * k, hx = B.x + S.f.x * .3, hz = B.z + S.f.z * .3;
-    P.set(lerp(hx, tg.x - S.f.x * Math.cos(1.1) * reach, e), lerp(SL + 1.35, tg.y + Math.sin(1.1) * reach, e) - Math.max(0, u - tend) * 10, lerp(hz, tg.z - S.f.z * Math.cos(1.1) * reach, e));
+    k = lerp(3.0, 2.5, e); pitch = lerp(.55, -1.1, e); const reach = .5 * k, hx = B.x + S.f.x * .3, hz = B.z + S.f.z * .3;
+    P.set(lerp(hx, tg.x - S.f.x * Math.cos(1.1) * reach, e), lerp(SL + 1.2, tg.y + Math.sin(1.1) * reach, e) - Math.max(0, u - tend) * 10, lerp(hz, tg.z - S.f.z * Math.cos(1.1) * reach, e));
   }
   S.rig.G.scale.setScalar(k); S.root.rotation.set(-pitch, yaw, 0, 'YXZ'); S.yaw = yaw; S.pitch = pitch; S.bank = 0; S.phase = phase;
   // a low camera just behind the prey, looking up at the jaws
   if (phase >= 1) {
     S.root.updateMatrixWorld(true); S.rig.G.localToWorld(S.H.set(0, 0, .45));
     const back = phase === 3 ? clamp((u - ts) / (tend - ts), 0, 1) : 0, bk = back * back * (3 - 2 * back);
-    S.camPos.set(tg.x + v.x * (3.4 + 2.6 * bk), SL + .42 + 2.4 * bk, tg.z + v.z * (3.4 + 2.6 * bk)); S.camLook.set(tg.x, tg.y + .5, tg.z).lerp(S.H, .6 * (1 - bk * .7));   // low, looking up; pulls back and up for the strike
+    S.camPos.set(tg.x + v.x * (4.6 + 2 * bk), SL + .65 + 2.2 * bk, tg.z + v.z * (4.6 + 2 * bk)); S.camLook.set(tg.x, tg.y + .5, tg.z).lerp(S.H, .6 * (1 - bk * .7));   // low, looking up; pulls back and up for the strike
   }
   return true;
 }
@@ -2561,6 +2567,7 @@ function loop(now) {
     _camT.set(_lookT.x + Math.sin(base) * 5.2, _lookT.y + 2.3, _lookT.z + Math.cos(base) * 5.2);
     fov = 50; ease = 3.2;
     if (C.camPos) { _camT.copy(C.camPos); _lookT.copy(C.camLook); fov = 60; ease = 3.2; }   // a staged shot (the shark looming over its prey)
+    keepInBowl(_camT);   // never behind the stadium wall or under the floor
   } else if (inMatch) {
     const r = Math.hypot(START[0][0], START[0][1]), base = Math.atan2(START[0][0] / r, START[0][1] / r), a = base + camAng;
     // nearly straight down by default, like filming from above; the player can tilt, turn and zoom, or follow their top
