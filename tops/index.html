@@ -269,7 +269,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
       <b>視角</b>：對戰中單指左右拖曳旋轉、上下拖曳改變俯視角度，兩指捏合（或滑鼠滾輪）縮放，點兩下回到預設；右下「全場／跟隨」切換是否跟著你的陀螺。
     </div>
     <div class="rec" id="rec"></div>
-    <p class="credits">鯊魚守護靈模型：“Great White Shark” by LasquetiSpice，CC BY 4.0（sketchfab.com/LasquetiSpice）</p>
+    <p class="credits">鯊魚守護靈模型：“Great White Shark” by LasquetiSpice，CC BY 4.0（sketchfab.com/LasquetiSpice）。老虎模型：Microsoft Remix 3D，CC0</p>
   </div>
 
   <div class="screen build" id="scr-build" hidden>
@@ -1412,7 +1412,7 @@ const BEAST = {
   falcon: { k: 1.4, rad: 1.6, h: 2.0, wob: .45, spd: 2.3, leap: 0, pitch: 1.1, bank: 1 },
   crow: { k: 1.35, rad: 1.7, h: 2.2, wob: .55, spd: 2.5, leap: 0, pitch: 1.1, bank: 1 },
   wolf: { k: 1.3, rad: 1.4, h: .9, wob: .12, spd: 2.2, leap: 1.0, pitch: .45, bank: .35 },
-  tiger: { k: 1.35, rad: 1.4, h: .9, wob: .12, spd: 2.0, leap: 1.1, pitch: .45, bank: .35 },
+  tiger: { k: 1.35, rad: 1.4, h: .9, wob: .12, spd: 2.0, leap: 1.1, pitch: .3, bank: .35 },
   fox: { k: 1.25, rad: 1.5, h: 1.1, wob: .25, spd: 2.3, leap: .9, pitch: .45, bank: .45 },
   shark: { k: 1.65, rad: 1.25, h: 0, wob: 0, spd: 2.6, leap: 0, pitch: 1.05, bank: .5 },
   tortoise: { k: 1.3, rad: .35, h: 1.5, wob: .08, spd: .6, leap: 0, pitch: .08, bank: 0 },
@@ -1456,6 +1456,119 @@ class SoftTube {
   }
 }
 const lerpArr = (arr, s) => { const f = s * (arr.length - 1), i = Math.min(arr.length - 2, Math.floor(f)), k = f - i; return lerp(arr[i], arr[i + 1], k); };
+// ---- turning a static, textured animal model into a posable one: a skeleton is fitted to the mesh (legs found from
+// where the vertices are, a spine, neck, head, jaw and tail) and every vertex is bound to its nearest bones ----
+function rigQuadruped(scene) {
+  let mesh = null; scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o; }); scene.updateMatrixWorld(true);
+  const geo = mesh.geometry.clone(); geo.applyMatrix4(mesh.matrixWorld); geo.computeBoundingBox();
+  const P = geo.attributes.position, n = P.count, X = new Float32Array(n), Y = new Float32Array(n), Z = new Float32Array(n);
+  for (let i = 0; i < n; i++) { X[i] = P.getX(i); Y[i] = P.getY(i); Z[i] = P.getZ(i); }
+  const bb = geo.boundingBox, H = bb.max.y - bb.min.y, zMax = bb.max.z;
+  const isTail = (i) => (Z[i] < -0.97 * H / 1.8 && Math.abs(X[i]) < 0.055 * H / 1.8 && Y[i] > 0.12 * H / 1.8) || Z[i] < -1.2 * H / 1.8;
+  const legLow = 0.5 * H / 1.8;
+  // the four legs: low vertices split by side and front/back; then the leg's centre line at a few heights
+  const legs = [];
+  for (const front of [1, 0]) for (const sx of [1, -1]) {
+    const ids = []; for (let i = 0; i < n; i++) if (Y[i] < legLow && X[i] * sx > 0 && (Z[i] > 0.35 * H / 1.8) === !!front && !isTail(i)) ids.push(i);
+    const zc = ids.reduce((a, i) => a + Z[i], 0) / ids.length;
+    const centre = (y0, w) => { let x = 0, z = 0, c = 0; for (const i of ids) if (Math.abs(Y[i] - y0) < w) { x += X[i]; z += Z[i]; c++; } return c ? new THREE.Vector3(x / c, y0, z / c) : null; };
+    const k = H / 1.8, paw = centre(0.05 * k, .06 * k), wrist = centre(0.22 * k, .06 * k), elbow = centre(0.45 * k, .05 * k);
+    const top = new THREE.Vector3(sx * 0.14 * k, (front ? 1.05 : 1.0) * k, elbow.z + (front ? -0.05 : 0.08) * k);
+    legs.push({ front, sx, zc, joints: [top, elbow, wrist, paw] });
+  }
+  // the tail: centre of the tail vertices along its length
+  const tailIds = []; for (let i = 0; i < n; i++) if (isTail(i)) tailIds.push(i);
+  let tz0 = 0, tz1 = 0; tailIds.forEach((i) => { tz0 = Math.min(tz0, Z[i]); }); tz1 = -0.95 * H / 1.8;
+  const tail = [];
+  for (let s = 0; s <= 6; s++) {
+    const z0 = lerp(tz1 + .1 * H / 1.8, tz0 + .02, s / 6); let x = 0, y = 0, c = 0;
+    for (const i of tailIds) if (Math.abs(Z[i] - z0) < .06 * H / 1.8) { x += X[i]; y += Y[i]; c++; }
+    if (c) tail.push(new THREE.Vector3(x / c, y / c, z0));
+  }
+  const k = H / 1.8, S = (x, y, z) => new THREE.Vector3(x * k, y * k, z * k);
+  const spineP = [S(0, 1.12, -0.75), S(0, 1.18, 0.05), S(0, 1.22, 0.75), S(0, 1.32, 1.1), S(0, 1.45, 1.38)];
+  // bones
+  const bones = [], segs = [];
+  const mk = (name, world, parent) => { const b = new THREE.Bone(); b.name = name; b.userData.w = world.clone(); if (parent) { b.position.copy(world).sub(parent.userData.w); parent.add(b); } else b.position.copy(world); bones.push(b); return b; };
+  const root = mk('root', S(0, 0, 0), null);
+  const hip = mk('hip', spineP[0], root), mid = mk('mid', spineP[1], hip), chest = mk('chest', spineP[2], mid), neck = mk('neck', spineP[3], chest), head = mk('head', spineP[4], neck);
+  const jaw = mk('jaw', S(0, 1.4, 1.36), head);
+  const seg = (b, to, allow, leg) => segs.push({ i: bones.indexOf(b), a: b.userData.w, b: to, allow, leg });
+  const all = () => true;
+  seg(hip, spineP[1], (i) => Z[i] < 0.6 * k); seg(mid, spineP[2], all); seg(chest, spineP[3], (i) => Z[i] > -0.2 * k); seg(neck, spineP[4], (i) => Z[i] > 0.8 * k);
+  const inJaw = (i) => Z[i] > 1.28 * k && Y[i] < (1.38 + (Z[i] - 1.3) * -0.25) * k;
+  seg(head, S(0, 1.5, 1.75), (i) => Z[i] > 1.0 * k && !inJaw(i)); seg(jaw, S(0, 1.33, 1.72), (i) => inJaw(i));
+  const legBones = legs.map((L) => {
+    const par = L.front ? chest : hip, j = L.joints, name = (L.front ? 'f' : 'h') + (L.sx > 0 ? 'L' : 'R');
+    const b0 = mk(name + '0', j[0], par), b1 = mk(name + '1', j[1], b0), b2 = mk(name + '2', j[2], b1), b3 = mk(name + '3', j[3], b2);
+    const side = (i) => X[i] * L.sx > -0.01 * k && Math.abs(Z[i] - L.zc) < 0.45 * k && Y[i] < 1.05 * k && !isTail(i);
+    seg(b0, j[1], side, true); seg(b1, j[2], side, true); seg(b2, j[3], side, true); seg(b3, new THREE.Vector3(j[3].x, 0, j[3].z + (L.front ? .08 : .1) * k), (i) => side(i) && Y[i] < .12 * k, true);
+    return { ...L, b: [b0, b1, b2, b3] };
+  });
+  const tailB = []; let tp = hip;
+  tail.forEach((p, s) => { const b = mk('tail' + s, p, tp); tailB.push(b); tp = b; });
+  tailB.forEach((b, s) => seg(b, tail[s + 1] || tail[s].clone().add(new THREE.Vector3(0, 0, -.05 * k)), (i) => isTail(i) || Z[i] < -0.8 * k));
+  // bind: weights from distance to each allowed bone segment, then smoothed over the surface so no skin tears
+  const NB = bones.length, W = new Float32Array(n * NB), v = new THREE.Vector3(), ab = new THREE.Vector3(), av = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    v.set(X[i], Y[i], Z[i]); let tot = 0;
+    for (const s of segs) {
+      if (!s.allow(i)) continue;
+      ab.subVectors(s.b, s.a); av.subVectors(v, s.a); const t = clamp(av.dot(ab) / Math.max(1e-6, ab.lengthSq()), 0, 1);
+      av.sub(ab.multiplyScalar(t)); const d = av.length();
+      if (s.leg && Math.hypot(av.x, av.z) > .2 * k) continue;   // a leg only takes the skin right round it, not the belly between the legs
+      const w = 1 / Math.pow(d + .02 * k, 4); W[i * NB + s.i] += w; tot += w;
+    }
+    if (!tot) { W[i * NB + bones.indexOf(mid)] = 1; tot = 1; }
+    for (let q = 0; q < NB; q++) W[i * NB + q] /= tot;
+  }
+  // neighbours on the surface (vertices at the same spot count as one, so seams stay closed)
+  const key = new Map(), weld = new Int32Array(n);
+  for (let i = 0; i < n; i++) { const kk = Math.round(X[i] * 2e3) + ',' + Math.round(Y[i] * 2e3) + ',' + Math.round(Z[i] * 2e3); if (!key.has(kk)) key.set(kk, i); weld[i] = key.get(kk); }
+  const nb = Array.from({ length: n }, () => new Set()), idx = geo.index ? geo.index.array : null, tc = idx ? idx.length : n;
+  for (let t = 0; t < tc; t += 3) { const a = weld[idx ? idx[t] : t], b = weld[idx ? idx[t + 1] : t + 1], c = weld[idx ? idx[t + 2] : t + 2]; nb[a].add(b).add(c); nb[b].add(a).add(c); nb[c].add(a).add(b); }
+  const T = new Float32Array(W.length);
+  for (let it = 0; it < 4; it++) {
+    for (let i = 0; i < n; i++) {
+      if (weld[i] !== i) continue; const N = nb[i]; if (!N.size) { for (let q = 0; q < NB; q++) T[i * NB + q] = W[i * NB + q]; continue; }
+      for (let q = 0; q < NB; q++) { let s2 = 0; for (const j of N) s2 += W[j * NB + q]; T[i * NB + q] = W[i * NB + q] * .5 + s2 / N.size * .5; }
+    }
+    for (let i = 0; i < n; i++) { const r = weld[i]; for (let q = 0; q < NB; q++) W[i * NB + q] = T[r * NB + q]; }
+  }
+  const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    const order = []; for (let q = 0; q < NB; q++) if (W[i * NB + q] > 1e-4) order.push(q);
+    order.sort((a, b) => W[i * NB + b] - W[i * NB + a]); let tot = 0; for (let q = 0; q < 4 && q < order.length; q++) tot += W[i * NB + order[q]];
+    for (let q = 0; q < 4; q++) { const bi = order[q]; si[i * 4 + q] = bi == null ? 0 : bi; sw[i * 4 + q] = bi == null ? 0 : W[i * NB + bi] / tot; }
+  }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  const mat = mesh.material.clone(); mat.skinning = true;   // (three r128 needs the flag to skin on the GPU)
+  const sk = new THREE.SkinnedMesh(geo, mat); sk.add(root); root.updateMatrixWorld(true); sk.bind(new THREE.Skeleton(bones)); sk.frustumCulled = false;
+  bones.forEach((b) => b.userData.q0 = b.quaternion.clone());
+  return { mesh: sk, root, hip, mid, chest, neck, head, jaw, legs: legBones, tail: tailB, k, zMax };
+}
+// the real tiger: a textured model, fitted with a skeleton on load (see rigQuadruped)
+const REAL_TIGER = { ready: false, inUse: false };
+if (THREE.GLTFLoader) new THREE.GLTFLoader().load('spirit/tiger.json', (g) => {
+  try {
+    const R = rigQuadruped(g.scene), holder = new THREE.Group(), s = 1.3 / (R.zMax + .95 * R.k);
+    holder.add(R.mesh); R.mesh.scale.setScalar(s); R.mesh.position.set(0, -.47, .74 - R.zMax * s);
+    Object.assign(REAL_TIGER, { ready: true, holder, rig: R });
+  } catch (e) { REAL_TIGER.failed = true; }
+}, undefined, () => { REAL_TIGER.failed = true; });
+// pose the fitted tiger: a gallop (legs in pairs, the spine flexing), then the pounce with forelegs flung forward
+function poseRealQuad(R, ph, pounce, roar, u) {
+  R.mesh.skeleton.bones.forEach((b) => b.quaternion.copy(b.userData.q0));
+  for (const L of R.legs) {
+    const p = ph + (L.front ? 0 : PI * .9) + (L.sx > 0 ? .35 : 0), sw = Math.sin(p), lift = Math.max(0, Math.cos(p));
+    const a = L.front ? [lerp(-.6 * sw, -1.25, pounce), lerp(.95 * lift, .15, pounce), lerp(-.65 * lift, .1, pounce)]
+      : [lerp(-.55 * sw, .85, pounce), lerp(-.9 * lift, -.3, pounce), lerp(.75 * lift, .35, pounce)];
+    L.b[0].rotation.x = a[0]; L.b[1].rotation.x = a[1]; L.b[2].rotation.x = a[2];
+  }
+  R.hip.rotation.x = .09 * Math.sin(ph * 2) * (1 - pounce) - .05 * pounce; R.chest.rotation.x = -.1 * Math.sin(ph * 2) * (1 - pounce) - .12 * pounce;
+  R.tail.forEach((b, i) => { b.rotation.y = .28 * Math.sin(u * 5 - i * .7); b.rotation.x = i === 0 ? -.35 - .25 * pounce : .06 + .04 * Math.sin(u * 4 - i * .6); });
+  R.neck.rotation.x = .22 * (1 - roar) + .06 * Math.sin(ph * 2); R.head.rotation.x = -.15 * roar; R.jaw.rotation.x = .75 * roar;
+}
 const _lc = new THREE.CatmullRomCurve3([V3(), V3(), V3(), V3(), V3()]);
 function poseLeg(l, a1, a2, a3) {
   // angles from straight down, positive swinging forward; joints chained hip -> elbow/knee -> wrist/hock -> paw
@@ -1468,6 +1581,11 @@ function poseLeg(l, a1, a2, a3) {
   l.paw.position.copy(P[4]); l.paw.rotation.x = clamp(-(ang) * .6, -1, 1);
 }
 function buildQuad(o, M) {
+  if (o.real && REAL_TIGER.ready && !REAL_TIGER.inUse) {
+    REAL_TIGER.inUse = true; const G = new THREE.Group(); G.add(REAL_TIGER.holder);
+    const key = new THREE.PointLight(0xfff1e0, 1.2, 5, 1.6); key.position.set(.4, .8, 1); G.add(key);
+    return { G, real: REAL_TIGER, legs: [], tails: [] };
+  }
   const G = new THREE.Group(), b = o.bulk, hw = o.hw, ml = o.muzzle;
   // one continuous body: tail root, haunches, a tucked waist, a deep chest, then the neck up to the head
   const spine = new THREE.CatmullRomCurve3([V3(0, .09, -.46), V3(0, .07, -.32), V3(0, .06, -.08), V3(0, .04, .15), V3(0, .14, .35), V3(0, .27, .49)]);
@@ -1686,7 +1804,7 @@ function summonBeast(t, target, color, life, kind) {
     const snake = beastMat(mix(C(.15, .2, .15), hue, .35), C(1, .9, .55), rim, 0, new THREE.Vector2(20, 10)); mats.push(skin, shellMat, snake);
     rig = buildTortoise({ skin, shellMat, snake, claw: gold, tooth, mouth, eye, shell, domeC: hue.clone().multiplyScalar(.8) });
   } else {
-    const o = kind === 'tiger' ? { bulk: 1.2, hw: 1.35, muzzle: .06, ears: 'round', tail: 'thin', ruff: true, mane: false, round: true }
+    const o = kind === 'tiger' ? { bulk: 1.2, hw: 1.35, muzzle: .06, ears: 'round', tail: 'thin', ruff: true, mane: false, round: true, real: true }
       : kind === 'fox' ? { bulk: .8, hw: .85, muzzle: .21, ears: 'fox', tail: 'nine', ruff: true, mane: false }
         : { bulk: 1, hw: 1, muzzle: .2, ears: 'tall', tail: 'bush', ruff: true, mane: true };
     const base = kind === 'tiger' ? C(1.3, .6, .15) : kind === 'fox' ? mix(C(1.1, 1.08, 1.2), hue, .15) : mix(C(.55, .62, .78), hue, .2);
@@ -1927,6 +2045,9 @@ function updateBeast(S, raw) {
     // a gallop: the legs swing in pairs, the body pitches with each stride; on the pounce the forelegs reach out
     const pounce = clamp(dive * 2 - .2, 0, 1);
     S.ph += raw * (6 + speed * 1.6);
+    if (R.real) {   // the real tiger
+      poseRealQuad(R.real.rig, S.ph, pounce, roar, u); R.G.rotation.x = .05 * Math.sin(S.ph * 2) * (1 - pounce); R.G.position.y = .03 * Math.abs(Math.sin(S.ph)) * (1 - pounce);
+    } else {
     for (const l of R.legs) {
       const p = S.ph + (l.front ? 0 : PI * .9) + (l.sx > 0 ? .35 : 0), sw = Math.sin(p), lift = Math.max(0, Math.cos(p));
       if (l.front) poseLeg(l, lerp(.15 + .75 * sw, 1.25, pounce), lerp(-.2 - 1.1 * lift, .15, pounce), lerp(.15 + .5 * lift, -.2, pounce));
@@ -1945,6 +2066,7 @@ function updateBeast(S, raw) {
       if (tl.tip) { tl.tip.position.copy(tl.pts[n - 1]); tl.tip.quaternion.setFromUnitVectors(_up, _bq.subVectors(tl.pts[n - 1], tl.pts[n - 3]).normalize()); tl.tip.scale.set(1, .8 + .4 * Math.sin(u * 12 + ti), 1); }
     });
     R.legs.forEach((l, i) => { const f = l.paw.children[l.paw.children.length - 1]; f.scale.set(1, .6 + .6 * Math.abs(Math.sin(u * 10 + i * 1.3)), 1); });
+    }
     if (S.kind === 'wolf' && Math.random() < raw * 5) bolt(_bp, _bq.set(_bp.x + rand(-.8, .8), S.t.y + .02, _bp.z + rand(-.8, .8)), new THREE.Color(.9, 1.6, 3));
     if (S.kind === 'wolf' && frameN % 3 === 0) sparks.burst(_bp.x + rand(-.4, .4), _bp.y + rand(0, .6), _bp.z + rand(-.4, .4), 2, .6, [.6, .85, 1]);   // crackling lightning
   }
