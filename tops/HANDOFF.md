@@ -159,3 +159,11 @@
 - 所有函式都在 IIFE 裡：測試副本在 `goHome();` 前面注入 `window.__eval = (c) => eval(c)`，就能從外面呼叫 `setTops`、`launchTop`、`stepTop`、`collide`、`aiShoot` 等。
 - 平衡模擬：注入 `__sim(a, b, n)`（1/240 秒步長、不畫畫面，統計勝負、終結方式、時間、擊中次數、平均離中心距離）和 `__solo(i)`（單獨轉動時間與移動量）。
 - 觸控測試：用 `dispatchEvent(new PointerEvent(...))` 打在 `#gl` 上，可以同時模擬兩根手指（不同 `pointerId`）；`launcherScreen(tops[0])` 會給發射器本體和拉條把手的螢幕座標。
+
+
+## 隊伍三顆、回合間換陀螺
+使用者：「戰鬥的時候可以換陀螺，自己會有三顆可以選」。
+- 首頁卡片改成選隊伍：點一下加入（最多 3 顆，滿了會換掉最後一顆）、再點一下移出；卡片中間有 1/2/3 號碼。存在 `ui.team`（localStorage `tops-prefs`），`fixTeam()` 處理舊存檔與被刪除的自組陀螺；新組好的陀螺自動排第一。
+- 對戰中：每回合「準備發射」時，比分下方出現隊伍列 `#team`（`renderTeam`），點一顆就換上場（`swapMine` → `replaceTop`，同時換發射器、必殺名稱、配音）。一拿起拉條就收起來，回合開打後不能換。
+- 電腦也有三顆（指定的對手＋另外兩顆隨機，`M.oppTeam`）；第 2 回合起 65% 機率派出剋你上一回合陀螺的類型。
+- 測試：scratchpad/sim/team.js（選隊伍→開打→換人→下一回合）。

@@ -39,6 +39,15 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   position: absolute; left: 0; right: 0; top: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: start;
   padding: 10px max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px)); pointer-events: none;
 }
+/* your team of three: swap who launches before each round */
+.team { position: absolute; left: 0; right: 0; top: 136px; display: flex; justify-content: center; gap: 8px; z-index: 5; pointer-events: none; }
+.team .tl { position: absolute; top: -18px; text-shadow: 0 1px 3px #000; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--muted); letter-spacing: .1em; }
+.team button { pointer-events: auto; width: 74px; padding: 4px 4px 5px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
+.team button img { width: 46px; height: 46px; display: block; margin: 0 auto; }
+.team button b { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team button small { display: block; font-size: 9.5px; color: var(--muted); }
+.team button.on { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 0 16px color-mix(in srgb, var(--c) 45%, transparent); }
+.card .slot { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); box-shadow: 0 0 0 3px var(--panel); width: 22px; height: 22px; border-radius: 50%; background: var(--c); color: #0b0c10; font-weight: 900; font-size: 13px; display: grid; place-items: center; }
 .side { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 7px 10px 8px; min-width: 0; }
 .side.op { text-align: right; }
 .side .nm { font-weight: 900; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -227,6 +236,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <div class="vs">VS<small id="round-lbl">R1</small></div>
     <div class="side op" id="side1"><div class="nm" id="nm1">—</div><div class="rpm"><b id="rpm1">0</b><span>RPM</span></div><div class="bar"><i id="bar1"></i></div><div class="spbar"><i id="sp1"></i></div><div class="pts" id="pts1"></div></div>
   </div>
+  <div class="team" id="team" hidden></div>
   <button class="icon-btn" id="btn-mute" type="button" aria-label="關閉聲音" hidden>♪</button>
   <button class="icon-btn view-btn" id="btn-view" type="button" aria-label="切換視角" hidden>全場</button>
   <div class="view-hint" id="view-hint" hidden>單指拖曳：旋轉／俯仰　兩指：縮放　點兩下：重設</div>
@@ -246,7 +256,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
   <div class="screen" id="scr-home">
     <div class="logo"><h1>陀螺鬥場</h1><p>SPIN · CLASH · BURST</p></div>
-    <div class="sec"><h2>選你的陀螺 <small>也可以用零件組自己的</small></h2><div class="cards" id="cards"></div></div>
+    <div class="sec"><h2>選 3 顆組成隊伍 <small>每回合開打前可以換人上場，也可以用零件組自己的</small></h2><div class="cards" id="cards"></div></div>
     <div class="sec"><h2>對手</h2><div class="opp" id="opp"></div></div>
     <button type="button" class="cta" id="btn-start">開始對戰</button>
     <div class="howto">
@@ -2080,6 +2090,14 @@ function updateHum() {
 const ui = { mine: 'falcon', opp: 'rand' };
 try { const s = JSON.parse(localStorage.getItem('tops-prefs') || 'null'); if (s) Object.assign(ui, s); } catch (e) {}
 if (typeof ui.mine === 'number') ui.mine = (TOPS[ui.mine] || TOPS[0]).id;   // older saves stored an index
+// your team: up to three tops (the first one launches first); older saves only had one
+function fixTeam() {
+  const ok = (id) => allTops().some((t) => t.id === id), fresh = !Array.isArray(ui.team);
+  ui.team = (fresh ? [ui.mine] : ui.team).filter((id, i, a) => ok(id) && a.indexOf(id) === i).slice(0, 3);
+  if (fresh || !ui.team.length) for (const t of TOPS) { if (ui.team.length >= 3) break; if (!ui.team.includes(t.id)) ui.team.push(t.id); }   // a first-time team is filled to three
+  if (!ui.team.includes(ui.mine)) ui.mine = ui.team[0];
+}
+fixTeam();
 let rec = { w: 0, l: 0 };
 try { rec = JSON.parse(localStorage.getItem('tops-rec') || 'null') || rec; } catch (e) {}
 const M = { phase: 'home', pts: [0, 0], round: 0, t: 0, goAt: 0, timeScale: 1, slowT: 0, demo: true, pull: null, released: false, aim: 0, power: 0, endT: 0, firstHit: false };
@@ -2089,6 +2107,22 @@ function setTops(a, b) {
   for (const t of tops) { t.dispose(); disposeLauncher(t.lc); }
   const P = (x) => typeof x === 'number' ? TOPS[x] : x;
   tops = [new Top(P(a), 0), new Top(P(b), 1)];
+}
+function replaceTop(i, p) {
+  const old = tops[i]; disposeLauncher(old.lc); old.dispose(); tops[i] = new Top(p, i);
+}
+// the strip of your three tops shown while you get ready to launch
+function renderTeam() {
+  const el = $('#team'), can = !M.demo && M.phase === 'ready' && M.team && M.team.length > 1;
+  el.hidden = !can; if (!can) return;
+  el.innerHTML = '<div class="tl">換陀螺：點一顆換上場</div>' + M.team.map((id) => { const p = topById(id), c = uiColor(p);
+    return `<button type="button" data-team="${id}" class="${id === tops[0].p.id ? 'on' : ''}" style="--c:${c}"><img alt="" src="${thumbOf(p)}"><b>${p.name}</b><small>${p.type}</small></button>`; }).join('');
+}
+function swapMine(id) {
+  if (M.demo || M.phase !== 'ready' || M.released || M.rip || M.grip || id === tops[0].p.id) return;
+  const p = topById(id); replaceTop(0, p); M.myPick = id;
+  tops[0].reset(START[0][0], START[0][1]); tops[0].y = .75; tops[0].lc = buildLauncher(tops[0]);
+  prepVoice(id); $('#move-name').textContent = p.moveName; renderHud(); renderTeam(); sfx.beep(false);
 }
 function placeForLaunch() {
   tops.forEach((t, i) => { t.reset(START[i][0], START[i][1]); t.y = .75; });
@@ -2114,22 +2148,31 @@ function renderHud() {
 }
 function startMatch() {
   initAudio(); unlockVoice(); prepVoice(ui.mine);
-  const opp = ui.opp === 'rand' ? Math.floor(Math.random() * TOPS.length) : +ui.opp;
-  setTops(topById(ui.mine), opp);
+  fixTeam(); M.team = ui.team.slice(); M.myPick = ui.team[0];
+  // the computer's team: the chosen rival (or a random one) plus two others
+  const pool = TOPS.map((_, i) => i).sort(() => Math.random() - .5), lead = ui.opp === 'rand' ? pool[0] : +ui.opp;
+  M.oppTeam = [lead].concat(pool.filter((i) => i !== lead).slice(0, 2)).map((i) => TOPS[i]);
+  setTops(topById(M.myPick), M.oppTeam[0]);
   M.demo = false; M.pts = [0, 0]; M.round = 0;
   $('#scr-home').hidden = true; $('#scr-result').hidden = true;
-  $('#hud').hidden = false; $('#btn-menu').hidden = false; $('#btn-mute').hidden = false; $('#btn-view').hidden = false; $('#btn-move').hidden = false; $('#move-name').textContent = topById(ui.mine).moveName;
+  $('#hud').hidden = false; $('#btn-menu').hidden = false; $('#btn-mute').hidden = false; $('#btn-view').hidden = false; $('#btn-move').hidden = false; $('#move-name').textContent = topById(M.myPick).moveName;
   camAng = 0; VIEW.el = 0; VIEW.zoom = 1; M.hintShown = false;
   startRound();
 }
 function startRound() {
-  M.cine = null;
+  M.cine = null; document.querySelectorAll('.banner').forEach((e) => e.remove());
   unlockVoice();
   M.round++; M.phase = 'ready'; M.t = 0; M.goAt = 3.4; M.grip = null; M.rip = null; M.hand = []; M.handV = null; M.released = false; M.power = 0; M.aim = 0; M.relT = null; M.endT = 0;
   M.cd = false; M.waitT = 0; M.heldAtRip = true;
   M.oppLaunch = { power: rand(.72, 1), t: M.goAt + (Math.random() < .6 ? rand(-.12, .12) : rand(-.4, .5)), aim: rand(-25, 25) };
+  // between rounds both sides may send out a different top from their team; the computer answers what you used last
+  if (M.round > 1 && M.oppTeam) {
+    const COUNTER = { 攻擊型: '防禦型', 持久型: '攻擊型', 防禦型: '持久型' }, want = COUNTER[tops[0].p.type];
+    const pick = (Math.random() < .65 && M.oppTeam.find((p) => p.type === want)) || M.oppTeam[Math.floor(Math.random() * M.oppTeam.length)];
+    if (pick !== tops[1].p) replaceTop(1, pick);
+  }
   placeForLaunch(); aiPlace(tops[1]); tops.forEach((t) => { disposeLauncher(t.lc); t.lc = buildLauncher(t); });
-  renderHud(); $('#btn-next').hidden = true;
+  renderHud(); renderTeam(); $('#btn-next').hidden = true;
   $('#launch').hidden = false; $('#meter').style.width = '0%';
   $('#launch-tip').textContent = TOUCH ? '按住發射器把它拿起來' : '準備……';
   M.count = -1;
@@ -2142,7 +2185,7 @@ function startCountdown() {
 // pull length in px for a full rip, and how fast counts as a perfect rip
 const ripPower = (sec) => clamp(Math.pow(.14 / Math.max(sec, .02), .75), .15, 1);
 function finishRip(partial) {
-  const R = M.rip; if (!R || M.released) return;
+  const R = M.rip; if (!R || M.released) return; $('#team').hidden = true;
   const el = R.t0 == null ? 1 : performance.now() / 1000 - R.t0;
   let pw = ripPower(el);
   if (partial) pw *= R.k * .75;
@@ -2204,11 +2247,11 @@ function showResult() {
   const tip = COUNTER[theirs] === mine ? `${theirs}本來就剋${mine}，` : '';
   $('#res-text').textContent = win ? `${tops[0].p.name}稱霸鬥場！再挑戰一場，或換一顆陀螺試試別的打法。`
     : `${tops[1].p.name}比較強……${tip}試試換個發射手法（直立或滑動），抓準 GO SHOOT 的時機用力一拉。`;
-  $('#scr-result').hidden = false; $('#hud').hidden = true; $('#launch').hidden = true;
+  $('#scr-result').hidden = false; $('#hud').hidden = true; $('#launch').hidden = true; $('#team').hidden = true;
   M.phase = 'result';
 }
 function goHome() {
-  document.querySelectorAll('.banner').forEach((e) => e.remove());
+  document.querySelectorAll('.banner').forEach((e) => e.remove()); $('#team').hidden = true;
   M.phase = 'home'; M.demo = true;
   $('#scr-home').hidden = false; $('#scr-result').hidden = true; $('#hud').hidden = true;
   $('#launch').hidden = true; $('#btn-next').hidden = true; $('#btn-menu').hidden = true; $('#btn-mute').hidden = true; $('#btn-view').hidden = true; $('#view-hint').hidden = true; $('#btn-move').hidden = true;
@@ -2246,7 +2289,8 @@ function statBars(p, c) { return STAT_LIST.map(([n, f]) => `<span>${n}</span><di
 function renderHome() {
   $('#cards').innerHTML = allTops().map((p) => {
     const c = uiColor(p);
-    return `<button type="button" class="card${ui.mine === p.id ? ' sel' : ''}" data-id="${p.id}" style="--c:${c}"><span class="voice${VOICES[p.id] ? ' has' : ''}" data-voice="${p.id}">🎤${VOICES[p.id] ? '已配音' : '配音'}</span>${p.custom ? `<span class="edit" data-edit="${p.id}">改裝</span>` : ''}<img alt="" src="${fontsDone ? thumbOf(p) : ''}"><b>${p.name}</b><span class="ty"><em>${p.type}</em>・${p.dir > 0 ? '右旋' : '左旋'}・${p.code}</span><span class="mv">必殺：${p.moveName}</span><div class="stats">${statBars(p, c)}</div></button>`;
+    const slot = ui.team.indexOf(p.id);
+    return `<button type="button" class="card${slot >= 0 ? ' sel' : ''}" data-id="${p.id}" style="--c:${c}">${slot >= 0 ? `<span class="slot">${slot + 1}</span>` : ''}<span class="voice${VOICES[p.id] ? ' has' : ''}" data-voice="${p.id}">🎤${VOICES[p.id] ? '已配音' : '配音'}</span>${p.custom ? `<span class="edit" data-edit="${p.id}">改裝</span>` : ''}<img alt="" src="${fontsDone ? thumbOf(p) : ''}"><b>${p.name}</b><span class="ty"><em>${p.type}</em>・${p.dir > 0 ? '右旋' : '左旋'}・${p.code}</span><span class="mv">必殺：${p.moveName}</span><div class="stats">${statBars(p, c)}</div></button>`;
   }).join('') + (CUSTOM.length < 6 ? `<button type="button" class="card add" data-new="1"><b>＋</b><span>組裝自己的陀螺</span></button>` : '');
   $('#opp').innerHTML = [`<button type="button" data-o="rand" class="${ui.opp === 'rand' ? 'sel' : ''}">隨機</button>`].concat(TOPS.map((p, i) => `<button type="button" data-o="${i}" class="${String(ui.opp) === String(i) ? 'sel' : ''}">${p.name}</button>`)).join('');
   $('#rec').textContent = rec.w + rec.l ? `戰績 ${rec.w} 勝 ${rec.l} 敗` : '';
@@ -2256,7 +2300,10 @@ $('#cards').addEventListener('click', (e) => {
   const vc = e.target.closest('[data-voice]'); if (vc) { openVoice(vc.dataset.voice); return; }
   const ed = e.target.closest('[data-edit]'); if (ed) { openBuild(ed.dataset.edit); return; }
   if (e.target.closest('[data-new]')) { openBuild(null); return; }
-  const b = e.target.closest('[data-id]'); if (!b) return; ui.mine = b.dataset.id; savePrefs(); renderHome();
+  const b = e.target.closest('[data-id]'); if (!b) return; const id = b.dataset.id, i = ui.team.indexOf(id);
+  if (i >= 0) { if (ui.team.length > 1) ui.team.splice(i, 1); }   // tap again to take it off the team
+  else { if (ui.team.length >= 3) ui.team.pop(); ui.team.push(id); }   // a full team swaps out its last pick
+  ui.mine = ui.team[0]; savePrefs(); renderHome();
 });
 
 // ---- the workshop: pick each part and watch the top change ----
@@ -2297,13 +2344,14 @@ function closeBuild() { $('#scr-build').hidden = true; $('#scr-home').hidden = f
 $('#b-cancel').addEventListener('click', closeBuild);
 $('#b-save').addEventListener('click', () => {
   const name = (B.name || '').trim() || undefined, moveName = (B.move || '').trim() || undefined;
-  if (B.editId) { const i = CUSTOM.findIndex((c) => c.id === B.editId); CUSTOM[i] = compose(B.sel, { id: B.editId, name, moveName, custom: true }); ui.mine = B.editId; }
-  else { const id = 'c' + Date.now().toString(36); CUSTOM.push(compose(B.sel, { id, name, moveName, custom: true })); ui.mine = id; }
+  if (B.editId) { const i = CUSTOM.findIndex((c) => c.id === B.editId); CUSTOM[i] = compose(B.sel, { id: B.editId, name, moveName, custom: true }); ui.mine = B.editId; if (!ui.team.includes(B.editId)) { if (ui.team.length >= 3) ui.team.pop(); ui.team.unshift(B.editId); } }
+  else { const id = 'c' + Date.now().toString(36); CUSTOM.push(compose(B.sel, { id, name, moveName, custom: true })); ui.mine = id; if (ui.team.length >= 3) ui.team.pop(); ui.team.unshift(id); }
   saveCustom(); savePrefs(); closeBuild();
 });
-$('#b-del').addEventListener('click', () => { delete VOICES[B.editId]; saveVoices(); CUSTOM = CUSTOM.filter((c) => c.id !== B.editId); if (ui.mine === B.editId) ui.mine = TOPS[0].id; saveCustom(); savePrefs(); closeBuild(); });
+$('#b-del').addEventListener('click', () => { delete VOICES[B.editId]; saveVoices(); CUSTOM = CUSTOM.filter((c) => c.id !== B.editId); if (ui.mine === B.editId) ui.mine = TOPS[0].id; ui.team = ui.team.filter((x) => x !== B.editId); fixTeam(); saveCustom(); savePrefs(); closeBuild(); });
 $('#opp').addEventListener('click', (e) => { const b = e.target.closest('[data-o]'); if (!b) return; ui.opp = b.dataset.o; savePrefs(); renderHome(); });
 $('#btn-start').addEventListener('click', startMatch);
+$('#team').addEventListener('click', (e) => { const b = e.target.closest('[data-team]'); if (b) swapMine(b.dataset.team); });
 $('#btn-again').addEventListener('click', startMatch);
 $('#btn-home').addEventListener('click', goHome);
 $('#btn-menu').addEventListener('click', goHome);
@@ -2342,7 +2390,7 @@ window.addEventListener('pointerdown', (e) => {
       const full = Math.hypot(S.ax, S.ay) || 1, ux = S.ax / full, uy = S.ay / full;
       const room = Math.min(ux > .05 ? (innerWidth - e.clientX) / ux : 1e4, ux < -.05 ? e.clientX / -ux : 1e4, uy > .05 ? (innerHeight - e.clientY) / uy : 1e4, uy < -.05 ? e.clientY / -uy : 1e4);
       const len = clamp(Math.min(full, room * .85), 80, 260);
-      M.rip = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ax: ux, ay: uy, len, t0: null, k: 0 };
+      M.rip = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ax: ux, ay: uy, len, t0: null, k: 0 }; $("#team").hidden = true;
       return;
     }
     // the launcher body: pick it up
