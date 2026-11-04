@@ -1546,7 +1546,7 @@ function buildTortoise(M) {
 // has loaded; until then, or if it can't load, the hand-built one is used.
 const REAL_SHARK = { ready: false, inUse: false }, _sq = new THREE.Quaternion();
 const SHARK_POSE_BONES = ['Head5', 'Jaw6', 'R_upper_Lip9', 'Center_upper_Lip10', 'L_upper_Lip11', 'Upper_Teeth12'];
-if (THREE.GLTFLoader) new THREE.GLTFLoader().load('shark.glb', (g) => {
+if (THREE.GLTFLoader) new THREE.GLTFLoader().load('spirit/shark.json', (g) => {
   const model = g.scene, bones = {};
   model.traverse((o) => { if (o.isBone) bones[o.name] = o; if (o.isMesh) { o.frustumCulled = false; if (o.material) { o.material.side = THREE.FrontSide; o.material.color && o.material.color.setRGB(1.3, 1.18, 1.05); o.material.emissive && o.material.emissive.setRGB(.05, .05, .055); } } });
   const mixer = new THREE.AnimationMixer(model), clip = (n) => g.animations.find((a) => a.name === n);
