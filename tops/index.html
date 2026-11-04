@@ -741,6 +741,36 @@ class Sparks {
   }
 }
 const sparks = new Sparks(900);
+// sea spray: big droplets thrown up that arc and fall back under gravity (for the shark's breach and strike)
+class Splash {
+  constructor(max) {
+    this.max = max; this.i = 0; this.pos = new Float32Array(max * 3).fill(-99); this.vel = new Float32Array(max * 3); this.col = new Float32Array(max * 3); this.life = new Float32Array(max); this.ml = new Float32Array(max); this.floor = 0;
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(this.col, 3)); this.g = g;
+    this.pts = new THREE.Points(g, new THREE.PointsMaterial({ size: .11, map: softTex(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    this.pts.frustumCulled = false; scene.add(this.pts);
+  }
+  // n droplets from around (x,y,z) within radius r, thrown up at `up` and outward at `out` (units/s)
+  burst(x, y, z, n, up, out, r) {
+    for (let k = 0; k < n; k++) {
+      const i = this.i; this.i = (i + 1) % this.max; const a = Math.random() * TAU, rr = (r || 0) * Math.sqrt(Math.random()), o = out * rand(.3, 1.1);
+      this.pos.set([x + Math.cos(a) * rr, y, z + Math.sin(a) * rr], i * 3); this.vel.set([Math.cos(a) * o, up * rand(.45, 1.15), Math.sin(a) * o], i * 3);
+      this.life[i] = this.ml[i] = rand(.9, 1.7);
+    }
+  }
+  update(dt) {
+    for (let i = 0; i < this.max; i++) {
+      if (this.life[i] <= 0) continue; const k = i * 3; this.life[i] -= dt;
+      this.vel[k + 1] -= 9.5 * dt; this.vel[k] *= 1 - dt * .6; this.vel[k + 2] *= 1 - dt * .6;
+      this.pos[k] += this.vel[k] * dt; this.pos[k + 1] += this.vel[k + 1] * dt; this.pos[k + 2] += this.vel[k + 2] * dt;
+      if (this.pos[k + 1] < this.floor && this.vel[k + 1] < 0) this.life[i] = 0;   // back into the sea
+      const f = this.life[i] > 0 ? Math.min(1, this.life[i] / this.ml[i] * 2) : 0;
+      this.col[k] = .36 * f; this.col[k + 1] = .5 * f; this.col[k + 2] = .62 * f;
+      if (this.life[i] <= 0) this.pos[k + 1] = -99;
+    }
+    this.g.attributes.position.needsUpdate = this.g.attributes.color.needsUpdate = true;
+  }
+}
+const splash = new Splash(2400);
 
 // ---- impact effects: an expanding shockwave ring on the floor and a flash of light where tops hit ----
 const FX = { rings: [], flash: new THREE.PointLight(col(0xffd7a0), 0, 3.2, 2) };
@@ -1554,7 +1584,8 @@ function buildTortoise(M) {
 }
 // a real great white (a rigged, textured model with swim and bite animations) replaces the hand-built shark when it
 // has loaded; until then, or if it can't load, the hand-built one is used.
-const REAL_SHARK = { ready: false, inUse: false }, _sq = new THREE.Quaternion();
+const REAL_SHARK = { ready: false, inUse: false }, _sq = new THREE.Quaternion(), _gq = new THREE.Quaternion(), _bq2 = new THREE.Quaternion(), _sax = new THREE.Vector3();
+const SHARK_SPINE = ['Spine113', 'Spine214', 'Spine315', 'Spine416', 'Spine517', 'Spine618', 'Spine719'];
 const SHARK_POSE_BONES = ['Head5', 'Jaw6', 'R_upper_Lip9', 'Center_upper_Lip10', 'L_upper_Lip11', 'Upper_Teeth12'];
 if (THREE.GLTFLoader) new THREE.GLTFLoader().load('spirit/shark.json', (g) => {
   const model = g.scene, bones = {};
@@ -1746,23 +1777,29 @@ function sharkClimax(S, u) {
     sharkStage(S); S.B = V3(tg.x - S.v.x * 1.25, 0, tg.z - S.v.z * 1.25); const br = Math.hypot(S.B.x, S.B.z); if (br > RA * .78) S.B.multiplyScalar(RA * .78 / br);   // it breaches inside the bowl, not out of the wall
     const th = .42 * (S.dir || 1); S.f = V3(S.v.x * Math.cos(th) + S.v.z * Math.sin(th), 0, -S.v.x * Math.sin(th) + S.v.z * Math.cos(th)); S.yawC = Math.atan2(S.f.x, S.f.z); S.A0 = P.clone();   // turned three-quarters to the camera
   }
-  const v = S.v, B = S.B, SL = S.SL; let k = S.cfg.k, pitch = 0, yaw = S.yawC, phase;
-  if (u < te) {   // dives and races under the prey
-    const f = (u - ta) / (te - ta), e = f * f * (3 - 2 * f); phase = 0;
-    P.set(lerp(S.A0.x, B.x, e), lerp(S.A0.y, SL - 1.5, e), lerp(S.A0.z, B.z, e)); pitch = -.25 * Math.sin(f * PI);
-    yaw = Math.atan2(B.x - S.A0.x, B.z - S.A0.z); k = lerp(S.cfg.k, 2.2, e);
+  const v = S.v, B = S.B, SL = S.SL; let k = S.cfg.k, pitch = 0, yaw = S.yawC, roll = 0, phase;
+  const dt = Math.max(1e-4, u - (S.lu == null ? u - 1 / 60 : S.lu)); S.lu = u;
+  if (u < te) {   // dives and races under the prey, already turning to face up before it reaches the surface
+    const f = (u - ta) / (te - ta), e = f * f * (3 - 2 * f), turn = clamp((f - .2) / .8, 0, 1), tt = turn * turn * (3 - 2 * turn); phase = 0;
+    P.set(lerp(S.A0.x, B.x, e), lerp(S.A0.y, SL - 1.5, e) - .3 * tt, lerp(S.A0.z, B.z, e)); pitch = lerp(-.3 * Math.sin(Math.min(1, f * 1.8) * PI), 1.35, tt);
+    yaw = angLerp(Math.atan2(B.x - S.A0.x, B.z - S.A0.z), S.yawC, tt); k = lerp(S.cfg.k, 2.2, e);
   } else if (u < th) {   // erupts straight up out of the water, growing
     const f = (u - te) / (th - te), e = 1 - Math.pow(1 - f, 2.4); phase = 1;
-    k = lerp(2.2, 3.0, e); P.set(B.x, lerp(SL - 1.7, SL + 1.2, e), B.z); pitch = lerp(1.35, 1.0, e);
+    k = lerp(2.2, 3.0, e); P.set(B.x, lerp(SL - 1.7, SL + 1.2, e), B.z); pitch = lerp(1.35, 1.0, e); roll = .35 * (S.dir || 1) * Math.sin(f * PI);   // a twist as it clears the water
   } else if (u < ts) {   // towers over it, jaws wide, leaning in
     const f = (u - th) / (ts - th); phase = 2;
-    k = 3.0; P.set(B.x + S.f.x * .3 * f, SL + 1.2 + .12 * Math.sin(f * PI), B.z + S.f.z * .3 * f); pitch = lerp(1.0, .55, f * f);
+    k = 3.0; P.set(B.x + S.f.x * .3 * f, SL + 1.2 + .12 * Math.sin(f * PI), B.z + S.f.z * .3 * f); pitch = lerp(1.0, .55, f * f * (3 - 2 * f)); roll = -.12 * (S.dir || 1) * Math.sin(f * PI);
   } else {   // and comes down on it
     const f = clamp((u - ts) / (tend - ts), 0, 1), e = f * f; phase = 3;
     k = lerp(3.0, 2.5, e); pitch = lerp(.55, -1.1, e); const reach = .5 * k, hx = B.x + S.f.x * .3, hz = B.z + S.f.z * .3;
     P.set(lerp(hx, tg.x - S.f.x * Math.cos(1.1) * reach, e), lerp(SL + 1.2, tg.y + Math.sin(1.1) * reach, e) - Math.max(0, u - tend) * 10, lerp(hz, tg.z - S.f.z * Math.cos(1.1) * reach, e));
   }
-  S.rig.G.scale.setScalar(k); S.root.rotation.set(-pitch, yaw, 0, 'YXZ'); S.yaw = yaw; S.pitch = pitch; S.bank = 0; S.phase = phase;
+  // ease toward the pose instead of snapping to it, and keep how fast it is turning (the body bends with it)
+  if (S.cy == null) { S.cy = S.yaw == null ? yaw : S.yaw; S.cp = S.pitch || 0; S.cr = S.bank || 0; }   // carry on from the swimming pose
+  const rate = (phase === 3 ? 6 : 3.5) * clamp((u - ta) / .5, .12, 1), kk = 1 - Math.exp(-dt * rate), y0 = S.cy, p0 = S.cp;   // eases into the turn too
+  S.cy = angLerp(S.cy, yaw, kk); S.cp = lerp(S.cp, pitch, kk); S.cr = lerp(S.cr, roll, kk);
+  S.dYaw = lerp(S.dYaw || 0, angLerp(0, S.cy - y0, 1) / dt, .25); S.dPitch = lerp(S.dPitch || 0, (S.cp - p0) / dt, .25);
+  S.rig.G.scale.setScalar(k); S.root.rotation.set(-S.cp, S.cy, S.cr, 'YXZ'); S.yaw = S.cy; S.pitch = S.cp; S.bank = 0; S.phase = phase;
   // a low camera just behind the prey, looking up at the jaws
   if (phase >= 1) {
     S.root.updateMatrixWorld(true); S.rig.G.localToWorld(S.H.set(0, 0, .45));
@@ -1841,19 +1878,33 @@ function updateBeast(S, raw) {
       SHARK_POSE_BONES.forEach((nm) => { if (B[nm] && O[nm]) B[nm].quaternion.slerp(O[nm], gape); });
       if (B.Jaw6 && R.real.jawAxis) B.Jaw6.quaternion.multiply(_sq.setFromAxisAngle(R.real.jawAxis, gape * .75 + .04 * Math.sin(u * 40) * gape * (S.phase === 2 ? 1 : 0)));
     } else { R.jaw.rotation.x = ja; R.throat.scale.y = .02 + .07 * gape; }
+    if (R.real && cl) {
+      // the spine follows through: it curls against the way it is turning, and the tail sweeps while it hangs in the air
+      const B = R.real.bones, chain = SHARK_SPINE.map((n) => B[n]).filter(Boolean);
+      const bp = clamp(-(S.dPitch || 0) * .12, -.5, .5) + (S.phase === 2 ? .18 : S.phase === 1 ? .12 : 0);
+      const by = clamp(-(S.dYaw || 0) * .12, -.5, .5) + (S.phase >= 1 && S.phase <= 2 ? .22 * Math.sin(u * 4.2) : 0);
+      S.root.updateMatrixWorld(true); R.G.getWorldQuaternion(_gq);
+      chain.forEach((b, i) => {
+        const w = (i + 1) / chain.length; b.getWorldQuaternion(_bq2); _bq2.invert().multiply(_gq);
+        b.quaternion.multiply(_sq.setFromAxisAngle(_sax.set(1, 0, 0).applyQuaternion(_bq2), bp * w / chain.length * 2));
+        b.quaternion.multiply(_sq.setFromAxisAngle(_sax.set(0, 1, 0).applyQuaternion(_bq2), by * w / chain.length * 2));
+      });
+    }
     const under = _bp.y < S.sea.position.y;
     if (!cl && frameN % 2 === 0) { const f = R.fins[0].m, fw = f.getWorldPosition(_br); sparks.burst(fw.x, S.sea.position.y + .02, fw.z, 1, .25, [.8, .95, 1]); }   // foam off the fin
     if (S.wasUnder && !under && k > 0) {   // breach
-      sparks.burst(_bp.x, S.sea.position.y, _bp.z, 110, 2.4, [.75, .92, 1]); shockwave(_bp.x, _bp.z, 1.6, [1.2, 2, 2.8], 3); noise(.9, 2500, 400, .5, 'lowpass'); noise(.5, 600, 3000, .3); shake = Math.max(shake, .25);
+      splash.floor = S.sea.position.y; splash.burst(_bp.x, S.sea.position.y, _bp.z, 650, 7.5, 2.6, .55); splash.burst(_bp.x, S.sea.position.y, _bp.z, 250, 3, 4.5, .9);
+      sparks.burst(_bp.x, S.sea.position.y, _bp.z, 160, 3, [.75, .92, 1]); shockwave(_bp.x, _bp.z, 2.4, [1.2, 2, 2.8], 3); shockwave(_bp.x, _bp.z, 1.2, [2, 2.4, 2.8], 0); noise(.9, 2500, 400, .5, 'lowpass'); noise(.5, 600, 3000, .3); shake = Math.max(shake, .25);
     }
     S.wasUnder = under;
     // the sea it drags up with it: a wall of water sheeting off its sides, and spray everywhere
     const cu = S.curtain;
     if (cl && S.phase >= 1) {
       const rise = S.phase === 1 ? clamp((u - L * .46) / (L * .18), 0, 1) : 1, fall = S.phase >= 2 ? clamp((u - L * .64) / (L * .25), 0, 1) : 0;
-      cu.visible = true; cu.position.set(S.B.x, S.sea.position.y - .02, S.B.z); cu.scale.set(1.3 + fall * 1.2, Math.max(.01, (.9 * Math.sin(rise * PI * .5)) * (1 - fall * .8)), 1.3 + fall * 1.2);
+      cu.visible = true; cu.position.set(S.B.x, S.sea.position.y - .02, S.B.z); cu.scale.set(1.5 + fall * 1.6, Math.max(.01, (1.9 * Math.sin(rise * PI * .5)) * (1 - fall * .8)), 1.5 + fall * 1.6);
       cu.material.uniforms.uT.value = u; cu.material.uniforms.uOp.value = .85 * (1 - fall) * fade;
-      for (let q = 0; q < 9; q++) { const i = Math.floor(Math.random() * n); if (R.real) _br.set(0, 0, .62 - Math.random() * 1.5); else _br.copy(R.pts[i]); R.G.localToWorld(_br); sparks.burst(_br.x + rand(-.15, .15), _br.y, _br.z + rand(-.15, .15), 2, .9, [.78, .92, 1]); }
+      splash.floor = S.sea.position.y;
+      for (let q = 0; q < 14; q++) { const i = Math.floor(Math.random() * n); if (R.real) _br.set(rand(-.1, .1), rand(-.05, .1), .62 - Math.random() * 1.5); else _br.copy(R.pts[i]); R.G.localToWorld(_br); splash.burst(_br.x, _br.y, _br.z, 1, .6, 1.2, .12); }   // water streaming off its body
     } else cu.visible = false;
     if (cl && S.phase >= 1 && !S.rumbled) { S.rumbled = true; noise(2.2, 260, 50, .75, 'lowpass'); ping(46, 2.2, .3, 'sine'); }
     if (cl && S.phase === 2 && !S.roared) { S.roared = true; noise(1.4, 420, 120, .6, 'lowpass'); tone(68, 92, 48, 1.4, .26, 'sawtooth'); tone(51, 70, 38, 1.4, .2, 'sawtooth'); shake = Math.max(shake, .3); }
@@ -1910,7 +1961,7 @@ function updateBeast(S, raw) {
     const tg = S.target;
     if (S.kind === 'wolf') for (let k = 0; k < 4; k++) bolt(_bq.set(tg.x + rand(-.5, .5), tg.y + 4, tg.z + rand(-.5, .5)), tg.m ? tg.m.root.position : _bp, new THREE.Color(1.2, 1.8, 3.2));
     else if (S.kind === 'tortoise') { shockwave(tg.x, tg.z, 3.4, S.color, 4); shockwave(tg.x, tg.z, 1.2, [2.4, 2.2, 1.6], 3); sparks.burst(tg.x, tg.y + .05, tg.z, 60, 1.2, [.75, .65, .45]); }   // the floor itself shakes: dust and rock
-    else if (S.kind === 'shark') { sparks.burst(tg.x, tg.y + .1, tg.z, 140, 2.8, [.75, .92, 1]); shockwave(tg.x, tg.z, 3, [1.2, 2, 2.8], 4); shake = Math.max(shake, .45); }   // a great splash
+    else if (S.kind === 'shark') { splash.floor = S.sea ? S.sea.position.y : tg.y; splash.burst(tg.x, splash.floor, tg.z, 800, 8.5, 3.2, .7); splash.burst(tg.x, splash.floor, tg.z, 350, 3.5, 5.5, 1.1); sparks.burst(tg.x, tg.y + .1, tg.z, 180, 3.2, [.75, .92, 1]); shockwave(tg.x, tg.z, 3.4, [1.2, 2, 2.8], 4); shockwave(tg.x, tg.z, 1.6, [2, 2.4, 2.8], 0); shake = Math.max(shake, .5); }   // a great splash
     else if (S.kind === 'falcon' || S.kind === 'crow') sparks.burst(tg.x, tg.y + .4, tg.z, 50, 1.4, S.kind === 'crow' ? [.25, .2, .25] : [1, .7, .25]);   // feathers scatter
     else if (S.kind === 'fox') for (let k = 0; k < 3; k++) shockwave(tg.x, tg.z, 1 + k * .7, S.color, 2);
     else if (S.kind === 'tiger') { shockwave(tg.x, tg.z, 2.8, [2.6, 1.4, .4], 4); shake = Math.max(shake, .45); }
@@ -2555,7 +2606,8 @@ function loop(now) {
     if (t.state === 'ready') { t.m.root.position.set(t.x, t.y, t.z); t.m.tilt.quaternion.identity(); t.m.spin.rotation.y = t.vis; t.m.blur.material.opacity = 0; }
     else drawTop(t, dt);
   }
-  sparks.update(dt); updateFx(raw); updateSpirits(raw);
+  sparks.update(dt); splash.update(raw); updateFx(raw); updateSpirits(raw);
+  if (!$('#team').hidden && (M.phase !== 'ready' || M.released)) $('#team').hidden = true;   // the swap strip is only for before the launch
   if (M.cine) { M.cine.t -= raw; if (M.cine.t <= 0 || M.phase !== 'battle') M.cine = null; }
   for (const m of RAIL_GLOW) m.emissiveIntensity = lerp(m.emissiveIntensity, tops.some((t) => t.rail) ? 1.6 : .8, .15);
   tops.forEach((t, i) => updateLauncher(t, raw, i === 0 ? (!!M.grip || !TOUCH || t.lc && t.lc.k > 0) : true, 0));
