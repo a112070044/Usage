@@ -1715,17 +1715,20 @@ function makeSea(hue) {
   const m = new THREE.Mesh(new THREE.CircleGeometry(RA * 1.08, 96).rotateX(-PI / 2), new THREE.ShaderMaterial({ uniforms: { uT: { value: 0 }, uOp: { value: 0 }, uWake: { value: new THREE.Vector2() }, uCol: { value: hue.clone() } }, vertexShader: SEA_VS, fragmentShader: SEA_FS, transparent: true, depthWrite: false }));
   m.renderOrder = 2; return m;
 }
+// which way the big shot faces: from the prey toward the middle of the arena (or toward the camera if it is central)
+function sharkStage(S) {
+  if (S.v) return; const tg = S.target; let vx = -tg.x, vz = -tg.z, d = Math.hypot(vx, vz);
+  if (d < .6) { vx = camera.position.x - tg.x; vz = camera.position.z - tg.z; d = Math.hypot(vx, vz) || 1; }
+  S.v = V3(vx / d, 0, vz / d); S.camPos = V3(); S.camLook = V3(); S.H = V3();
+}
 // the climax: it sinks, races under the prey, then towers up out of the sea in front of the camera, mouth agape over
 // its prey, leans over it, and comes down on it. Returns false while it is still circling.
 function sharkClimax(S, u) {
   const L = S.life, ta = L * .34, te = L * .46, th = L * .64, ts = L * .8, tend = L * .95, tg = S.target, P = S.root.position;
   if (u < ta) return false;
-  if (!S.v) {
-    let vx = -tg.x, vz = -tg.z, d = Math.hypot(vx, vz);
-    if (d < .6) { vx = camera.position.x - tg.x; vz = camera.position.z - tg.z; d = Math.hypot(vx, vz) || 1; }
-    S.v = V3(vx / d, 0, vz / d); S.B = V3(tg.x - S.v.x * 1.25, 0, tg.z - S.v.z * 1.25);
+  if (!S.A0) {
+    sharkStage(S); S.B = V3(tg.x - S.v.x * 1.25, 0, tg.z - S.v.z * 1.25);
     const th = .42 * (S.dir || 1); S.f = V3(S.v.x * Math.cos(th) + S.v.z * Math.sin(th), 0, -S.v.x * Math.sin(th) + S.v.z * Math.cos(th)); S.yawC = Math.atan2(S.f.x, S.f.z); S.A0 = P.clone();   // turned three-quarters to the camera
-    S.camPos = V3(); S.camLook = V3(); S.H = V3();
   }
   const v = S.v, B = S.B, SL = S.SL; let k = S.cfg.k, pitch = 0, yaw = S.yawC, phase;
   if (u < te) {   // dives and races under the prey
@@ -1838,7 +1841,11 @@ function updateBeast(S, raw) {
     } else cu.visible = false;
     if (cl && S.phase >= 1 && !S.rumbled) { S.rumbled = true; noise(2.2, 260, 50, .75, 'lowpass'); ping(46, 2.2, .3, 'sine'); }
     if (cl && S.phase === 2 && !S.roared) { S.roared = true; noise(1.4, 420, 120, .6, 'lowpass'); tone(68, 92, 48, 1.4, .26, 'sawtooth'); tone(51, 70, 38, 1.4, .2, 'sawtooth'); shake = Math.max(shake, .3); }
-    if (M.cine) { M.cine.camPos = cl && S.phase >= 1 ? S.camPos : null; M.cine.camLook = S.camLook; }
+    if (!cl || S.phase === 0) {   // circling / diving: looking down over the sea from the prey's front side
+      sharkStage(S); const tg = S.target, v = S.v;
+      S.camPos.set(tg.x + v.x * 4.2, S.SL + 2.7, tg.z + v.z * 4.2); S.camLook.set(tg.x, S.SL + .1, tg.z).lerp(_br.set(_bp.x, S.SL, _bp.z), .3);
+    }
+    if (M.cine) { M.cine.camPos = S.camPos; M.cine.camLook = S.camLook; }
   } else if (S.kind === 'tortoise') {
     S.ph += raw * 3;
     R.legs.forEach((l) => { l.hip.rotation.set(.35 * Math.sin(S.ph + (l.zf * l.sx > 0 ? 0 : PI)), 0, l.sx * .2 * Math.sin(S.ph)); });
@@ -2551,9 +2558,9 @@ function loop(now) {
     // a special move: a low, close shot circling slowly round the top so the spirit can be seen rising
     const C = M.cine, k = 1 - C.t / C.life, tp = C.top, base = Math.atan2(START[0][0], START[0][1]) + camAng + .5 - k * .9;
     _lookT.set(tp.x * .7, tp.y + 1.2, tp.z * .7); if (C.sp && C.sp.lengthSq() > 0) _lookT.lerp(C.sp, .5);   // keep the spirit in the shot
-    _camT.set(_lookT.x + Math.sin(base) * 5.6, _lookT.y + 1.1, _lookT.z + Math.cos(base) * 5.6);
+    _camT.set(_lookT.x + Math.sin(base) * 5.2, _lookT.y + 2.3, _lookT.z + Math.cos(base) * 5.2);
     fov = 50; ease = 3.2;
-    if (C.camPos) { _camT.copy(C.camPos); _lookT.copy(C.camLook); fov = 64; ease = 4.5; }   // a staged shot (the shark looming over its prey)
+    if (C.camPos) { _camT.copy(C.camPos); _lookT.copy(C.camLook); fov = 60; ease = 3.2; }   // a staged shot (the shark looming over its prey)
   } else if (inMatch) {
     const r = Math.hypot(START[0][0], START[0][1]), base = Math.atan2(START[0][0] / r, START[0][1] / r), a = base + camAng;
     // nearly straight down by default, like filming from above; the player can tilt, turn and zoom, or follow their top
