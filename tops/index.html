@@ -1610,7 +1610,7 @@ if (THREE.GLTFLoader) new THREE.GLTFLoader().load('spirit/tiger.json', (g) => {
 const _tq = new THREE.Quaternion(), _te = new THREE.Euler(), _tv = new THREE.Vector3(), _tn = new THREE.Vector3(), _tpl = new THREE.Plane();
 function tigerClimax(S, u, R) {
   // straight away: the head bursts up out of the floor, hangs there roaring, then lunges forward onto the rival
-  const L = S.life, tb = 0, tr = L * .32, th = L * .55, tend = L * .93, tg = S.target, P = S.root.position, T = R.real;
+  const L = S.life, tb = 0, tr = L * .32, th = L * .58, tend = L * .78, tg = S.target, P = S.root.position, T = R.real;
   if (u < tb) return false;
   if (!S.H0) {
     sharkStage(S); S.H0 = V3(tg.x - S.v.x * 1.5, 0, tg.z - S.v.z * 1.5); const hr = Math.hypot(S.H0.x, S.H0.z); if (hr > RA * .8) S.H0.multiplyScalar(RA * .8 / hr);
@@ -1622,10 +1622,24 @@ function tigerClimax(S, u, R) {
   if (u < tr) { const f = (u - tb) / (tr - tb), e = 1 - Math.pow(1 - f, 3); phase = 1; hy = lerp(SL - 2.4, SL + 1.45, e); down = lerp(-.7, .1, e); roar = clamp((f - .3) / .45, 0, 1); if (f < .5 && frameN % 2 === 0) { flames.burst(hx + rand(-.8, .8), SL + .05, hz + rand(-.8, .8), 6, 1.2, 3); splash.floor = SL; } }
   else if (u < th) { const f = (u - tr) / (th - tr); phase = 2; hy = SL + 1.45; down = .1 + .12 * f * f * (3 - 2 * f); roar = 1; }
   else {
-    const f = clamp((u - th) / (tend - th), 0, 1), e = f * f; phase = 3;
-    hx = lerp(S.H0.x, tg.x - v.x * .2, e); hz = lerp(S.H0.z, tg.z - v.z * .2, e); hy = lerp(SL + 1.45, SL + .45, e); down = lerp(.22, .85, e);
-    roar = f < .78 ? 1 : Math.max(0, 1 - (f - .78) / .12);   // the jaws snap shut on it
-    if (!S.snapped && f > .85) { S.snapped = true; sfx.burst(); flames.burst(tg.x, tg.y + .2, tg.z, 380, 2.4, 3); }
+    // the strike: it gathers itself, then accelerates all the way down (ease-in), and on contact bursts into fire
+    const f = clamp((u - th) / (tend - th), 0, 1), e = f * f * f; phase = 3;
+    hx = lerp(S.H0.x, tg.x - v.x * .2, e); hz = lerp(S.H0.z, tg.z - v.z * .2, e); hy = lerp(SL + 1.45, SL + .45, e) + .12 * Math.sin(Math.min(1, f * 2.5) * PI) * (1 - f); down = lerp(.22, .85, e);
+    roar = f < .85 ? 1 : Math.max(0, 1 - (f - .85) / .1);   // the jaws snap shut on it
+    if (!S.burned && f >= 1) {
+      S.burned = S.struck = true; S.rig.G.visible = false;   // gone: the head becomes a ball of fire on the rival
+      flames.burst(tg.x, tg.y + .3, tg.z, 700, 3.2, 3.5); flames.burst(tg.x, tg.y + .1, tg.z, 300, 5, .8);
+      sparks.burst(tg.x, tg.y + .3, tg.z, 120, 2.5, [1, .6, .2]); shockwave(tg.x, tg.z, 3.6, [2.8, 1.2, .3], 6); shockwave(tg.x, tg.z, 1.6, [2.8, 2.2, 1.2], 0);
+      shake = Math.max(shake, .6); sfx.burst(); noise(1.2, 900, 60, .8, 'lowpass');
+      M.slowDeep = 0; M.slowT = Math.min(M.slowT, .5);   // the world snaps back to speed with the hit
+    }
+  }
+  if (S.burned) {   // the fireball keeps burning down where it struck
+    const left = clamp(1 - (u - tend) / (L - tend), 0, 1);
+    flames.burst(tg.x + rand(-.3, .3), tg.y + .1, tg.z + rand(-.3, .3), Math.round(26 * left), 1.4 * left + .3, 3 * left + .6);
+    if (S.fireL) { S.fireL.position.set(tg.x, tg.y + .8, tg.z); S.fireL.intensity = 6 * left * (1 + .2 * Math.sin(u * 31)); }
+    S.camPos.set(tg.x + v.x * 5.4, SL + 1.9, tg.z + v.z * 5.4); S.camLook.set(tg.x, SL + .4, tg.z); if (M.cine) { M.cine.camPos = S.camPos; M.cine.camLook = S.camLook; }
+    S.phase = 4; S.roarK = 0; return true;
   }
   // place the model so its head sits at (hx, hy, hz), facing the rival, nose tipped down by `down`
   S.rig.G.scale.setScalar(K); _te.set(down, Math.atan2(v.x, v.z), 0, 'YXZ'); S.root.quaternion.setFromEuler(_te);
