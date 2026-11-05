@@ -437,6 +437,7 @@ const W_MAX = 1050;   // ~10,000 RPM: a very strong launch
 // ======================= scene =======================
 const canvas = $('#gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.localClippingEnabled = true;   // (the giant tiger head is cut off behind the neck)
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -771,6 +772,33 @@ class Splash {
   }
 }
 const splash = new Splash(2400);
+// fire: glowing embers that rise, swell and cool from white-yellow to deep red
+class Flames {
+  constructor(max) {
+    this.max = max; this.i = 0; this.pos = new Float32Array(max * 3).fill(-99); this.vel = new Float32Array(max * 3); this.col = new Float32Array(max * 3); this.life = new Float32Array(max); this.ml = new Float32Array(max);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(this.col, 3)); this.g = g;
+    this.pts = new THREE.Points(g, new THREE.PointsMaterial({ size: .34, map: softTex(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    this.pts.frustumCulled = false; scene.add(this.pts);
+  }
+  burst(x, y, z, n, spread, up) {
+    for (let k = 0; k < n; k++) {
+      const i = this.i; this.i = (i + 1) % this.max; const a = Math.random() * TAU, sp = spread * rand(.2, 1);
+      this.pos.set([x, y, z], i * 3); this.vel.set([Math.cos(a) * sp, up * rand(.5, 1.2), Math.sin(a) * sp], i * 3); this.life[i] = this.ml[i] = rand(.35, .8);
+    }
+  }
+  update(dt) {
+    for (let i = 0; i < this.max; i++) {
+      if (this.life[i] <= 0) continue; const k = i * 3; this.life[i] -= dt;
+      this.vel[k + 1] += 3 * dt; const dr = 1 - dt * 2.2; this.vel[k] *= dr; this.vel[k + 2] *= dr;
+      this.pos[k] += this.vel[k] * dt; this.pos[k + 1] += this.vel[k + 1] * dt; this.pos[k + 2] += this.vel[k + 2] * dt;
+      const f = Math.max(0, this.life[i] / this.ml[i]);
+      this.col[k] = .9 * f; this.col[k + 1] = .5 * f * f + .06 * f; this.col[k + 2] = .14 * f * f * f;
+      if (this.life[i] <= 0) this.pos[k + 1] = -99;
+    }
+    this.g.attributes.position.needsUpdate = this.g.attributes.color.needsUpdate = true;
+  }
+}
+const flames = new Flames(2200);
 
 // ---- impact effects: an expanding shockwave ring on the floor and a flash of light where tops hit ----
 const FX = { rings: [], flash: new THREE.PointLight(col(0xffd7a0), 0, 3.2, 2) };
@@ -1492,12 +1520,12 @@ function rigQuadruped(scene) {
   const mk = (name, world, parent) => { const b = new THREE.Bone(); b.name = name; b.userData.w = world.clone(); if (parent) { b.position.copy(world).sub(parent.userData.w); parent.add(b); } else b.position.copy(world); bones.push(b); return b; };
   const root = mk('root', S(0, 0, 0), null);
   const hip = mk('hip', spineP[0], root), mid = mk('mid', spineP[1], hip), chest = mk('chest', spineP[2], mid), neck = mk('neck', spineP[3], chest), head = mk('head', spineP[4], neck);
-  const jaw = mk('jaw', S(0, 1.4, 1.36), head);
+  const jaw = mk('jaw', S(0, 1.425, 1.42), head);
   const seg = (b, to, allow, leg) => segs.push({ i: bones.indexOf(b), a: b.userData.w, b: to, allow, leg });
   const all = () => true;
   seg(hip, spineP[1], (i) => Z[i] < 0.6 * k); seg(mid, spineP[2], all); seg(chest, spineP[3], (i) => Z[i] > -0.2 * k); seg(neck, spineP[4], (i) => Z[i] > 0.8 * k);
-  const inJaw = (i) => Z[i] > 1.28 * k && Y[i] < (1.38 + (Z[i] - 1.3) * -0.25) * k;
-  seg(head, S(0, 1.5, 1.75), (i) => Z[i] > 1.0 * k && !inJaw(i)); seg(jaw, S(0, 1.33, 1.72), (i) => inJaw(i));
+  const inJaw = (i) => Z[i] > 1.36 * k && Y[i] < 1.405 * k;   // everything under the mouth line
+  seg(head, S(0, 1.5, 1.75), (i) => Z[i] > 1.0 * k && !inJaw(i)); seg(jaw, S(0, 1.36, 1.74), (i) => inJaw(i));
   const legBones = legs.map((L) => {
     const par = L.front ? chest : hip, j = L.joints, name = (L.front ? 'f' : 'h') + (L.sx > 0 ? 'L' : 'R');
     const b0 = mk(name + '0', j[0], par), b1 = mk(name + '1', j[1], b0), b2 = mk(name + '2', j[2], b1), b3 = mk(name + '3', j[3], b2);
@@ -1544,6 +1572,19 @@ function rigQuadruped(scene) {
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
   const mat = mesh.material.clone(); mat.skinning = true;   // (three r128 needs the flag to skin on the GPU)
   const sk = new THREE.SkinnedMesh(geo, mat); sk.add(root); root.updateMatrixWorld(true); sk.bind(new THREE.Skeleton(bones)); sk.frustumCulled = false;
+  // the inside of the mouth (the model has none): a dark throat, tongue, and the big canines, riding on the head and jaw
+  const at = (bone, x, y, z, o) => { o.position.set(x * k, y * k, z * k).sub(bone.userData.w); bone.add(o); return o; };
+  const red = new THREE.MeshStandardMaterial({ color: 0x3a0606, roughness: .6, side: THREE.DoubleSide }), gum = new THREE.MeshStandardMaterial({ color: 0x8a2a30, roughness: .5 });
+  const ivory = new THREE.MeshStandardMaterial({ color: 0xf2ead8, roughness: .35 }), tongue = new THREE.MeshStandardMaterial({ color: 0xb84a5a, roughness: .55 });
+  const ell = (sx, sy, sz, m) => { const e = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), m); e.scale.set(sx * k, sy * k, sz * k); return e; };
+  const fang = (len, r, down) => { const g = new THREE.ConeGeometry(r * k, len * k, 10); g.translate(0, -len * k / 2, 0); if (!down) g.rotateX(PI); return new THREE.Mesh(g, ivory); };
+  at(head, 0, 1.44, 1.55, ell(.07, .03, .12, red)); at(jaw, 0, 1.38, 1.58, ell(.07, .028, .15, red));
+  at(jaw, 0, 1.392, 1.6, ell(.05, .012, .11, tongue));
+  at(head, 0, 1.425, 1.655, ell(.06, .01, .05, gum)); at(jaw, 0, 1.392, 1.68, ell(.06, .01, .055, gum));
+  for (const sx of [-1, 1]) {
+    at(head, sx * .05, 1.42, 1.69, fang(.1, .015, true)); at(jaw, sx * .043, 1.39, 1.70, fang(.075, .012, false));
+    for (let q = 0; q < 3; q++) { at(head, sx * (.012 + q * .011), 1.415, 1.72 - q * .006, fang(.02, .006, true)); at(jaw, sx * (.011 + q * .01), 1.392, 1.73 - q * .007, fang(.016, .005, false)); }
+  }
   bones.forEach((b) => b.userData.q0 = b.quaternion.clone());
   return { mesh: sk, root, hip, mid, chest, neck, head, jaw, legs: legBones, tail: tailB, k, zMax };
 }
@@ -1553,9 +1594,51 @@ if (THREE.GLTFLoader) new THREE.GLTFLoader().load('spirit/tiger.json', (g) => {
   try {
     const R = rigQuadruped(g.scene), holder = new THREE.Group(), s = 1.3 / (R.zMax + .95 * R.k);
     holder.add(R.mesh); R.mesh.scale.setScalar(s); R.mesh.position.set(0, -.47, .74 - R.zMax * s);
-    Object.assign(REAL_TIGER, { ready: true, holder, rig: R });
+    const hp = (y, z) => new THREE.Vector3(0, y * R.k * s - .47, z * R.k * s + .74 - R.zMax * s);
+    const mats = []; R.mesh.traverse((o) => { if (o.material) mats.push(o.material); });
+    Object.assign(REAL_TIGER, { ready: true, holder, rig: R, headLocal: hp(1.45, 1.5), neckLocal: hp(1.35, 1.12), neckR: .3 * R.k * s, mats });
   } catch (e) { REAL_TIGER.failed = true; }
 }, undefined, () => { REAL_TIGER.failed = true; });
+// the tiger's finish: it leaps into a burst of fire, and a giant tiger's head rises out of the flames behind the
+// rival top, trailing fire from the neck, roars with its jaws wide, then lunges down and bites. Returns false until then.
+const _tq = new THREE.Quaternion(), _te = new THREE.Euler(), _tv = new THREE.Vector3(), _tn = new THREE.Vector3(), _tpl = new THREE.Plane();
+function tigerClimax(S, u, R) {
+  const L = S.life, tb = L * .46, tr = L * .62, th = L * .8, tend = L * .95, tg = S.target, P = S.root.position, T = R.real;
+  if (u < tb) return false;
+  if (!S.H0) {
+    sharkStage(S); S.H0 = V3(tg.x - S.v.x * 1.5, 0, tg.z - S.v.z * 1.5); const hr = Math.hypot(S.H0.x, S.H0.z); if (hr > RA * .8) S.H0.multiplyScalar(RA * .8 / hr);
+    flames.burst(P.x, P.y + .3, P.z, 260, 1.6, 2.5); shockwave(P.x, P.z, 1.4, [2.8, 1.2, .3], 4);
+    flames.burst(S.H0.x, tg.y, S.H0.z, 300, 1.4, 3.5); T.mats.forEach((m) => { m.clippingPlanes = [_tpl]; });
+    noise(1.6, 600, 80, .7, 'lowpass'); tone(120, 175, 60, 1.5, .24, 'sawtooth'); tone(88, 130, 45, 1.5, .18, 'sawtooth');
+  }
+  const v = S.v, SL = tg.y, K = 8.5; let hx = S.H0.x, hz = S.H0.z, hy, down, roar, phase;
+  if (u < tr) { const f = (u - tb) / (tr - tb), e = 1 - Math.pow(1 - f, 3); phase = 1; hy = lerp(SL - 1.6, SL + 1.45, e); down = lerp(-.55, .1, e); roar = clamp((f - .35) / .45, 0, 1); }
+  else if (u < th) { const f = (u - tr) / (th - tr); phase = 2; hy = SL + 1.45 + .07 * Math.sin(f * TAU); down = .1 + .12 * f; roar = 1; }
+  else {
+    const f = clamp((u - th) / (tend - th), 0, 1), e = f * f; phase = 3;
+    hx = lerp(S.H0.x, tg.x - v.x * .2, e); hz = lerp(S.H0.z, tg.z - v.z * .2, e); hy = lerp(SL + 1.45, SL + .45, e); down = lerp(.22, .85, e);
+    roar = f < .78 ? 1 : Math.max(0, 1 - (f - .78) / .12);   // the jaws snap shut on it
+    if (!S.snapped && f > .85) { S.snapped = true; sfx.burst(); flames.burst(tg.x, tg.y + .2, tg.z, 380, 2.4, 3); }
+  }
+  // place the model so its head sits at (hx, hy, hz), facing the rival, nose tipped down by `down`
+  S.rig.G.scale.setScalar(K); _te.set(down, Math.atan2(v.x, v.z), .06 * Math.sin(u * 7) * (phase === 2 ? 1 : 0), 'YXZ'); S.root.quaternion.setFromEuler(_te);
+  _tv.copy(T.headLocal).multiplyScalar(K).applyQuaternion(S.root.quaternion); P.set(hx, hy, hz).sub(_tv);
+  // cut the body away behind the neck, and set the neck ablaze
+  _tn.set(0, 0, 1).applyQuaternion(S.root.quaternion); _tv.copy(T.neckLocal).multiplyScalar(K).applyQuaternion(S.root.quaternion).add(P);
+  _tpl.setFromNormalAndCoplanarPoint(_tn, _tv);
+  const rr = T.neckR * K;
+  for (let q = 0; q < 14; q++) { const a = Math.random() * TAU; _br.set(Math.cos(a) * rr, Math.sin(a) * rr * 1.1, 0).applyQuaternion(S.root.quaternion).add(_tv); flames.burst(_br.x, _br.y, _br.z, 1, .5, 1.6); }
+  if (phase >= 2 && frameN % 2 === 0) { _br.set(rand(-.5, .5), rand(-.3, .5), 0).multiplyScalar(K * .12).add(_tv); flames.burst(_br.x, _br.y, _br.z, 2, .8, 2.2); }
+  // firelight on its face, so the arena's pink and blue neon don't tint it
+  if (!S.fireL) { S.fireL = new THREE.PointLight(col(0xffa060), 0, 14, 1.4); scene.add(S.fireL); }
+  S.fireL.position.set(hx + v.x * 2.2, hy + .6, hz + v.z * 2.2); S.fireL.intensity = 4.5 * (1 + .15 * Math.sin(u * 23) + .1 * Math.sin(u * 37));
+  S.phase = phase; S.roarK = roar;
+  // the camera: low, in front of the rival, looking up at the head; pulling back for the bite
+  const bk = phase === 3 ? clamp((u - th) / (tend - th), 0, 1) : 0;
+  S.camPos.set(tg.x + v.x * (4.3 + 1.4 * bk), SL + .55 + 1.3 * bk, tg.z + v.z * (4.3 + 1.4 * bk)); S.camLook.set(tg.x, SL + .35, tg.z).lerp(_bq.set(hx, hy + .3, hz), .68 * (1 - bk * .45));
+  if (M.cine) { M.cine.camPos = S.camPos; M.cine.camLook = S.camLook; }
+  return true;
+}
 // pose the fitted tiger: a gallop (legs in pairs, the spine flexing), then the pounce with forelegs flung forward
 function poseRealQuad(R, ph, pounce, roar, u) {
   R.mesh.skeleton.bones.forEach((b) => b.quaternion.copy(b.userData.q0));
@@ -1567,7 +1650,7 @@ function poseRealQuad(R, ph, pounce, roar, u) {
   }
   R.hip.rotation.x = .09 * Math.sin(ph * 2) * (1 - pounce) - .05 * pounce; R.chest.rotation.x = -.1 * Math.sin(ph * 2) * (1 - pounce) - .12 * pounce;
   R.tail.forEach((b, i) => { b.rotation.y = .28 * Math.sin(u * 5 - i * .7); b.rotation.x = i === 0 ? -.35 - .25 * pounce : .06 + .04 * Math.sin(u * 4 - i * .6); });
-  R.neck.rotation.x = .22 * (1 - roar) + .06 * Math.sin(ph * 2); R.head.rotation.x = -.15 * roar; R.jaw.rotation.x = .75 * roar;
+  R.neck.rotation.x = .22 * (1 - roar) + .06 * Math.sin(ph * 2); R.head.rotation.x = -.15 * roar; R.jaw.rotation.x = .8 * roar;
 }
 const _lc = new THREE.CatmullRomCurve3([V3(), V3(), V3(), V3(), V3()]);
 function poseLeg(l, a1, a2, a3) {
@@ -1778,7 +1861,8 @@ const SHARK_RX = [.02, .085, .135, .16, .15, .12, .085, .055, .035, .025], SHARK
 const SHARK_W = (f) => Math.max(0, 1 - f / .36), sharkRY = (f) => lerpArr(SHARK_RY, f) * (1 - .45 * SHARK_W(f));
 const sharkDY = (f) => lerpArr(SHARK_RY, f) - sharkRY(f), sharkBot = (f) => sharkDY(f) - sharkRY(f);
 function summonBeast(t, target, color, life, kind) {
-  if (kind === 'shark') life += 1.4;   // it needs time to rise and loom
+  if (kind === 'shark') life += 1.4;
+  if (kind === 'tiger' && REAL_TIGER.ready && !REAL_TIGER.inUse) { life += 1.6; M.slowT = Math.max(M.slowT, life); M.slowDeep = Math.max(M.slowDeep || 0, life); }   // it needs time to rise and loom
   const mx = Math.max(color[0], color[1], color[2]), hue = new THREE.Color(Math.pow(color[0] / mx, 2.2), Math.pow(color[1] / mx, 2.2), Math.pow(color[2] / mx, 2.2));
   const cfg = BEAST[kind], rim = hue.clone().multiplyScalar(1.5), white = new THREE.Color(1, .97, .92);
   const C = (r, g, b) => new THREE.Color(r, g, b), mix = (a, b, k) => a.clone().lerp(b, k);
@@ -2046,7 +2130,8 @@ function updateBeast(S, raw) {
     const pounce = clamp(dive * 2 - .2, 0, 1);
     S.ph += raw * (6 + speed * 1.6);
     if (R.real) {   // the real tiger
-      poseRealQuad(R.real.rig, S.ph, pounce, roar, u); R.G.rotation.x = .05 * Math.sin(S.ph * 2) * (1 - pounce); R.G.position.y = .03 * Math.abs(Math.sin(S.ph)) * (1 - pounce);
+      if (S.kind === 'tiger' && tigerClimax(S, u, R)) poseRealQuad(R.real.rig, S.ph, 0, S.roarK, u);
+      else { poseRealQuad(R.real.rig, S.ph, pounce, roar, u); R.G.rotation.x = .05 * Math.sin(S.ph * 2) * (1 - pounce); R.G.position.y = .03 * Math.abs(Math.sin(S.ph)) * (1 - pounce); }
     } else {
     for (const l of R.legs) {
       const p = S.ph + (l.front ? 0 : PI * .9) + (l.sx > 0 ? .35 : 0), sw = Math.sin(p), lift = Math.max(0, Math.cos(p));
@@ -2086,10 +2171,11 @@ function updateBeast(S, raw) {
     else if (S.kind === 'shark') { splash.floor = S.sea ? S.sea.position.y : tg.y; splash.burst(tg.x, splash.floor, tg.z, 800, 8.5, 3.2, .7); splash.burst(tg.x, splash.floor, tg.z, 350, 3.5, 5.5, 1.1); sparks.burst(tg.x, tg.y + .1, tg.z, 180, 3.2, [.75, .92, 1]); shockwave(tg.x, tg.z, 3.4, [1.2, 2, 2.8], 4); shockwave(tg.x, tg.z, 1.6, [2, 2.4, 2.8], 0); shake = Math.max(shake, .5); }   // a great splash
     else if (S.kind === 'falcon' || S.kind === 'crow') sparks.burst(tg.x, tg.y + .4, tg.z, 50, 1.4, S.kind === 'crow' ? [.25, .2, .25] : [1, .7, .25]);   // feathers scatter
     else if (S.kind === 'fox') for (let k = 0; k < 3; k++) shockwave(tg.x, tg.z, 1 + k * .7, S.color, 2);
-    else if (S.kind === 'tiger') { shockwave(tg.x, tg.z, 2.8, [2.6, 1.4, .4], 4); shake = Math.max(shake, .45); }
+    else if (S.kind === 'tiger') { shockwave(tg.x, tg.z, 3.2, [2.8, 1.2, .3], 5); shockwave(tg.x, tg.z, 1.4, [2.8, 2, 1], 0); flames.burst(tg.x, tg.y + .1, tg.z, 300, 3, 2.5); shake = Math.max(shake, .5); }
   }
   if (a >= 1) {
-    if (S.rig && S.rig.real) { S.rig.G.remove(S.rig.real.holder); S.rig.real.inUse = false; }
+    if (S.fireL) scene.remove(S.fireL);
+    if (S.rig && S.rig.real) { S.rig.G.remove(S.rig.real.holder); S.rig.real.inUse = false; (S.rig.real.mats || []).forEach((m) => { m.clippingPlanes = []; }); }
     if (S.sea) { scene.remove(S.sea, S.curtain); S.sea.geometry.dispose(); S.sea.material.dispose(); S.curtain.geometry.dispose(); S.curtain.material.dispose(); }
     scene.remove(S.root, S.pillar); const seen = new Set();
     for (const o of [S.root, S.pillar]) o.traverse((q) => { if (q.geometry && !seen.has(q.geometry)) { seen.add(q.geometry); q.geometry.dispose(); } if (q.material && !seen.has(q.material)) { seen.add(q.material); q.material.dispose(); } });
@@ -2728,7 +2814,7 @@ function loop(now) {
     if (t.state === 'ready') { t.m.root.position.set(t.x, t.y, t.z); t.m.tilt.quaternion.identity(); t.m.spin.rotation.y = t.vis; t.m.blur.material.opacity = 0; }
     else drawTop(t, dt);
   }
-  sparks.update(dt); splash.update(raw); updateFx(raw); updateSpirits(raw);
+  sparks.update(dt); splash.update(raw); flames.update(raw); updateFx(raw); updateSpirits(raw);
   if (!$('#team').hidden && (M.phase !== 'ready' || M.released)) $('#team').hidden = true;   // the swap strip is only for before the launch
   if (M.cine) { M.cine.t -= raw; if (M.cine.t <= 0 || M.phase !== 'battle') M.cine = null; }
   for (const m of RAIL_GLOW) m.emissiveIntensity = lerp(m.emissiveIntensity, tops.some((t) => t.rail) ? 1.6 : .8, .15);
