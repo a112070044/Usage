@@ -1603,16 +1603,17 @@ if (THREE.GLTFLoader) new THREE.GLTFLoader().load('spirit/tiger.json', (g) => {
 // rival top, trailing fire from the neck, roars with its jaws wide, then lunges down and bites. Returns false until then.
 const _tq = new THREE.Quaternion(), _te = new THREE.Euler(), _tv = new THREE.Vector3(), _tn = new THREE.Vector3(), _tpl = new THREE.Plane();
 function tigerClimax(S, u, R) {
-  const L = S.life, tb = L * .46, tr = L * .62, th = L * .8, tend = L * .95, tg = S.target, P = S.root.position, T = R.real;
+  // straight away: the head bursts up out of the floor, hangs there roaring, then lunges forward onto the rival
+  const L = S.life, tb = 0, tr = L * .32, th = L * .55, tend = L * .93, tg = S.target, P = S.root.position, T = R.real;
   if (u < tb) return false;
   if (!S.H0) {
     sharkStage(S); S.H0 = V3(tg.x - S.v.x * 1.5, 0, tg.z - S.v.z * 1.5); const hr = Math.hypot(S.H0.x, S.H0.z); if (hr > RA * .8) S.H0.multiplyScalar(RA * .8 / hr);
-    flames.burst(P.x, P.y + .3, P.z, 260, 1.6, 2.5); shockwave(P.x, P.z, 1.4, [2.8, 1.2, .3], 4);
+    S.pillar.visible = false; shockwave(S.H0.x, S.H0.z, 2, [2.8, 1.2, .3], 4); shake = Math.max(shake, .35);   // the floor cracks open in fire
     flames.burst(S.H0.x, tg.y, S.H0.z, 300, 1.4, 3.5); T.mats.forEach((m) => { m.clippingPlanes = [_tpl]; });
     noise(1.6, 600, 80, .7, 'lowpass'); tone(120, 175, 60, 1.5, .24, 'sawtooth'); tone(88, 130, 45, 1.5, .18, 'sawtooth');
   }
   const v = S.v, SL = tg.y, K = 8.5; let hx = S.H0.x, hz = S.H0.z, hy, down, roar, phase;
-  if (u < tr) { const f = (u - tb) / (tr - tb), e = 1 - Math.pow(1 - f, 3); phase = 1; hy = lerp(SL - 1.6, SL + 1.45, e); down = lerp(-.55, .1, e); roar = clamp((f - .35) / .45, 0, 1); }
+  if (u < tr) { const f = (u - tb) / (tr - tb), e = 1 - Math.pow(1 - f, 3); phase = 1; hy = lerp(SL - 2.4, SL + 1.45, e); down = lerp(-.7, .1, e); roar = clamp((f - .3) / .45, 0, 1); if (f < .5 && frameN % 2 === 0) { flames.burst(hx + rand(-.8, .8), SL + .05, hz + rand(-.8, .8), 6, 1.2, 3); splash.floor = SL; } }
   else if (u < th) { const f = (u - tr) / (th - tr); phase = 2; hy = SL + 1.45 + .07 * Math.sin(f * TAU); down = .1 + .12 * f; roar = 1; }
   else {
     const f = clamp((u - th) / (tend - th), 0, 1), e = f * f; phase = 3;
@@ -1862,7 +1863,7 @@ const SHARK_W = (f) => Math.max(0, 1 - f / .36), sharkRY = (f) => lerpArr(SHARK_
 const sharkDY = (f) => lerpArr(SHARK_RY, f) - sharkRY(f), sharkBot = (f) => sharkDY(f) - sharkRY(f);
 function summonBeast(t, target, color, life, kind) {
   if (kind === 'shark') life += 1.4;
-  if (kind === 'tiger' && REAL_TIGER.ready && !REAL_TIGER.inUse) { life += 1.6; M.slowT = Math.max(M.slowT, life); M.slowDeep = Math.max(M.slowDeep || 0, life); }   // it needs time to rise and loom
+  if (kind === 'tiger' && REAL_TIGER.ready && !REAL_TIGER.inUse) { life += .6; M.slowT = Math.max(M.slowT, life); M.slowDeep = Math.max(M.slowDeep || 0, life); }   // it needs time to rise and loom
   const mx = Math.max(color[0], color[1], color[2]), hue = new THREE.Color(Math.pow(color[0] / mx, 2.2), Math.pow(color[1] / mx, 2.2), Math.pow(color[2] / mx, 2.2));
   const cfg = BEAST[kind], rim = hue.clone().multiplyScalar(1.5), white = new THREE.Color(1, .97, .92);
   const C = (r, g, b) => new THREE.Color(r, g, b), mix = (a, b, k) => a.clone().lerp(b, k);
