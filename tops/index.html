@@ -1575,18 +1575,24 @@ function rigQuadruped(scene) {
   // the inside of the mouth (the model has none): a dark throat, tongue, and the big canines, riding on the head and jaw
   const at = (bone, x, y, z, o) => { o.position.set(x * k, y * k, z * k).sub(bone.userData.w); bone.add(o); return o; };
   const red = new THREE.MeshStandardMaterial({ color: 0x3a0606, roughness: .6, side: THREE.DoubleSide }), gum = new THREE.MeshStandardMaterial({ color: 0x8a2a30, roughness: .5 });
-  const ivory = new THREE.MeshStandardMaterial({ color: 0xf2ead8, roughness: .35 }), tongue = new THREE.MeshStandardMaterial({ color: 0xb84a5a, roughness: .55 });
+  const ivory = new THREE.MeshStandardMaterial({ color: 0xcfc09c, roughness: .5, metalness: 0 }), tongue = new THREE.MeshStandardMaterial({ color: 0xb84a5a, roughness: .55 });
   const ell = (sx, sy, sz, m) => { const e = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), m); e.scale.set(sx * k, sy * k, sz * k); return e; };
-  const fang = (len, r, down) => { const g = new THREE.ConeGeometry(r * k, len * k, 10); g.translate(0, -len * k / 2, 0); if (!down) g.rotateX(PI); return new THREE.Mesh(g, ivory); };
-  at(head, 0, 1.44, 1.55, ell(.07, .03, .12, red)); at(jaw, 0, 1.38, 1.58, ell(.07, .028, .15, red));
-  at(jaw, 0, 1.392, 1.6, ell(.05, .012, .11, tongue));
-  at(head, 0, 1.425, 1.655, ell(.06, .01, .05, gum)); at(jaw, 0, 1.392, 1.68, ell(.06, .01, .055, gum));
+  const fang = (len, r, down) => {
+    const pts = []; for (let q = 0; q <= 8; q++) { const t = q / 8; pts.push(new THREE.Vector2(r * k * Math.pow(1 - t, .7) * (1 + .15 * Math.sin(t * PI)), -len * k * t)); }
+    const g = new THREE.LatheGeometry(pts, 10); g.scale(1, 1, .8);
+    const p = g.attributes.position; for (let q = 0; q < p.count; q++) { const t = -p.getY(q) / (len * k); p.setZ(q, p.getZ(q) - t * t * len * k * .28); }   // a slight backward curve, like a real canine
+    g.computeVertexNormals(); if (!down) g.rotateX(PI); return new THREE.Mesh(g, ivory);
+  };
+  const jawIn = new THREE.Object3D(); jawIn.position.copy(jaw.position); jawIn.userData.w = jaw.userData.w; head.add(jawIn);
+  at(head, 0, 1.44, 1.55, ell(.07, .03, .12, red)); at(jawIn, 0, 1.38, 1.58, ell(.07, .028, .15, red));
+  at(jawIn, 0, 1.385, 1.58, ell(.045, .011, .1, tongue));
+  at(jawIn, 0, 1.39, 1.67, ell(.055, .009, .045, gum));
   for (const sx of [-1, 1]) {
-    at(head, sx * .05, 1.42, 1.69, fang(.1, .015, true)); at(jaw, sx * .043, 1.39, 1.70, fang(.075, .012, false));
-    for (let q = 0; q < 3; q++) { at(head, sx * (.012 + q * .011), 1.415, 1.72 - q * .006, fang(.02, .006, true)); at(jaw, sx * (.011 + q * .01), 1.392, 1.73 - q * .007, fang(.016, .005, false)); }
+    at(head, sx * .048, 1.42, 1.69, fang(.075, .016, true)); at(jawIn, sx * .041, 1.392, 1.685, fang(.055, .013, false));
+    for (let q = 0; q < 3; q++) { at(head, sx * (.01 + q * .01), 1.418, 1.715 - q * .005, fang(.014, .0055, true)); at(jawIn, sx * (.009 + q * .009), 1.394, 1.71 - q * .006, fang(.011, .0048, false)); }
   }
   bones.forEach((b) => b.userData.q0 = b.quaternion.clone());
-  return { mesh: sk, root, hip, mid, chest, neck, head, jaw, legs: legBones, tail: tailB, k, zMax };
+  return { mesh: sk, root, hip, mid, chest, neck, head, jaw, jawIn, legs: legBones, tail: tailB, k, zMax };
 }
 // the real tiger: a textured model, fitted with a skeleton on load (see rigQuadruped)
 const REAL_TIGER = { ready: false, inUse: false };
@@ -1614,7 +1620,7 @@ function tigerClimax(S, u, R) {
   }
   const v = S.v, SL = tg.y, K = 8.5; let hx = S.H0.x, hz = S.H0.z, hy, down, roar, phase;
   if (u < tr) { const f = (u - tb) / (tr - tb), e = 1 - Math.pow(1 - f, 3); phase = 1; hy = lerp(SL - 2.4, SL + 1.45, e); down = lerp(-.7, .1, e); roar = clamp((f - .3) / .45, 0, 1); if (f < .5 && frameN % 2 === 0) { flames.burst(hx + rand(-.8, .8), SL + .05, hz + rand(-.8, .8), 6, 1.2, 3); splash.floor = SL; } }
-  else if (u < th) { const f = (u - tr) / (th - tr); phase = 2; hy = SL + 1.45 + .07 * Math.sin(f * TAU); down = .1 + .12 * f; roar = 1; }
+  else if (u < th) { const f = (u - tr) / (th - tr); phase = 2; hy = SL + 1.45; down = .1 + .12 * f * f * (3 - 2 * f); roar = 1; }
   else {
     const f = clamp((u - th) / (tend - th), 0, 1), e = f * f; phase = 3;
     hx = lerp(S.H0.x, tg.x - v.x * .2, e); hz = lerp(S.H0.z, tg.z - v.z * .2, e); hy = lerp(SL + 1.45, SL + .45, e); down = lerp(.22, .85, e);
@@ -1622,7 +1628,7 @@ function tigerClimax(S, u, R) {
     if (!S.snapped && f > .85) { S.snapped = true; sfx.burst(); flames.burst(tg.x, tg.y + .2, tg.z, 380, 2.4, 3); }
   }
   // place the model so its head sits at (hx, hy, hz), facing the rival, nose tipped down by `down`
-  S.rig.G.scale.setScalar(K); _te.set(down, Math.atan2(v.x, v.z), .06 * Math.sin(u * 7) * (phase === 2 ? 1 : 0), 'YXZ'); S.root.quaternion.setFromEuler(_te);
+  S.rig.G.scale.setScalar(K); _te.set(down, Math.atan2(v.x, v.z), 0, 'YXZ'); S.root.quaternion.setFromEuler(_te);
   _tv.copy(T.headLocal).multiplyScalar(K).applyQuaternion(S.root.quaternion); P.set(hx, hy, hz).sub(_tv);
   // cut the body away behind the neck, and set the neck ablaze
   _tn.set(0, 0, 1).applyQuaternion(S.root.quaternion); _tv.copy(T.neckLocal).multiplyScalar(K).applyQuaternion(S.root.quaternion).add(P);
@@ -1651,7 +1657,7 @@ function poseRealQuad(R, ph, pounce, roar, u) {
   }
   R.hip.rotation.x = .09 * Math.sin(ph * 2) * (1 - pounce) - .05 * pounce; R.chest.rotation.x = -.1 * Math.sin(ph * 2) * (1 - pounce) - .12 * pounce;
   R.tail.forEach((b, i) => { b.rotation.y = .28 * Math.sin(u * 5 - i * .7); b.rotation.x = i === 0 ? -.35 - .25 * pounce : .06 + .04 * Math.sin(u * 4 - i * .6); });
-  R.neck.rotation.x = .22 * (1 - roar) + .06 * Math.sin(ph * 2); R.head.rotation.x = -.15 * roar; R.jaw.rotation.x = .8 * roar;
+  R.neck.rotation.x = .22 * (1 - roar) + .06 * Math.sin(ph * 2); R.head.rotation.x = -.15 * roar; R.jaw.rotation.x = .8 * roar; R.jawIn.rotation.x = .55 * R.jaw.rotation.x;
 }
 const _lc = new THREE.CatmullRomCurve3([V3(), V3(), V3(), V3(), V3()]);
 function poseLeg(l, a1, a2, a3) {
@@ -2131,7 +2137,7 @@ function updateBeast(S, raw) {
     const pounce = clamp(dive * 2 - .2, 0, 1);
     S.ph += raw * (6 + speed * 1.6);
     if (R.real) {   // the real tiger
-      if (S.kind === 'tiger' && tigerClimax(S, u, R)) poseRealQuad(R.real.rig, S.ph, 0, S.roarK, u);
+      if (S.kind === 'tiger' && tigerClimax(S, u, R)) { poseRealQuad(R.real.rig, 0, 0, S.roarK, u); const rg = R.real.rig; rg.neck.rotation.x = .05 * (1 - S.roarK); rg.head.rotation.x = -.08 * S.roarK; }
       else { poseRealQuad(R.real.rig, S.ph, pounce, roar, u); R.G.rotation.x = .05 * Math.sin(S.ph * 2) * (1 - pounce); R.G.position.y = .03 * Math.abs(Math.sin(S.ph)) * (1 - pounce); }
     } else {
     for (const l of R.legs) {
