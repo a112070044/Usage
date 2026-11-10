@@ -772,33 +772,42 @@ class Splash {
   }
 }
 const splash = new Splash(2400);
-// fire: glowing embers that rise, swell and cool from white-yellow to deep red
+// fire: soft billows that swell as they rise and cool from white-yellow through orange to deep red, overlapping
+// into one body of flame (each has its own size, drawn with a small shader), plus the odd bright ember
 class Flames {
   constructor(max) {
-    this.max = max; this.i = 0; this.pos = new Float32Array(max * 3).fill(-99); this.vel = new Float32Array(max * 3); this.col = new Float32Array(max * 3); this.life = new Float32Array(max); this.ml = new Float32Array(max);
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(this.col, 3)); this.g = g;
-    this.pts = new THREE.Points(g, new THREE.PointsMaterial({ size: .34, map: softTex(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    this.max = max; this.i = 0; this.pos = new Float32Array(max * 3).fill(-99); this.vel = new Float32Array(max * 3); this.col = new Float32Array(max * 3); this.size = new Float32Array(max); this.s0 = new Float32Array(max); this.life = new Float32Array(max); this.ml = new Float32Array(max);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(this.col, 3)); g.setAttribute('aSize', new THREE.BufferAttribute(this.size, 1)); this.g = g;
+    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(.25, 'rgba(255,255,255,.45)'); gr.addColorStop(.6, 'rgba(255,255,255,.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+    this.pts = new THREE.Points(g, new THREE.ShaderMaterial({ uniforms: { uMap: { value: new THREE.CanvasTexture(c) }, uScale: { value: 600 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: 'attribute float aSize; attribute vec3 color; varying vec3 vC; uniform float uScale; void main(){ vC = color; vec4 mv = modelViewMatrix * vec4(position, 1.); gl_PointSize = aSize * uScale / -mv.z; gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform sampler2D uMap; varying vec3 vC; void main(){ gl_FragColor = vec4(vC, 1.) * texture2D(uMap, gl_PointCoord); }' }));
     this.pts.frustumCulled = false; scene.add(this.pts);
   }
   burst(x, y, z, n, spread, up) {
     for (let k = 0; k < n; k++) {
-      const i = this.i; this.i = (i + 1) % this.max; const a = Math.random() * TAU, sp = spread * rand(.2, 1);
-      this.pos.set([x, y, z], i * 3); this.vel.set([Math.cos(a) * sp, up * rand(.5, 1.2), Math.sin(a) * sp], i * 3); this.life[i] = this.ml[i] = rand(.35, .8);
+      const i = this.i; this.i = (i + 1) % this.max; const a = Math.random() * TAU, sp = spread * rand(.15, 1), ember = Math.random() < .12;
+      this.pos.set([x + rand(-.06, .06), y, z + rand(-.06, .06)], i * 3); this.vel.set([Math.cos(a) * sp, up * rand(.5, 1.2) * (ember ? 1.6 : 1), Math.sin(a) * sp], i * 3);
+      this.life[i] = this.ml[i] = ember ? rand(.6, 1.1) : rand(.35, .8); this.s0[i] = ember ? -.05 : rand(.35, .75);   // (negative: an ember, small and bright)
     }
   }
   update(dt) {
+    this.pts.material.uniforms.uScale.value = renderer.domElement.height * .5 / Math.tan(camera.fov * PI / 360);
     for (let i = 0; i < this.max; i++) {
       if (this.life[i] <= 0) continue; const k = i * 3; this.life[i] -= dt;
       this.vel[k + 1] += 3 * dt; const dr = 1 - dt * 2.2; this.vel[k] *= dr; this.vel[k + 2] *= dr;
+      this.vel[k] += Math.sin(this.pos[k + 1] * 5 + i) * dt * 1.2;   // a little flicker sideways
       this.pos[k] += this.vel[k] * dt; this.pos[k + 1] += this.vel[k + 1] * dt; this.pos[k + 2] += this.vel[k + 2] * dt;
-      const f = Math.max(0, this.life[i] / this.ml[i]);
-      this.col[k] = .9 * f; this.col[k + 1] = .5 * f * f + .06 * f; this.col[k + 2] = .14 * f * f * f;
-      if (this.life[i] <= 0) this.pos[k + 1] = -99;
+      const f = Math.max(0, this.life[i] / this.ml[i]), em = this.s0[i] < 0, b = em ? 1 : .52 * Math.min(1, (1 - f) * 6);   // billows fade in fast, stay dim so they add up
+      this.col[k] = b * f; this.col[k + 1] = b * (.55 * f * f + .05 * f); this.col[k + 2] = b * .16 * f * f * f;
+      this.size[i] = em ? .06 : this.s0[i] * (.55 + .9 * (1 - f));
+      if (this.life[i] <= 0) { this.pos[k + 1] = -99; this.size[i] = 0; }
     }
-    this.g.attributes.position.needsUpdate = this.g.attributes.color.needsUpdate = true;
+    this.g.attributes.position.needsUpdate = this.g.attributes.color.needsUpdate = this.g.attributes.aSize.needsUpdate = true;
   }
 }
-const flames = new Flames(2200);
+const flames = new Flames(3000);
 
 // ---- impact effects: an expanding shockwave ring on the floor and a flash of light where tops hit ----
 const FX = { rings: [], flash: new THREE.PointLight(col(0xffd7a0), 0, 3.2, 2) };
@@ -1601,7 +1610,7 @@ if (THREE.GLTFLoader) new THREE.GLTFLoader().load('spirit/tiger.json', (g) => {
     const R = rigQuadruped(g.scene), holder = new THREE.Group(), s = 1.3 / (R.zMax + .95 * R.k);
     holder.add(R.mesh); R.mesh.scale.setScalar(s); R.mesh.position.set(0, -.47, .74 - R.zMax * s);
     const hp = (y, z) => new THREE.Vector3(0, y * R.k * s - .47, z * R.k * s + .74 - R.zMax * s);
-    const mats = []; R.mesh.traverse((o) => { if (o.material) mats.push(o.material); });
+    const mats = []; R.mesh.traverse((o) => { if (o.material) { mats.push(o.material); o.material.envMapIntensity = .12; } });   // (the arena's neon reflections would tint the fur purple)
     Object.assign(REAL_TIGER, { ready: true, holder, rig: R, headLocal: hp(1.45, 1.5), neckLocal: hp(1.35, 1.12), neckR: .3 * R.k * s, mats });
   } catch (e) { REAL_TIGER.failed = true; }
 }, undefined, () => { REAL_TIGER.failed = true; });
@@ -1648,7 +1657,8 @@ function tigerClimax(S, u, R) {
   _tn.set(0, 0, 1).applyQuaternion(S.root.quaternion); _tv.copy(T.neckLocal).multiplyScalar(K).applyQuaternion(S.root.quaternion).add(P);
   _tpl.setFromNormalAndCoplanarPoint(_tn, _tv);
   const rr = T.neckR * K;
-  for (let q = 0; q < 14; q++) { const a = Math.random() * TAU; _br.set(Math.cos(a) * rr, Math.sin(a) * rr * 1.1, 0).applyQuaternion(S.root.quaternion).add(_tv); flames.burst(_br.x, _br.y, _br.z, 1, .5, 1.6); }
+  for (let q = 0; q < 16; q++) { const a = Math.random() * TAU, r2 = rr * rand(.75, 1.15); _br.set(Math.cos(a) * r2, Math.sin(a) * r2 * 1.1, -rand(0, .25) * K * .1).applyQuaternion(S.root.quaternion).add(_tv); flames.burst(_br.x, _br.y, _br.z, 1, .5, 1.8); }
+  rimL.intensity = .15; rimR.intensity = .1;   // the neon gives way to firelight
   if (phase >= 2 && frameN % 2 === 0) { _br.set(rand(-.5, .5), rand(-.3, .5), 0).multiplyScalar(K * .12).add(_tv); flames.burst(_br.x, _br.y, _br.z, 2, .8, 2.2); }
   // firelight on its face, so the arena's pink and blue neon don't tint it
   if (!S.fireL) { S.fireL = new THREE.PointLight(col(0xffa060), 0, 14, 1.4); scene.add(S.fireL); }
@@ -1811,7 +1821,7 @@ const SHARK_SPINE = ['Spine113', 'Spine214', 'Spine315', 'Spine416', 'Spine517',
 const SHARK_POSE_BONES = ['Head5', 'Jaw6', 'R_upper_Lip9', 'Center_upper_Lip10', 'L_upper_Lip11', 'Upper_Teeth12'];
 if (THREE.GLTFLoader) new THREE.GLTFLoader().load('spirit/shark.json', (g) => {
   const model = g.scene, bones = {};
-  model.traverse((o) => { if (o.isBone) bones[o.name] = o; if (o.isMesh) { o.frustumCulled = false; if (o.material) { o.material.side = THREE.FrontSide; o.material.color && o.material.color.setRGB(1.3, 1.18, 1.05); o.material.emissive && o.material.emissive.setRGB(.05, .05, .055); } } });
+  model.traverse((o) => { if (o.isBone) bones[o.name] = o; if (o.isMesh) { o.frustumCulled = false; if (o.material) { o.material.side = THREE.FrontSide; o.material.envMapIntensity = .25; o.material.color && o.material.color.setRGB(1.3, 1.18, 1.05); o.material.emissive && o.material.emissive.setRGB(.05, .05, .055); } } });
   const mixer = new THREE.AnimationMixer(model), clip = (n) => g.animations.find((a) => a.name === n);
   // the pose with the jaws at their widest (the bite clip, 0.4 s in), to blend toward
   const bite = mixer.clipAction(clip('bite')); bite.play(); mixer.setTime(.4); model.updateMatrixWorld(true);
@@ -2068,6 +2078,7 @@ function updateBeast(S, raw) {
   const dive = clamp((u - S.life * .64) / (S.life * .32), 0, 1), strike = clamp(dive * 2.2 - .4, 0, 1);
   const roar = Math.max(Math.sin(clamp((u - .1) / 1, 0, 1) * PI), strike);
   if (S.kind === 'falcon' || S.kind === 'crow') {
+    if (S.kind === 'falcon') flames.burst(_bp.x, _bp.y, _bp.z, 3, .35, .5);   // the fire falcon trails real flame
     const fold = dive > 0 ? clamp(dive * 2.5, 0, 1) : 0, beat = 1 - fold * .85;
     S.ph += raw * (7.5 + Math.max(0, fy / .04) * .8);
     for (const w of R.wings) {
@@ -2195,7 +2206,7 @@ function updateBeast(S, raw) {
     else if (S.kind === 'tiger') { shockwave(tg.x, tg.z, 3.2, [2.8, 1.2, .3], 5); shockwave(tg.x, tg.z, 1.4, [2.8, 2, 1], 0); flames.burst(tg.x, tg.y + .1, tg.z, 300, 3, 2.5); shake = Math.max(shake, .5); }
   }
   if (a >= 1) {
-    if (S.fireL) scene.remove(S.fireL);
+    if (S.fireL) { scene.remove(S.fireL); rimL.intensity = .9; rimR.intensity = .7; }
     if (S.rig && S.rig.real) { S.rig.G.remove(S.rig.real.holder); S.rig.real.inUse = false; (S.rig.real.mats || []).forEach((m) => { m.clippingPlanes = []; }); }
     if (S.sea) { scene.remove(S.sea, S.curtain); S.sea.geometry.dispose(); S.sea.material.dispose(); S.curtain.geometry.dispose(); S.curtain.material.dispose(); }
     scene.remove(S.root, S.pillar); const seen = new Set();
@@ -2440,7 +2451,7 @@ function startMatch() {
   startRound();
 }
 function startRound() {
-  M.cine = null; document.querySelectorAll('.banner').forEach((e) => e.remove());
+  M.cine = null; rimL.intensity = .9; rimR.intensity = .7; document.querySelectorAll('.banner').forEach((e) => e.remove());
   unlockVoice();
   M.round++; M.phase = 'ready'; M.t = 0; M.goAt = 3.4; M.grip = null; M.rip = null; M.hand = []; M.handV = null; M.released = false; M.power = 0; M.aim = 0; M.relT = null; M.endT = 0;
   M.cd = false; M.waitT = 0; M.heldAtRip = true;
