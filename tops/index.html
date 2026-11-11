@@ -225,6 +225,45 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .view-hint { position: absolute; left: 50%; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; white-space: nowrap; pointer-events: none; transition: opacity .6s; }
 .next { position: absolute; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(320px, 80%); }
 @media (prefers-reduced-motion: reduce) { .banner, .toast { animation: none; } }
+
+/* home: a swipeable shelf of tops, your team and the start button docked at the bottom */
+#scr-home { padding-bottom: 0; }
+.logo h1 { font-size: clamp(34px, 10vw, 52px) !important; }
+.cards { display: flex !important; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 6px 2px 12px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; scrollbar-width: none; }
+.cards::-webkit-scrollbar { display: none; }
+.cards .card { flex: 0 0 min(62%, 250px); scroll-snap-align: center; }
+.card .sp { font-size: 11px; color: var(--muted); }
+.card .slot { left: auto !important; right: 8px; top: 8px !important; transform: none !important; }
+.card .edit { right: 38px !important; }
+.howto summary { cursor: pointer; font-weight: 700; color: var(--fg); letter-spacing: .1em; list-style: none; }
+.howto summary::after { content: ' ＋'; color: var(--muted); } .howto[open] summary::after { content: ' －'; }
+.howto[open] summary { margin-bottom: 6px; }
+.dock { position: sticky; bottom: 0; z-index: 3; order: 99; width: calc(100% + 32px); margin: auto -16px 0; padding: 22px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; align-items: center; gap: 10px; background: linear-gradient(180deg, transparent, rgba(5, 6, 10, .96) 34%); pointer-events: none; }
+.dock > * { pointer-events: auto; }
+.dock .cta { width: min(560px, 100%); }
+.hteam { display: flex; gap: 8px; align-items: center; }
+.hteam i { font-style: normal; font-size: 11px; color: var(--muted); letter-spacing: .1em; margin-right: 2px; }
+.hteam span { width: 46px; height: 46px; border-radius: 12px; border: 1px solid var(--c, var(--line)); background: var(--panel); display: grid; place-items: center; box-shadow: 0 0 12px color-mix(in srgb, var(--c, transparent) 40%, transparent); }
+.hteam span img { width: 40px; height: 40px; }
+.hteam span.empty { border-style: dashed; color: var(--muted); font-size: 18px; }
+.credits { order: 98; }
+/* result */
+.result img { width: min(46vw, 210px); aspect-ratio: 1; filter: drop-shadow(0 0 26px var(--rc, #ffd24a)); animation: resPop .5s cubic-bezier(.2, 1.4, .4, 1) both; }
+.result .vs2 { font-size: 13px; color: var(--muted); letter-spacing: .08em; }
+@keyframes resPop { from { transform: scale(.4) rotate(-20deg); opacity: 0; } }
+
+/* match intro: both tops slam in from the sides with a VS */
+.vsintro { position: absolute; inset: 0; z-index: 20; pointer-events: none; display: grid; place-items: center; overflow: hidden; background: rgba(4, 5, 9, .82); animation: vsOut .35s 1.75s ease-in forwards; }
+.vsintro .half { position: absolute; left: 0; right: 0; height: 50%; display: flex; align-items: center; gap: 14px; padding: 0 22px; }
+.vsintro .a { top: 0; background: linear-gradient(100deg, color-mix(in srgb, var(--ca) 55%, #05060a), #05060a 75%); clip-path: polygon(0 0, 100% 0, 100% 78%, 0 100%); animation: vsA .45s cubic-bezier(.2, 1.2, .3, 1) both; }
+.vsintro .b { bottom: 0; flex-direction: row-reverse; text-align: right; background: linear-gradient(280deg, color-mix(in srgb, var(--cb) 55%, #05060a), #05060a 75%); clip-path: polygon(0 22%, 100% 0, 100% 100%, 0 100%); animation: vsB .45s cubic-bezier(.2, 1.2, .3, 1) both; }
+.vsintro img { width: min(42vw, 190px); aspect-ratio: 1; filter: drop-shadow(0 0 24px rgba(255, 255, 255, .35)); }
+.vsintro b { display: block; font-size: clamp(24px, 8vw, 40px); font-weight: 900; letter-spacing: .08em; }
+.vsintro small { display: block; font-size: 12px; letter-spacing: .2em; color: rgba(255, 255, 255, .7); margin-top: 4px; }
+.vsintro .v { position: relative; font-family: var(--f-num); font-size: clamp(64px, 22vw, 120px); font-weight: 900; font-style: italic; color: #fff; text-shadow: 0 0 18px var(--gold), 0 0 50px var(--gold), 5px 6px 0 #000; animation: vsV .5s .3s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes vsA { from { transform: translateX(-110%); } } @keyframes vsB { from { transform: translateX(110%); } }
+@keyframes vsV { from { transform: scale(4) rotate(-12deg); opacity: 0; } } @keyframes vsOut { to { opacity: 0; transform: scale(1.15); } }
 </style>
 
 <div id="app">
@@ -256,10 +295,9 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
   <div class="screen" id="scr-home">
     <div class="logo"><h1>陀螺鬥場</h1><p>SPIN · CLASH · BURST</p></div>
-    <div class="sec"><h2>選 3 顆組成隊伍 <small>每回合開打前可以換人上場，也可以用零件組自己的</small></h2><div class="cards" id="cards"></div></div>
+    <div class="sec"><h2>選 3 顆組成隊伍 <small>左右滑動挑選・點卡片加入或移出</small></h2><div class="cards" id="cards"></div></div>
     <div class="sec"><h2>對手</h2><div class="opp" id="opp"></div></div>
-    <button type="button" class="cta" id="btn-start">開始對戰</button>
-    <div class="howto">
+    <details class="howto"><summary>玩法說明</summary>
       <b>發射</b>：發射器浮在場地上空。一根手指按住發射器把它拿起來（拖著可以移動發射位置），喊完「1、2、3，GO SHOOT！」時，另一根手指抓住發射器側邊的拉條，往外一口氣抽出來。抽得越快，陀螺轉得越快；搶拍、拉太慢或沒拿穩都會變弱。<br>
       <b>發射手法</b>：拉線時手拿著發射器不動＝直立發射，陀螺會落在原地慢慢滑到中央（適合持久、防禦）；拉線的同時把發射器往旁邊一甩＝滑動發射，陀螺斜斜落地、在場上畫出花瓣般的衝刺路線（適合攻擊）。<br>
       <b>得分</b>：對手先停轉＝旋轉終結 1 分；撞進場邊的缺口＝場外終結 2 分；撞到散開＝爆裂終結 2 分。先拿 3 分獲勝。<br>
@@ -267,8 +305,9 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
       <b>必殺技</b>：對戰中計量條會慢慢累積，撞擊也會加速集氣；集滿後按下方「必殺」開招，會喊出招式名稱；每回合只能用一次，抓準時機。攻擊型＝突擊、防禦型＝鐵壁、持久型＝回轉、平衡型＝風暴。招式名稱可以在組裝工坊自己取；點卡片左上角的「🎤 配音」還能錄自己的聲音，開招時就播你喊的。<br>
       <b>組裝</b>：點「＋ 組裝自己的陀螺」，挑鎖芯（顏色、左右旋）、主刃、輔助刃、固定環（凸點數－高度）和軸心，組出自己的陀螺。最多存 6 顆，可以隨時改裝。<br>
       <b>視角</b>：對戰中單指左右拖曳旋轉、上下拖曳改變俯視角度，兩指捏合（或滑鼠滾輪）縮放，點兩下回到預設；右下「全場／跟隨」切換是否跟著你的陀螺。
-    </div>
+    </details>
     <div class="rec" id="rec"></div>
+    <div class="dock"><div class="hteam" id="hteam"></div><button type="button" class="cta" id="btn-start">開始對戰</button></div>
     <p class="credits">鯊魚守護靈模型：“Great White Shark” by LasquetiSpice，CC BY 4.0（sketchfab.com/LasquetiSpice）。老虎模型：Microsoft Remix 3D，CC0</p>
   </div>
 
@@ -308,8 +347,8 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   </div>
 
   <div class="screen result" id="scr-result" hidden>
-    <div class="big" id="res-big">勝利</div>
-    <div class="score" id="res-score">3 : 1</div>
+    <img id="res-img" alt=""><div class="big" id="res-big">勝利</div>
+    <div class="score" id="res-score">3 : 1</div><div class="vs2" id="res-vs"></div>
     <p id="res-text"></p>
     <button type="button" class="cta" id="btn-again">再戰一場</button>
     <button type="button" class="cta alt" id="btn-home">換陀螺</button>
@@ -468,6 +507,7 @@ const rimR = new THREE.PointLight(col(0xff3ad0), .7, 14, 2); rimR.position.set(5
 
 // ---- stadium: a shallow smoked-black bowl, a tinted clear wall, a neon green toothed rail, one pocket for over finishes ----
 // 1 unit ≈ 6 cm: the battle zone is 6 units (36 cm) across
+const STAGE = { beams: [], floor: null, dust: null };
 const RA = 3, BOWL_K = .08, WALL_H = .5;   // a deep dish: tops can run a few laps round the edge, then the slope pulls them in
 const LEAN_K = .055;   // how much the floor's slope counts as lean for the rolling tip (the axis partly settles to the floor)
 const bowlH = (r) => BOWL_K * r * r;
@@ -528,6 +568,23 @@ const RAIL_GLOW = [];   // neon parts that pulse when a top dashes along the rai
   const st = new THREE.CanvasTexture(stone); st.encoding = THREE.sRGBEncoding; st.wrapS = st.wrapT = THREE.RepeatWrapping; st.repeat.set(8, 8);
   const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshStandardMaterial({ map: st, roughness: .7, metalness: .1, envMapIntensity: .3 }));
   floor.rotation.x = -PI / 2; floor.position.y = base - 1.1; floor.receiveShadow = true; scene.add(floor);
+  // the stage round the stadium: glowing rings and spokes on the floor, slow searchlight beams, drifting dust
+  const glowFloor = new THREE.Mesh(new THREE.RingGeometry(RA + .6, 16, 96, 1), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uT: { value: 0 } },
+    vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    fragmentShader: `uniform float uT; varying vec2 vP; void main(){ float r = length(vP), a = atan(vP.y, vP.x);
+      float rings = smoothstep(.035, .0, abs(fract(r * .55 - uT * .05) - .5)), spokes = smoothstep(.012, .0, abs(fract(a * 24. / 6.2832) - .5));
+      float pulse = .5 + .5 * sin(r * 1.3 - uT * 1.5); float fade = smoothstep(16., 4.5, r);
+      vec3 c = mix(vec3(.1, .55, 1.), vec3(1., .2, .8), .5 + .5 * sin(a + uT * .2));
+      gl_FragColor = vec4(c * (rings * (.5 + .8 * pulse) + spokes * .22) * fade, 1.); }` }));
+  glowFloor.rotation.x = -PI / 2; glowFloor.position.y = base - 1.08; scene.add(glowFloor); STAGE.floor = glowFloor;
+  for (let i = 0; i < 6; i++) {
+    const g = new THREE.ConeGeometry(.8, 12, 24, 1, true); g.translate(0, -6, 0);
+    const beam = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(i % 2 ? .87 : .55, 1, .5).multiplyScalar(.06), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    const a = i / 6 * TAU; beam.position.set(Math.cos(a) * 17, 10.5, Math.sin(a) * 17); scene.add(beam); STAGE.beams.push({ m: beam, a });
+  }
+  const dn = 260, dp = new Float32Array(dn * 3); for (let i = 0; i < dn; i++) { const a = Math.random() * TAU, r = RA + 1 + Math.random() * 9; dp.set([Math.cos(a) * r, Math.random() * 6 - .5, Math.sin(a) * r], i * 3); }
+  const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dp, 3));
+  STAGE.dust = new THREE.Points(dg, new THREE.PointsMaterial({ size: .05, color: new THREE.Color(.5, .7, 1), transparent: true, opacity: .5, blending: THREE.AdditiveBlending, depthWrite: false })); scene.add(STAGE.dust);
 }
 
 // ---- spinning-top meshes ----
@@ -2449,6 +2506,11 @@ function startMatch() {
   $('#hud').hidden = false; $('#btn-menu').hidden = false; $('#btn-mute').hidden = false; $('#btn-view').hidden = false; $('#btn-move').hidden = false; $('#move-name').textContent = topById(M.myPick).moveName;
   camAng = 0; VIEW.el = 0; VIEW.zoom = 1; M.hintShown = false;
   startRound();
+  // the intro card
+  document.querySelectorAll('.vsintro').forEach((e) => e.remove());
+  const A = tops[0].p, B2 = tops[1].p, el = document.createElement('div'); el.className = 'vsintro'; el.style.setProperty('--ca', uiColor(A)); el.style.setProperty('--cb', uiColor(B2));
+  el.innerHTML = `<div class="half a"><img alt="" src="${thumbOf(A)}"><div><b>${A.name}</b><small>${A.type}・你</small></div></div><div class="half b"><img alt="" src="${thumbOf(B2)}"><div><b>${B2.name}</b><small>${B2.type}・對手</small></div></div><div class="v">VS</div>`;
+  $('#fx-layer').parentNode.appendChild(el); setTimeout(() => el.remove(), 2150); sfx.beep(true); setTimeout(() => sfx.clash(.9), 330);
 }
 function startRound() {
   M.cine = null; rimL.intensity = .9; rimR.intensity = .7; document.querySelectorAll('.banner').forEach((e) => e.remove());
@@ -2534,11 +2596,13 @@ function showResult() {
   $('#res-big').textContent = win ? '勝利！' : '敗北…';
   $('#res-big').style.color = win ? 'var(--gold)' : 'var(--red)';
   $('#res-score').textContent = `${M.pts[0]} : ${M.pts[1]}`;
+  const wp = tops[win ? 0 : 1].p; $('#res-img').src = thumbOf(wp); $('#scr-result').style.setProperty('--rc', uiColor(wp)); $('#res-vs').textContent = `${tops[0].p.name}  vs  ${tops[1].p.name}`;
+  $('#res-img').style.animation = 'none'; void $('#res-img').offsetWidth; $('#res-img').style.animation = '';
   const COUNTER = { 攻擊型: '持久型', 持久型: '防禦型', 防禦型: '攻擊型' }, mine = tops[0].p.type, theirs = tops[1].p.type;
   const tip = COUNTER[theirs] === mine ? `${theirs}本來就剋${mine}，` : '';
   $('#res-text').textContent = win ? `${tops[0].p.name}稱霸鬥場！再挑戰一場，或換一顆陀螺試試別的打法。`
     : `${tops[1].p.name}比較強……${tip}試試換個發射手法（直立或滑動），抓準 GO SHOOT 的時機用力一拉。`;
-  $('#scr-result').hidden = false; $('#hud').hidden = true; $('#launch').hidden = true; $('#team').hidden = true;
+  $('#scr-result').hidden = false; $('#hud').hidden = true; $('#launch').hidden = true; $('#team').hidden = true; $('#btn-next').hidden = true; $('#btn-move').hidden = true;
   M.phase = 'result';
 }
 function goHome() {
@@ -2581,9 +2645,10 @@ function renderHome() {
   $('#cards').innerHTML = allTops().map((p) => {
     const c = uiColor(p);
     const slot = ui.team.indexOf(p.id);
-    return `<button type="button" class="card${slot >= 0 ? ' sel' : ''}" data-id="${p.id}" style="--c:${c}">${slot >= 0 ? `<span class="slot">${slot + 1}</span>` : ''}<span class="voice${VOICES[p.id] ? ' has' : ''}" data-voice="${p.id}">🎤${VOICES[p.id] ? '已配音' : '配音'}</span>${p.custom ? `<span class="edit" data-edit="${p.id}">改裝</span>` : ''}<img alt="" src="${fontsDone ? thumbOf(p) : ''}"><b>${p.name}</b><span class="ty"><em>${p.type}</em>・${p.dir > 0 ? '右旋' : '左旋'}・${p.code}</span><span class="mv">必殺：${p.moveName}</span><div class="stats">${statBars(p, c)}</div></button>`;
+    return `<button type="button" class="card${slot >= 0 ? ' sel' : ''}" data-id="${p.id}" style="--c:${c}">${slot >= 0 ? `<span class="slot">${slot + 1}</span>` : ''}<span class="voice${VOICES[p.id] ? ' has' : ''}" data-voice="${p.id}">🎤${VOICES[p.id] ? '已配音' : '配音'}</span>${p.custom ? `<span class="edit" data-edit="${p.id}">改裝</span>` : ''}<img alt="" src="${fontsDone ? thumbOf(p) : ''}"><b>${p.name}</b><span class="ty"><em>${p.type}</em>・${p.dir > 0 ? '右旋' : '左旋'}・${p.code}</span><span class="mv">必殺：${p.moveName}</span><span class="sp">守護靈：${SPIRIT_NAME[SPIRIT_OF[p.sel.lock] || 'dragon']}</span><div class="stats">${statBars(p, c)}</div></button>`;
   }).join('') + (CUSTOM.length < 6 ? `<button type="button" class="card add" data-new="1"><b>＋</b><span>組裝自己的陀螺</span></button>` : '');
   $('#opp').innerHTML = [`<button type="button" data-o="rand" class="${ui.opp === 'rand' ? 'sel' : ''}">隨機</button>`].concat(TOPS.map((p, i) => `<button type="button" data-o="${i}" class="${String(ui.opp) === String(i) ? 'sel' : ''}">${p.name}</button>`)).join('');
+  $('#hteam').innerHTML = '<i>隊伍</i>' + [0, 1, 2].map((k) => { const id = ui.team[k], p = id && topById(id); return p ? `<span style="--c:${uiColor(p)}"><img alt="${p.name}" src="${fontsDone ? thumbOf(p) : ''}"></span>` : '<span class="empty">＋</span>'; }).join('');
   $('#rec').textContent = rec.w + rec.l ? `戰績 ${rec.w} 勝 ${rec.l} 敗` : '';
 }
 function savePrefs() { try { localStorage.setItem('tops-prefs', JSON.stringify(ui)); } catch (e) {} }
@@ -2847,6 +2912,7 @@ function loop(now) {
     else drawTop(t, dt);
   }
   sparks.update(dt); splash.update(raw); flames.update(raw); updateFx(raw); updateSpirits(raw);
+  if (STAGE.floor) { const T = performance.now() / 1000; STAGE.floor.material.uniforms.uT.value = T; STAGE.dust.rotation.y = T * .02; STAGE.beams.forEach((b, i) => { b.m.rotation.set(.35 * Math.cos(b.a + Math.sin(T * .3 + i) * .6), 0, -.35 * Math.sin(b.a + Math.sin(T * .3 + i) * .6)); }); }
   if (!$('#team').hidden && (M.phase !== 'ready' || M.released)) $('#team').hidden = true;   // the swap strip is only for before the launch
   if (M.cine) { M.cine.t -= raw; if (M.cine.t <= 0 || M.phase !== 'battle') M.cine = null; }
   for (const m of RAIL_GLOW) m.emissiveIntensity = lerp(m.emissiveIntensity, tops.some((t) => t.rail) ? 1.6 : .8, .15);
@@ -2910,9 +2976,9 @@ function loop(now) {
     keepInBowl(_camT);   // never behind the stadium wall or under the floor
   } else if (inMatch) {
     const r = Math.hypot(START[0][0], START[0][1]), base = Math.atan2(START[0][0] / r, START[0][1] / r), a = base + camAng;
-    // nearly straight down by default, like filming from above; the player can tilt, turn and zoom, or follow their top
-    const hf = 2 * Math.atan(Math.tan(22 * PI / 180) * camera.aspect), el = clamp(74 * PI / 180 + VIEW.el, 12 * PI / 180, 88 * PI / 180);
-    const d = Math.max(7.5, (RA * 1.12) / Math.tan(hf / 2) + .6) * VIEW.zoom * (VIEW.follow ? .55 : 1);
+    // a three-quarter broadcast view by default (the stadium fills a tall screen, tops read in 3D); the player can tilt, turn and zoom, or follow their top
+    const hf = 2 * Math.atan(Math.tan(22 * PI / 180) * camera.aspect), el = clamp(58 * PI / 180 + VIEW.el, 12 * PI / 180, 88 * PI / 180);
+    const d = Math.max(6.6, (RA * 1.04) / Math.tan(hf / 2) + .2) * VIEW.zoom * (VIEW.follow ? .55 : 1);
     const f = VIEW.follow && me && me.state !== 'ready' && me.state !== 'burst' ? me : null, fx = f ? clamp(f.x, -RA, RA) : 0, fz = f ? clamp(f.z, -RA, RA) : 0;
     _lookT.set(fx, f ? f.y + .1 : -.1, fz);
     _camT.set(fx + Math.sin(a) * d * Math.cos(el), _lookT.y + d * Math.sin(el), fz + Math.cos(a) * d * Math.cos(el)); fov = 44; ease = M.phase === 'battle' && M.battleT < 1.2 ? 2.2 : 4;
